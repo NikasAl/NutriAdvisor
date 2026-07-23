@@ -230,7 +230,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { currentChatId, chatMessages, profile } = get();
     const provider = get().getActiveProvider();
 
-    if (!provider || !provider.apiKey) {
+    if (!provider || !provider.baseUrl || !provider.model) {
       throw new Error('Настройте провайдер LLM в настройках');
     }
 
@@ -297,7 +297,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   analyzeFoodImage: async (imageBase64: string): Promise<string> => {
     const provider = get().getActiveProvider();
-    if (!provider || !provider.apiKey) {
+    if (!provider || !provider.baseUrl || !provider.model) {
       throw new Error('Настройте провайдер LLM с поддержкой Vision в настройках');
     }
 
@@ -324,7 +324,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   analyzeFoodText: async (description: string, weight?: number): Promise<string> => {
     const provider = get().getActiveProvider();
-    if (!provider || !provider.apiKey) {
+    if (!provider || !provider.baseUrl || !provider.model) {
       throw new Error('Настройте провайдер LLM в настройках');
     }
 

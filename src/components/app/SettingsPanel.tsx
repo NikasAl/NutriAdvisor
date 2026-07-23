@@ -40,15 +40,17 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Pencil, Key, Zap, Eye } from 'lucide-react';
+import { Plus, Trash2, Pencil, Key, Zap, Eye, Loader2, CheckCircle2, XCircle, Wifi } from 'lucide-react';
 import type { LLMProvider, ProviderType } from '@/lib/types';
+import { testProvider } from '@/lib/llm-client';
 
-const PRESETS: Record<ProviderType, { name: string; baseUrl: string; model: string; supportsVision: boolean }> = {
-  openai: { name: 'OpenAI', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini', supportsVision: true },
-  openrouter: { name: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1', model: 'deepseek/deepseek-chat-v3.1:free', supportsVision: true },
-  dashscope: { name: 'Alibaba DashScope', baseUrl: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus', supportsVision: true },
-  ollama: { name: 'Ollama (локальный)', baseUrl: 'http://localhost:11434/v1', model: 'llama3.1', supportsVision: true },
-  custom: { name: 'Пользовательский', baseUrl: '', model: '', supportsVision: false },
+const PRESETS: Record<ProviderType, { name: string; baseUrl: string; model: string; supportsVision: boolean; needsKey: boolean }> = {
+  openai: { name: 'OpenAI', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini', supportsVision: true, needsKey: true },
+  openrouter: { name: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1', model: 'deepseek/deepseek-chat-v3.1:free', supportsVision: true, needsKey: true },
+  dashscope: { name: 'Alibaba DashScope', baseUrl: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus', supportsVision: true, needsKey: true },
+  ollama: { name: 'Ollama (локальный)', baseUrl: 'http://localhost:11434/v1', model: 'llama3.1', supportsVision: true, needsKey: false },
+  llamacpp: { name: 'llama.cpp server', baseUrl: 'http://localhost:8080/v1', model: 'gpt-4o-mini', supportsVision: false, needsKey: false },
+  custom: { name: 'Пользовательский', baseUrl: '', model: '', supportsVision: false, needsKey: false },
 };
 
 export default function SettingsPanel() {
@@ -63,6 +65,10 @@ export default function SettingsPanel() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
 
+  // Test provider state
+  const [testingId, setTestingId] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
   // Form state for add
   const initialPreset = PRESETS['openai'];
   const [newType, setNewType] = useState<ProviderType>('openai');
@@ -71,6 +77,8 @@ export default function SettingsPanel() {
   const [newApiKey, setNewApiKey] = useState('');
   const [newModel, setNewModel] = useState(initialPreset.model);
   const [newVision, setNewVision] = useState(initialPreset.supportsVision);
+
+  const needsKey = PRESETS[newType]?.needsKey ?? false;
 
   useEffect(() => {
     loadProviders();
@@ -83,6 +91,11 @@ export default function SettingsPanel() {
     setNewBaseUrl(preset.baseUrl);
     setNewModel(preset.model);
     setNewVision(preset.supportsVision);
+    if (preset.needsKey) {
+      // Keep existing key if user already typed one
+    } else {
+      setNewApiKey('');
+    }
   };
 
   const handleAdd = async () => {
@@ -120,6 +133,14 @@ export default function SettingsPanel() {
     loadProviders();
   };
 
+  const handleTest = async (provider: LLMProvider) => {
+    setTestingId(provider.id);
+    setTestResult(null);
+    const result = await testProvider(provider);
+    setTestResult(result);
+    setTestingId(null);
+  };
+
   return (
     <div className="space-y-4 pb-4">
       <div className="flex items-center justify-between">
@@ -141,7 +162,12 @@ export default function SettingsPanel() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.entries(PRESETS).map(([key, preset]) => (
-                      <SelectItem key={key} value={key}>{preset.name}</SelectItem>
+                      <SelectItem key={key} value={key}>
+                        {preset.name}
+                        {!preset.needsKey && (
+                          <span className="ml-1 text-muted-foreground">(без ключа)</span>
+                        )}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -152,21 +178,23 @@ export default function SettingsPanel() {
               </div>
               <div className="space-y-2">
                 <Label>Base URL</Label>
-                <Input value={newBaseUrl} onChange={(e) => setNewBaseUrl(e.target.value)} placeholder="https://api.example.com/v1" />
+                <Input value={newBaseUrl} onChange={(e) => setNewBaseUrl(e.target.value)} placeholder="http://localhost:8080/v1" />
               </div>
-              <div className="space-y-2">
-                <Label>API Ключ</Label>
-                <div className="relative">
-                  <Key className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    type="password"
-                    value={newApiKey}
-                    onChange={(e) => setNewApiKey(e.target.value)}
-                    className="pl-9"
-                    placeholder="sk-..."
-                  />
+              {needsKey && (
+                <div className="space-y-2">
+                  <Label>API Ключ</Label>
+                  <div className="relative">
+                    <Key className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      type="password"
+                      value={newApiKey}
+                      onChange={(e) => setNewApiKey(e.target.value)}
+                      className="pl-9"
+                      placeholder="sk-..."
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
               <div className="space-y-2">
                 <Label>Модель</Label>
                 <Input value={newModel} onChange={(e) => setNewModel(e.target.value)} placeholder="gpt-4o-mini" />
@@ -191,6 +219,7 @@ export default function SettingsPanel() {
 
       <p className="text-sm text-muted-foreground">
         Настройте провайдеры для AI-анализа. API ключи хранятся локально на устройстве.
+        Локальные провайдеры (Ollama, llama.cpp) не требуют ключа.
       </p>
 
       <div className="space-y-3">
@@ -206,14 +235,30 @@ export default function SettingsPanel() {
           >
             <CardHeader className="pb-2 pt-4 px-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Zap className={`h-4 w-4 ${provider.id === activeProviderId ? 'text-emerald-600' : 'text-muted-foreground'}`} />
-                  <CardTitle className="text-base">{provider.name}</CardTitle>
+                <div className="flex items-center gap-2 min-w-0">
+                  <Zap className={`h-4 w-4 shrink-0 ${provider.id === activeProviderId ? 'text-emerald-600' : 'text-muted-foreground'}`} />
+                  <CardTitle className="text-base truncate">{provider.name}</CardTitle>
                   {provider.id === activeProviderId && (
-                    <Badge variant="default" className="bg-emerald-600 text-[10px]">Активен</Badge>
+                    <Badge variant="default" className="bg-emerald-600 text-[10px] shrink-0">Активен</Badge>
                   )}
                 </div>
-                <div className="flex gap-1">
+                <div className="flex gap-1 shrink-0">
+                  {/* Test button */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={(e) => { e.stopPropagation(); handleTest(provider); }}
+                    disabled={testingId === provider.id}
+                    title="Проверить подключение"
+                  >
+                    {testingId === provider.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Wifi className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+
                   <Dialog open={isEditOpen && editingProvider?.id === provider.id} onOpenChange={(open) => { setIsEditOpen(open); if (!open) setEditingProvider(null); }}>
                     <DialogTrigger asChild>
                       <Button
@@ -246,12 +291,12 @@ export default function SettingsPanel() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label>API Ключ</Label>
+                            <Label>API Ключ <span className="text-muted-foreground text-xs">(оставьте пустым для локальных провайдеров)</span></Label>
                             <Input
                               type="password"
                               value={editingProvider.apiKey}
                               onChange={(e) => setEditingProvider({ ...editingProvider, apiKey: e.target.value })}
-                              placeholder="sk-..."
+                              placeholder="sk-... или пусто"
                             />
                           </div>
                           <div className="space-y-2">
@@ -312,13 +357,37 @@ export default function SettingsPanel() {
               <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                 <Badge variant="secondary" className="font-mono">{provider.model}</Badge>
                 <Badge variant="outline">{provider.type}</Badge>
+                {!provider.apiKey && (
+                  <Badge variant="outline" className="text-emerald-600">без ключа</Badge>
+                )}
                 {provider.supportsVision && (
                   <Badge variant="outline" className="gap-1"><Eye className="h-3 w-3" /> Vision</Badge>
                 )}
               </div>
               <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground/60">
-                {provider.apiKey ? '••••••••' + provider.apiKey.slice(-4) : 'Ключ не указан'}
+                {provider.apiKey ? '••••••••' + provider.apiKey.slice(-4) : 'Без ключа доступа'}
               </p>
+
+              {/* Test result */}
+              {testingId === provider.id && (
+                <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Проверяю подключение...
+                </div>
+              )}
+              {testResult && testingId !== provider.id && (
+                <div className={`mt-2 flex items-start gap-2 rounded-md p-2 text-xs ${
+                  testResult.ok
+                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
+                    : 'bg-destructive/10 text-destructive'
+                }`}>
+                  {testResult.ok
+                    ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                    : <XCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  }
+                  <span>{testResult.message}</span>
+                </div>
+              )}
             </CardContent>
           </Card>
         ))}

@@ -35,10 +35,51 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
-  Plus, Camera, ImageIcon, Loader2, Trash2, Utensils, ChevronDown, ChevronUp, Send,
+  Plus, Camera, ImageIcon, Loader2, Trash2, Utensils, ChevronDown, ChevronUp, Send, Check, Pencil,
 } from 'lucide-react';
 import type { MealType, FoodEntry } from '@/lib/types';
 import { MEAL_LABELS } from '@/lib/types';
+
+/** Parse numeric KBJU from AI analysis text */
+function parseNutritionFromText(text: string): {
+  calories: number | null;
+  protein: number | null;
+  fat: number | null;
+  carbs: number | null;
+} {
+  const nums: Record<string, number | null> = {
+    calories: null,
+    protein: null,
+    fat: null,
+    carbs: null,
+  };
+
+  // Calories: look for patterns like "калорийность: 350 ккал", "~350", "350 ккал", "калории: 350"
+  const calMatch = text.match(
+    /(?:калор[ияйно]+сть|калори[ияй]+|ккал|calories?)[\s:]*[~≈~]?\s*(\d+(?:[.,]\d+)?)\s*(?:ккал|kcal|kkal)?/i
+  ) || text.match(/(\d+(?:[.,]\d+)?)\s*(?:ккал|kcal|kkal)/i);
+  if (calMatch) nums.calories = parseFloat(calMatch[1].replace(',', '.'));
+
+  // Protein / Белки
+  const protMatch = text.match(
+    /(?:бел(?:ки?|ок)|проте[ияын]+|protein)[\s:]*[~≈~]?\s*(\d+(?:[.,]\d+)?)\s*г/i
+  ) || text.match(/Б[.\s:]+(\d+(?:[.,]\d+)?)\s*г/i);
+  if (protMatch) nums.protein = parseFloat(protMatch[1].replace(',', '.'));
+
+  // Fat / Жиры
+  const fatMatch = text.match(
+    /(?:жиры?|жир|fat)[\s:]*[~≈~]?\s*(\d+(?:[.,]\d+)?)\s*г/i
+  ) || text.match(/Ж[.\s:]+(\d+(?:[.,]\d+)?)\s*г/i);
+  if (fatMatch) nums.fat = parseFloat(fatMatch[1].replace(',', '.'));
+
+  // Carbs / Углеводы
+  const carbMatch = text.match(
+    /(?:углев(?:оды?)?|carbohydrates?|угл)[\s:]*[~≈~]?\s*(\d+(?:[.,]\d+)?)\s*г/i
+  ) || text.match(/У[.\s:]+(\d+(?:[.,]\d+)?)\s*г/i);
+  if (carbMatch) nums.carbs = parseFloat(carbMatch[1].replace(',', '.'));
+
+  return nums;
+}
 
 export default function FoodJournalPanel() {
   const foodEntries = useAppStore((s) => s.foodEntries);
@@ -48,7 +89,6 @@ export default function FoodJournalPanel() {
   const analyzeFoodText = useAppStore((s) => s.analyzeFoodText);
   const analyzeFoodImage = useAppStore((s) => s.analyzeFoodImage);
   const isSending = useAppStore((s) => s.isSending);
-  const profile = useAppStore((s) => s.profile);
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [description, setDescription] = useState('');
@@ -57,6 +97,13 @@ export default function FoodJournalPanel() {
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState('');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  // Parsed nutrition values for user verification
+  const [parsedCal, setParsedCal] = useState('');
+  const [parsedProt, setParsedProt] = useState('');
+  const [parsedFat, setParsedFat] = useState('');
+  const [parsedCarbs, setParsedCarbs] = useState('');
+  const [showNutrEdit, setShowNutrEdit] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -93,6 +140,16 @@ export default function FoodJournalPanel() {
         analysis = await analyzeFoodText(description, weight ? Number(weight) : undefined);
       }
       setAnalysisResult(analysis);
+
+      // Parse nutrition values from AI response
+      const parsed = parseNutritionFromText(analysis);
+      if (parsed.calories !== null || parsed.protein !== null) {
+        setParsedCal(parsed.calories !== null ? String(parsed.calories) : '');
+        setParsedProt(parsed.protein !== null ? String(parsed.protein) : '');
+        setParsedFat(parsed.fat !== null ? String(parsed.fat) : '');
+        setParsedCarbs(parsed.carbs !== null ? String(parsed.carbs) : '');
+        setShowNutrEdit(true);
+      }
     } catch (err) {
       setAnalysisResult(`Ошибка: ${err instanceof Error ? err.message : 'Неизвестная ошибка'}`);
     }
@@ -105,6 +162,10 @@ export default function FoodJournalPanel() {
       description,
       photoBase64: photoBase64 ?? undefined,
       weight: weight ? Number(weight) : undefined,
+      estimatedCalories: parsedCal ? Number(parsedCal) : undefined,
+      estimatedProtein: parsedProt ? Number(parsedProt) : undefined,
+      estimatedFat: parsedFat ? Number(parsedFat) : undefined,
+      estimatedCarbs: parsedCarbs ? Number(parsedCarbs) : undefined,
       aiAnalysis: analysisResult || undefined,
       createdAt: new Date(),
     });
@@ -117,6 +178,11 @@ export default function FoodJournalPanel() {
     setMealType('lunch');
     setPhotoBase64(null);
     setAnalysisResult('');
+    setParsedCal('');
+    setParsedProt('');
+    setParsedFat('');
+    setParsedCarbs('');
+    setShowNutrEdit(false);
   };
 
   const toggleExpand = (id: string) => {
@@ -129,16 +195,17 @@ export default function FoodJournalPanel() {
   };
 
   const renderEntryCard = (entry: FoodEntry) => {
-    const isExpanded = expandedIds.has(entry.id!);
+    const eid = entry.id;
+    const isExpanded = eid ? expandedIds.has(eid) : false;
     return (
-      <Card key={entry.id} className="overflow-hidden">
+      <Card key={eid} className="overflow-hidden">
         <CardContent className="p-3">
           <div className="flex items-start gap-2">
             {entry.photoBase64 && (
               <img
                 src={entry.photoBase64}
                 alt="Еда"
-                className="h-12 w-12 rounded-md object-cover"
+                className="h-12 w-12 rounded-md object-cover shrink-0"
               />
             )}
             <div className="flex-1 min-w-0">
@@ -150,26 +217,34 @@ export default function FoodJournalPanel() {
                   {new Date(entry.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
-              <p className="mt-0.5 text-sm truncate">{entry.description}</p>
+              <p className="mt-0.5 text-sm">{entry.description}</p>
               {entry.weight && (
                 <span className="text-[10px] text-muted-foreground">{entry.weight}г</span>
               )}
               {(entry.estimatedCalories || entry.estimatedProtein) && (
-                <div className="mt-1 flex gap-2 text-[10px] text-muted-foreground">
-                  {entry.estimatedCalories && <span>{entry.estimatedCalories} ккал</span>}
-                  {entry.estimatedProtein && <span>Б: {entry.estimatedProtein}г</span>}
-                  {entry.estimatedFat && <span>Ж: {entry.estimatedFat}г</span>}
-                  {entry.estimatedCarbs && <span>У: {entry.estimatedCarbs}г</span>}
+                <div className="mt-1 flex flex-wrap gap-2 text-[10px]">
+                  {entry.estimatedCalories && (
+                    <span className="rounded bg-emerald-100 px-1.5 py-0.5 font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+                      {entry.estimatedCalories} ккал
+                    </span>
+                  )}
+                  {entry.estimatedProtein && <span className="text-muted-foreground">Б: {entry.estimatedProtein}г</span>}
+                  {entry.estimatedFat && <span className="text-muted-foreground">Ж: {entry.estimatedFat}г</span>}
+                  {entry.estimatedCarbs && <span className="text-muted-foreground">У: {entry.estimatedCarbs}г</span>}
                 </div>
               )}
             </div>
-            <div className="flex flex-col gap-1">
-              <button onClick={() => toggleExpand(entry.id!)} className="text-muted-foreground">
+            <div className="flex flex-col items-center gap-1 shrink-0">
+              <button
+                onClick={() => eid && toggleExpand(eid)}
+                className="rounded-md p-1 hover:bg-muted text-muted-foreground"
+                title={isExpanded ? 'Свернуть' : 'Подробнее'}
+              >
                 {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </button>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <button className="text-destructive">
+                  <button className="rounded-md p-1 hover:bg-destructive/10 text-destructive" title="Удалить">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </AlertDialogTrigger>
@@ -180,7 +255,7 @@ export default function FoodJournalPanel() {
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Отмена</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => deleteFoodEntry(entry.id!)} className="bg-destructive text-destructive-foreground">
+                    <AlertDialogAction onClick={() => eid && deleteFoodEntry(eid)} className="bg-destructive text-destructive-foreground">
                       Удалить
                     </AlertDialogAction>
                   </AlertDialogFooter>
@@ -189,8 +264,14 @@ export default function FoodJournalPanel() {
             </div>
           </div>
           {isExpanded && entry.aiAnalysis && (
-            <div className="mt-2 rounded-md bg-muted/50 p-2 text-xs whitespace-pre-wrap">
+            <div className="mt-3 rounded-md bg-muted/50 p-3 text-xs whitespace-pre-wrap leading-relaxed border border-border/50">
+              <p className="mb-1 font-semibold text-muted-foreground">Анализ AI:</p>
               {entry.aiAnalysis}
+            </div>
+          )}
+          {isExpanded && !entry.aiAnalysis && (
+            <div className="mt-3 rounded-md bg-muted/30 p-2 text-xs text-muted-foreground text-center">
+              Анализ не проводился
             </div>
           )}
         </CardContent>
@@ -207,25 +288,27 @@ export default function FoodJournalPanel() {
             <h3 className="text-sm font-semibold">Сегодня</h3>
             <span className="text-xs text-muted-foreground">{todayEntries.length} записей</span>
           </div>
-          {todayEntries.length > 0 && (
+          {todayEntries.length > 0 ? (
             <div className="grid grid-cols-4 gap-2 text-center">
               <div>
                 <div className="text-lg font-bold text-emerald-600">{totalCalories}</div>
                 <div className="text-[10px] text-muted-foreground">ккал</div>
               </div>
               <div>
-                <div className="text-lg font-bold">{totalProtein.toFixed(1)}</div>
+                <div className="text-lg font-bold">{totalProtein.toFixed(0)}</div>
                 <div className="text-[10px] text-muted-foreground">белки</div>
               </div>
               <div>
-                <div className="text-lg font-bold">{totalFat.toFixed(1)}</div>
+                <div className="text-lg font-bold">{totalFat.toFixed(0)}</div>
                 <div className="text-[10px] text-muted-foreground">жиры</div>
               </div>
               <div>
-                <div className="text-lg font-bold">{totalCarbs.toFixed(1)}</div>
+                <div className="text-lg font-bold">{totalCarbs.toFixed(0)}</div>
                 <div className="text-[10px] text-muted-foreground">углеводы</div>
               </div>
             </div>
+          ) : (
+            <p className="text-xs text-muted-foreground text-center py-2">Добавьте приём пищи для отслеживания</p>
           )}
         </CardContent>
       </Card>
@@ -359,6 +442,60 @@ export default function FoodJournalPanel() {
                 {analysisResult}
               </div>
             )}
+
+            {/* Nutrition values — editable after analysis */}
+            {showNutrEdit && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3 dark:border-emerald-900 dark:bg-emerald-950/20">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                    Пищевая ценность
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">Проверьте и скорректируйте значения</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">Калории (ккал)</Label>
+                    <Input
+                      type="number"
+                      value={parsedCal}
+                      onChange={(e) => setParsedCal(e.target.value)}
+                      placeholder="0"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">Белки (г)</Label>
+                    <Input
+                      type="number"
+                      value={parsedProt}
+                      onChange={(e) => setParsedProt(e.target.value)}
+                      placeholder="0"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">Жиры (г)</Label>
+                    <Input
+                      type="number"
+                      value={parsedFat}
+                      onChange={(e) => setParsedFat(e.target.value)}
+                      placeholder="0"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">Углеводы (г)</Label>
+                    <Input
+                      type="number"
+                      value={parsedCarbs}
+                      onChange={(e) => setParsedCarbs(e.target.value)}
+                      placeholder="0"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -366,6 +503,7 @@ export default function FoodJournalPanel() {
               <Button variant="outline">Отмена</Button>
             </DialogClose>
             <Button onClick={handleSave} disabled={!description && !photoBase64}>
+              <Check className="mr-1.5 h-4 w-4" />
               Сохранить
             </Button>
           </DialogFooter>

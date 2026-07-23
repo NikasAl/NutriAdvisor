@@ -1,11 +1,11 @@
-export type ProviderType = 'openai' | 'openrouter' | 'dashscope' | 'ollama' | 'custom';
+export type ProviderType = 'openai' | 'openrouter' | 'dashscope' | 'ollama' | 'llamacpp' | 'custom';
 
 export interface LLMProvider {
   id: string;
   name: string;
   type: ProviderType;
   baseUrl: string;
-  apiKey: string;
+  apiKey: string; // Can be empty for keyless providers (llama.cpp, Ollama)
   model: string;
   isActive: boolean;
   supportsVision: boolean;

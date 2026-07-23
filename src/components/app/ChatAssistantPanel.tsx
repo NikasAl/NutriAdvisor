@@ -5,7 +5,6 @@ import { useAppStore } from '@/store/useAppStore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -25,7 +24,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Plus, Send, Loader2, MessageSquare, Trash2, PenLine,
 } from 'lucide-react';
@@ -51,8 +49,10 @@ export default function ChatAssistantPanel() {
   }, [loadChatSessions]);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-  }, [chatMessages]);
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [chatMessages, isSending]);
 
   const handleNewChat = async () => {
     await createChatSession();
@@ -80,25 +80,13 @@ export default function ChatAssistantPanel() {
   const currentSession = chatSessions.find((s) => s.id === currentChatId);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)]">
-      {/* Header */}
-      <div className="flex items-center justify-between px-1 pb-2">
-        <button
-          onClick={() => setSessionsOpen(true)}
-          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <MessageSquare className="h-4 w-4" />
-          <span className="max-w-[200px] truncate">
-            {currentSession?.title || 'Выберите или создайте чат'}
-          </span>
-        </button>
-        <Button size="sm" variant="outline" className="gap-1.5" onClick={handleNewChat}>
-          <Plus className="h-3.5 w-3.5" /> Новый
-        </Button>
-      </div>
-
-      {/* Messages */}
-      <ScrollArea className="flex-1 px-1" ref={scrollRef}>
+    <>
+      {/* Chat area — fills space between top padding and input bar */}
+      <div
+        ref={scrollRef}
+        className="overflow-y-auto px-1"
+        style={{ height: 'calc(100vh - 16rem)' }}
+      >
         {!currentChatId ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 py-12 text-center">
             <div className="rounded-full bg-emerald-100 p-4 dark:bg-emerald-900/30">
@@ -120,7 +108,7 @@ export default function ChatAssistantPanel() {
             </p>
           </div>
         ) : (
-          <div className="space-y-3 pb-2">
+          <div className="space-y-3 py-1">
             {chatMessages.map((msg) => (
               <div
                 key={msg.id}
@@ -157,34 +145,36 @@ export default function ChatAssistantPanel() {
             )}
           </div>
         )}
-      </ScrollArea>
+      </div>
 
       {/* Error */}
       {error && (
-        <div className="mx-1 mt-2 rounded-lg bg-destructive/10 p-2 text-xs text-destructive">
+        <div className="mx-4 mt-1 rounded-lg bg-destructive/10 p-2 text-xs text-destructive">
           {error}
           <button onClick={() => setError('')} className="ml-2 underline">Закрыть</button>
         </div>
       )}
 
-      {/* Input */}
-      <div className="flex gap-2 pt-2 px-1">
-        <Textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Опишите, что ели, или задайте вопрос..."
-          rows={1}
-          className="min-h-[44px] max-h-24 resize-none flex-1"
-        />
-        <Button
-          onClick={handleSend}
-          disabled={!input.trim() || isSending}
-          size="icon"
-          className="h-11 w-11 shrink-0 rounded-full"
-        >
-          <Send className="h-4 w-4" />
-        </Button>
+      {/* Input bar — fixed above bottom nav */}
+      <div className="fixed bottom-16 left-0 right-0 z-30 border-t bg-background px-4 py-2">
+        <div className="mx-auto flex max-w-lg gap-2">
+          <Textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Опишите, что ели, или задайте вопрос..."
+            rows={1}
+            className="min-h-[44px] max-h-24 resize-none flex-1"
+          />
+          <Button
+            onClick={handleSend}
+            disabled={!input.trim() || isSending}
+            size="icon"
+            className="h-11 w-11 shrink-0 rounded-full"
+          >
+            <Send className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Sessions dialog */}
@@ -260,6 +250,6 @@ export default function ChatAssistantPanel() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

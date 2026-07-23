@@ -51,6 +51,48 @@ export function buildChatMessages(
   return messages;
 }
 
+export async function testProvider(provider: LLMProvider): Promise<{ ok: boolean; message: string }> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (provider.apiKey) {
+    headers.Authorization = `Bearer ${provider.apiKey}`;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    const url = `${provider.baseUrl.replace(/\/+$/, '')}/chat/completions`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: provider.model,
+        messages: [{ role: 'user', content: 'Hi' }],
+        max_tokens: 5,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => 'Unknown error');
+      return { ok: false, message: `HTTP ${res.status}: ${errText.slice(0, 200)}` };
+    }
+
+    const data = await res.json();
+    const content = data.choices?.[0]?.message?.content ?? '';
+    return { ok: true, message: `Провайдер работает. Модель: ${data.model ?? provider.model}. Ответ: "${content.slice(0, 50)}"` };
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      return { ok: false, message: 'Таймаут (10 сек) — сервер не отвечает' };
+    }
+    return { ok: false, message: `Ошибка соединения: ${err instanceof Error ? err.message : 'Неизвестная ошибка'}` };
+  }
+}
+
 export async function callLLM(
   provider: LLMProvider,
   messages: LLMMessage[],
@@ -59,8 +101,12 @@ export async function callLLM(
 ): Promise<LLMResponse> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${provider.apiKey}`,
   };
+
+  // Only add Authorization header if API key is present
+  if (provider.apiKey) {
+    headers.Authorization = `Bearer ${provider.apiKey}`;
+  }
 
   if (provider.headers) {
     Object.assign(headers, provider.headers);
