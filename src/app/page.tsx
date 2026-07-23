@@ -22,14 +22,19 @@ export default function Home() {
   }, [loadProviders, loadProfile, loadFoodEntries]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-[100dvh] bg-background flex flex-col">
       {/* Main content */}
-      <main className="mx-auto max-w-lg px-4 pt-4 pb-20">
+      <main className="flex-1 min-h-0 overflow-y-auto mx-auto w-full max-w-lg px-4 pt-4 pb-20">
         {activeTab === 'dashboard' && <DashboardPanel />}
         {activeTab === 'food' && <FoodJournalPanel />}
-        {activeTab === 'chat' && <ChatAssistantPanel />}
         {activeTab === 'profile' && <ProfilePanel />}
         {activeTab === 'settings' && <SettingsPanel />}
+        {/* Chat uses its own flex layout to manage scroll area + input bar */}
+        {activeTab === 'chat' && (
+          <div className="flex flex-col h-full">
+            <ChatAssistantPanel />
+          </div>
+        )}
       </main>
 
       {/* Bottom navigation */}

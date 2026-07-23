@@ -24,15 +24,20 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 import {
-  Plus, Send, Loader2, MessageSquare, Trash2, PenLine,
+  Plus, Send, Loader2, MessageSquare, Trash2, PenLine, History,
 } from 'lucide-react';
+import MarkdownRenderer from '@/components/ui/markdown-renderer';
+
+type NutritionPeriod = 'today' | 'week' | 'month';
 
 export default function ChatAssistantPanel() {
   const chatSessions = useAppStore((s) => s.chatSessions);
   const currentChatId = useAppStore((s) => s.currentChatId);
   const chatMessages = useAppStore((s) => s.chatMessages);
   const isSending = useAppStore((s) => s.isSending);
+  const foodEntries = useAppStore((s) => s.foodEntries);
   const loadChatSessions = useAppStore((s) => s.loadChatSessions);
   const createChatSession = useAppStore((s) => s.createChatSession);
   const selectChatSession = useAppStore((s) => s.selectChatSession);
@@ -42,6 +47,7 @@ export default function ChatAssistantPanel() {
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
   const [sessionsOpen, setSessionsOpen] = useState(false);
+  const [nutritionPeriod, setNutritionPeriod] = useState<NutritionPeriod>('today');
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -64,7 +70,7 @@ export default function ChatAssistantPanel() {
     setInput('');
     setError('');
     try {
-      await sendChatMessage(msg);
+      await sendChatMessage(msg, nutritionPeriod);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Произошла ошибка');
     }
@@ -81,11 +87,38 @@ export default function ChatAssistantPanel() {
 
   return (
     <>
-      {/* Chat area — fills space between top padding and input bar */}
+      {/* Header with context toggle */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <History className="h-4 w-4 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Контекст питания:</span>
+        </div>
+        <div className="flex gap-1">
+          {([
+            { value: 'today' as const, label: 'Сегодня' },
+            { value: 'week' as const, label: 'Неделя' },
+            { value: 'month' as const, label: 'Месяц' },
+          ]).map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setNutritionPeriod(opt.value)}
+              className={`rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
+                nutritionPeriod === opt.value
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Chat area — flex-1 to fill remaining space */}
       <div
         ref={scrollRef}
-        className="overflow-y-auto px-1"
-        style={{ height: 'calc(100vh - 16rem)' }}
+        className="flex-1 overflow-y-auto px-1"
+        style={{ minHeight: 0 }}
       >
         {!currentChatId ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 py-12 text-center">
@@ -121,7 +154,11 @@ export default function ChatAssistantPanel() {
                       : 'bg-muted'
                   }`}
                 >
-                  <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
+                  {msg.role === 'user' ? (
+                    <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
+                  ) : (
+                    <MarkdownRenderer content={msg.content} className="text-foreground" />
+                  )}
                   <div
                     className={`mt-1 text-[10px] ${
                       msg.role === 'user' ? 'text-emerald-200' : 'text-muted-foreground'
@@ -149,15 +186,15 @@ export default function ChatAssistantPanel() {
 
       {/* Error */}
       {error && (
-        <div className="mx-4 mt-1 rounded-lg bg-destructive/10 p-2 text-xs text-destructive">
+        <div className="mx-0 mt-1 rounded-lg bg-destructive/10 p-2 text-xs text-destructive">
           {error}
           <button onClick={() => setError('')} className="ml-2 underline">Закрыть</button>
         </div>
       )}
 
-      {/* Input bar — fixed above bottom nav */}
-      <div className="fixed bottom-16 left-0 right-0 z-30 border-t bg-background px-4 py-2">
-        <div className="mx-auto flex max-w-lg gap-2">
+      {/* Input bar */}
+      <div className="shrink-0 border-t bg-background px-0 pt-2 pb-1">
+        <div className="flex gap-2">
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}

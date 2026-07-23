@@ -74,10 +74,116 @@ interface AppState {
   loadChatMessages: () => Promise<void>;
 
   // LLM interaction
-  sendChatMessage: (content: string) => Promise<string>;
+  sendChatMessage: (content: string, nutritionPeriod?: string) => Promise<string>;
   analyzeFoodImage: (imageBase64: string) => Promise<string>;
   analyzeFoodText: (description: string, weight?: number) => Promise<string>;
   isSending: boolean;
+}
+
+/** Build a nutrition summary string from food entries for a given period */
+function buildNutritionSummary(
+  foodEntries: FoodEntry[],
+  period: 'today' | 'week' | 'month'
+): string {
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+
+  // Determine date range
+  const periodStart = new Date();
+  if (period === 'today') {
+    periodStart.setHours(0, 0, 0, 0);
+  } else if (period === 'week') {
+    periodStart.setDate(periodStart.getDate() - 7);
+    periodStart.setHours(0, 0, 0, 0);
+  } else {
+    periodStart.setDate(periodStart.getDate() - 30);
+    periodStart.setHours(0, 0, 0, 0);
+  }
+
+  const filtered = foodEntries.filter((e) => {
+    const entryDate = new Date(e.date);
+    return entryDate >= periodStart;
+  });
+
+  if (filtered.length === 0) {
+    return period === 'today'
+      ? '\n--- Данные о питании за сегодня ---\nНет записей о приёмах пищи за сегодня.\n--- Конец данных о питании ---'
+      : `\n--- Данные о питании за ${period === 'week' ? 'последнюю неделю' : 'последний месяц'} ---\nНет записей о приёмах пищи за указанный период.\n--- Конец данных о питании ---`;
+  }
+
+  const periodLabel = period === 'today' ? 'сегодня' : period === 'week' ? 'за последнюю неделю' : 'за последний месяц';
+
+  let summary = `\n--- Данные о питании ${periodLabel} ---\n`;
+
+  // Group by date for today; aggregate for week/month
+  if (period === 'today') {
+    summary += `Количество приёмов пищи: ${filtered.length}\n\n`;
+    for (const entry of filtered) {
+      summary += `• [${entry.date} ${new Date(entry.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}] `;
+      summary += `${entry.description}`;
+      if (entry.weight) summary += ` (${entry.weight}г)`;
+      if (entry.estimatedCalories) summary += ` — ${entry.estimatedCalories} ккал`;
+      if (entry.estimatedProtein || entry.estimatedFat || entry.estimatedCarbs) {
+        const macros: string[] = [];
+        if (entry.estimatedProtein) macros.push(`Б:${entry.estimatedProtein}г`);
+        if (entry.estimatedFat) macros.push(`Ж:${entry.estimatedFat}г`);
+        if (entry.estimatedCarbs) macros.push(`У:${entry.estimatedCarbs}г`);
+        summary += ` [${macros.join(', ')}]`;
+      }
+      summary += '\n';
+    }
+    const totalCal = filtered.reduce((s, e) => s + (e.estimatedCalories ?? 0), 0);
+    const totalProt = filtered.reduce((s, e) => s + (e.estimatedProtein ?? 0), 0);
+    const totalFat = filtered.reduce((s, e) => s + (e.estimatedFat ?? 0), 0);
+    const totalCarbs = filtered.reduce((s, e) => s + (e.estimatedCarbs ?? 0), 0);
+    summary += `\nИтого за сегодня: ${totalCal} ккал | Б: ${totalProt.toFixed(0)}г | Ж: ${totalFat.toFixed(0)}г | У: ${totalCarbs.toFixed(0)}г\n`;
+  } else {
+    // Aggregate by date
+    const byDate: Record<string, FoodEntry[]> = {};
+    for (const e of filtered) {
+      if (!byDate[e.date]) byDate[e.date] = [];
+      byDate[e.date].push(e);
+    }
+    const dates = Object.keys(byDate).sort().reverse();
+
+    // Overall totals
+    const totalCal = filtered.reduce((s, e) => s + (e.estimatedCalories ?? 0), 0);
+    const totalProt = filtered.reduce((s, e) => s + (e.estimatedProtein ?? 0), 0);
+    const totalFat = filtered.reduce((s, e) => s + (e.estimatedFat ?? 0), 0);
+    const totalCarbs = filtered.reduce((s, e) => s + (e.estimatedCarbs ?? 0), 0);
+    const numDays = dates.length;
+    const avgCal = numDays > 0 ? totalCal / numDays : 0;
+    const avgProt = numDays > 0 ? totalProt / numDays : 0;
+    const avgFat = numDays > 0 ? totalFat / numDays : 0;
+    const avgCarbs = numDays > 0 ? totalCarbs / numDays : 0;
+
+    summary += `Количество дней с записями: ${numDays}\n\n`;
+    summary += `Среднее за день: ${avgCal.toFixed(0)} ккал | Б: ${avgProt.toFixed(0)}г | Ж: ${avgFat.toFixed(0)}г | У: ${avgCarbs.toFixed(0)}г\n`;
+    summary += `Общее за период: ${totalCal} ккал | Б: ${totalProt.toFixed(0)}г | Ж: ${totalFat.toFixed(0)}г | У: ${totalCarbs.toFixed(0)}г\n\n`;
+
+    // Brief per-day summary (last 3 days with details, rest aggregated)
+    const detailedDates = dates.slice(0, 3);
+    const otherDates = dates.slice(3);
+
+    for (const date of detailedDates) {
+      const entries = byDate[date];
+      const dayCal = entries.reduce((s, e) => s + (e.estimatedCalories ?? 0), 0);
+      summary += `\n${date} (${dayCal} ккал, ${entries.length} приёмов):\n`;
+      for (const entry of entries) {
+        summary += `  • ${entry.description}`;
+        if (entry.weight) summary += ` (${entry.weight}г)`;
+        if (entry.estimatedCalories) summary += ` — ${entry.estimatedCalories} ккал`;
+        summary += '\n';
+      }
+    }
+
+    if (otherDates.length > 0) {
+      summary += `\n...и ещё ${otherDates.length} дней с записями (подробности доступны по запросу).\n`;
+    }
+  }
+
+  summary += '--- Конец данных о питании ---';
+  return summary;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -226,8 +332,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ chatMessages: messages });
   },
 
-  sendChatMessage: async (content: string): Promise<string> => {
-    const { currentChatId, chatMessages, profile } = get();
+  sendChatMessage: async (content: string, nutritionPeriod: string = 'today'): Promise<string> => {
+    const { currentChatId, chatMessages, profile, foodEntries } = get();
     const provider = get().getActiveProvider();
 
     if (!provider || !provider.baseUrl || !provider.model) {
@@ -254,7 +360,12 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       // Detect context and build system prompt
       const contextType = NutritionPrompts.detectContextFromMessage(content);
-      const systemPrompt = NutritionPrompts.getContextualPrompt(contextType, profile);
+      let systemPrompt = NutritionPrompts.getContextualPrompt(contextType, profile);
+
+      // Add nutrition context based on selected period
+      const period = nutritionPeriod as 'today' | 'week' | 'month';
+      const nutritionSummary = buildNutritionSummary(foodEntries, period);
+      systemPrompt += nutritionSummary;
 
       // Build history for LLM (limit to last 20 messages)
       const history: LLMMessage[] = chatMessages

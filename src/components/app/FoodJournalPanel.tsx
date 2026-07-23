@@ -35,10 +35,11 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
-  Plus, Camera, ImageIcon, Loader2, Trash2, Utensils, ChevronDown, ChevronUp, Send, Check, Pencil,
+  Plus, Camera, ImageIcon, Loader2, Trash2, Utensils, ChevronDown, ChevronUp, Send, Check,
 } from 'lucide-react';
 import type { MealType, FoodEntry } from '@/lib/types';
 import { MEAL_LABELS } from '@/lib/types';
+import MarkdownRenderer from '@/components/ui/markdown-renderer';
 
 /** Parse numeric KBJU from AI analysis text */
 function parseNutritionFromText(text: string): {
@@ -47,11 +48,11 @@ function parseNutritionFromText(text: string): {
   fat: number | null;
   carbs: number | null;
 } {
-  const nums: Record<string, number | null> = {
-    calories: null,
-    protein: null,
-    fat: null,
-    carbs: null,
+  const nums = {
+    calories: null as number | null,
+    protein: null as number | null,
+    fat: null as number | null,
+    carbs: null as number | null,
   };
 
   // Calories: look for patterns like "калорийность: 350 ккал", "~350", "350 ккал", "калории: 350"
@@ -167,7 +168,6 @@ export default function FoodJournalPanel() {
       estimatedFat: parsedFat ? Number(parsedFat) : undefined,
       estimatedCarbs: parsedCarbs ? Number(parsedCarbs) : undefined,
       aiAnalysis: analysisResult || undefined,
-      createdAt: new Date(),
     });
     resetForm();
   };
@@ -195,8 +195,8 @@ export default function FoodJournalPanel() {
   };
 
   const renderEntryCard = (entry: FoodEntry) => {
-    const eid = entry.id;
-    const isExpanded = eid ? expandedIds.has(eid) : false;
+    const eid = entry.id ?? '';
+    const isExpanded = expandedIds.has(eid);
     return (
       <Card key={eid} className="overflow-hidden">
         <CardContent className="p-3">
@@ -236,7 +236,7 @@ export default function FoodJournalPanel() {
             </div>
             <div className="flex flex-col items-center gap-1 shrink-0">
               <button
-                onClick={() => eid && toggleExpand(eid)}
+                onClick={() => toggleExpand(eid)}
                 className="rounded-md p-1 hover:bg-muted text-muted-foreground"
                 title={isExpanded ? 'Свернуть' : 'Подробнее'}
               >
@@ -255,7 +255,7 @@ export default function FoodJournalPanel() {
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Отмена</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => eid && deleteFoodEntry(eid)} className="bg-destructive text-destructive-foreground">
+                    <AlertDialogAction onClick={() => deleteFoodEntry(eid)} className="bg-destructive text-destructive-foreground">
                       Удалить
                     </AlertDialogAction>
                   </AlertDialogFooter>
@@ -264,9 +264,9 @@ export default function FoodJournalPanel() {
             </div>
           </div>
           {isExpanded && entry.aiAnalysis && (
-            <div className="mt-3 rounded-md bg-muted/50 p-3 text-xs whitespace-pre-wrap leading-relaxed border border-border/50">
+            <div className="mt-3 rounded-md bg-muted/50 p-3 text-xs leading-relaxed border border-border/50">
               <p className="mb-1 font-semibold text-muted-foreground">Анализ AI:</p>
-              {entry.aiAnalysis}
+              <MarkdownRenderer content={entry.aiAnalysis} className="text-foreground" />
             </div>
           )}
           {isExpanded && !entry.aiAnalysis && (
@@ -435,11 +435,11 @@ export default function FoodJournalPanel() {
               Анализ AI
             </Button>
 
-            {/* Analysis result */}
+            {/* Analysis result — rendered as markdown */}
             {analysisResult && (
-              <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 p-3 text-xs whitespace-pre-wrap">
+              <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 p-3 text-xs">
                 <p className="mb-1 font-semibold text-emerald-700 dark:text-emerald-400">Результат анализа:</p>
-                {analysisResult}
+                <MarkdownRenderer content={analysisResult} className="text-foreground" />
               </div>
             )}
 

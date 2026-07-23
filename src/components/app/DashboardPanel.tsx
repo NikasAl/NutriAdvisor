@@ -76,7 +76,7 @@ export default function DashboardPanel() {
         </div>
         <CardContent className="p-4 space-y-3">
           {/* Provider status */}
-          {!provider || !provider.apiKey ? (
+          {!provider ? (
             <div className="rounded-lg bg-amber-50 p-3 dark:bg-amber-950/30">
               <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
                 Настройте API провайдер для работы AI
@@ -92,8 +92,8 @@ export default function DashboardPanel() {
             </div>
           ) : (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Zap className="h-3.5 w-3.5 text-emerald-500" />
-              <span>Провайдер: {provider.name} ({provider.model})</span>
+              <Zap className={`h-3.5 w-3.5 ${!provider.apiKey ? 'text-amber-500' : 'text-emerald-500'}`} />
+              <span>Провайдер: {provider.name} ({provider.model}){!provider.apiKey ? ' (без ключа)' : ''}</span>
             </div>
           )}
 
