@@ -24,18 +24,20 @@ export default function Home() {
   return (
     <div className="h-[100dvh] bg-background flex flex-col">
       {/* Main content */}
-      <main className="flex-1 min-h-0 overflow-y-auto mx-auto w-full max-w-lg px-4 pt-4 pb-20">
-        {activeTab === 'dashboard' && <DashboardPanel />}
-        {activeTab === 'food' && <FoodJournalPanel />}
-        {activeTab === 'profile' && <ProfilePanel />}
-        {activeTab === 'settings' && <SettingsPanel />}
-        {/* Chat uses its own flex layout to manage scroll area + input bar */}
-        {activeTab === 'chat' && (
-          <div className="flex flex-col h-full">
-            <ChatAssistantPanel />
-          </div>
-        )}
-      </main>
+      {activeTab === 'chat' ? (
+        /* Chat panel gets full width for sidebar layout */
+        <main className="flex-1 min-h-0 flex flex-col">
+          <ChatAssistantPanel />
+        </main>
+      ) : (
+        /* Other panels use centered layout */
+        <main className="flex-1 min-h-0 overflow-y-auto mx-auto w-full max-w-lg px-4 pt-4 pb-20">
+          {activeTab === 'dashboard' && <DashboardPanel />}
+          {activeTab === 'food' && <FoodJournalPanel />}
+          {activeTab === 'profile' && <ProfilePanel />}
+          {activeTab === 'settings' && <SettingsPanel />}
+        </main>
+      )}
 
       {/* Bottom navigation */}
       <BottomNav />

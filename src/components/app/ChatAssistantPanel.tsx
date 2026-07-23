@@ -1,18 +1,9 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogClose,
-} from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,20 +15,50 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
 import {
-  Plus, Send, Loader2, MessageSquare, Trash2, PenLine, History,
+  Plus, Send, Loader2, Trash2, PenLine, History, PanelLeftClose, PanelLeft,
 } from 'lucide-react';
 import MarkdownRenderer from '@/components/ui/markdown-renderer';
+import type { ChatSession } from '@/lib/types';
 
 type NutritionPeriod = 'today' | 'week' | 'month';
+
+/** Group sessions by date label */
+function groupSessionsByDate(sessions: ChatSession[]): { label: string; sessions: ChatSession[] }[] {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 86400000);
+  const weekAgo = new Date(today.getTime() - 7 * 86400000);
+
+  const groups: { label: string; sessions: ChatSession[] }[] = [
+    { label: 'Сегодня', sessions: [] },
+    { label: 'Вчера', sessions: [] },
+    { label: 'На этой неделе', sessions: [] },
+    { label: 'Ранее', sessions: [] },
+  ];
+
+  for (const session of sessions) {
+    const d = new Date(session.lastActivity);
+    if (d >= today) {
+      groups[0].sessions.push(session);
+    } else if (d >= yesterday) {
+      groups[1].sessions.push(session);
+    } else if (d >= weekAgo) {
+      groups[2].sessions.push(session);
+    } else {
+      groups[3].sessions.push(session);
+    }
+  }
+
+  // Remove empty groups except keep at least one for "no sessions" state
+  return groups.filter((g) => g.sessions.length > 0);
+}
 
 export default function ChatAssistantPanel() {
   const chatSessions = useAppStore((s) => s.chatSessions);
   const currentChatId = useAppStore((s) => s.currentChatId);
   const chatMessages = useAppStore((s) => s.chatMessages);
   const isSending = useAppStore((s) => s.isSending);
-  const foodEntries = useAppStore((s) => s.foodEntries);
   const loadChatSessions = useAppStore((s) => s.loadChatSessions);
   const createChatSession = useAppStore((s) => s.createChatSession);
   const selectChatSession = useAppStore((s) => s.selectChatSession);
@@ -46,8 +67,8 @@ export default function ChatAssistantPanel() {
 
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
-  const [sessionsOpen, setSessionsOpen] = useState(false);
   const [nutritionPeriod, setNutritionPeriod] = useState<NutritionPeriod>('today');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -62,6 +83,13 @@ export default function ChatAssistantPanel() {
 
   const handleNewChat = async () => {
     await createChatSession();
+    // On mobile, close sidebar after creating
+    if (window.innerWidth < 640) setSidebarOpen(false);
+  };
+
+  const handleSelectSession = async (id: string) => {
+    await selectChatSession(id);
+    if (window.innerWidth < 640) setSidebarOpen(false);
   };
 
   const handleSend = async () => {
@@ -83,210 +111,271 @@ export default function ChatAssistantPanel() {
     }
   };
 
+  const sessionGroups = useMemo(() => groupSessionsByDate(chatSessions), [chatSessions]);
+
   const currentSession = chatSessions.find((s) => s.id === currentChatId);
 
   return (
-    <>
-      {/* Header with context toggle */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <History className="h-4 w-4 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">Контекст питания:</span>
-        </div>
-        <div className="flex gap-1">
-          {([
-            { value: 'today' as const, label: 'Сегодня' },
-            { value: 'week' as const, label: 'Неделя' },
-            { value: 'month' as const, label: 'Месяц' },
-          ]).map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => setNutritionPeriod(opt.value)}
-              className={`rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
-                nutritionPeriod === opt.value
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Chat area — flex-1 to fill remaining space */}
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto px-1"
-        style={{ minHeight: 0 }}
-      >
-        {!currentChatId ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3 py-12 text-center">
-            <div className="rounded-full bg-emerald-100 p-4 dark:bg-emerald-900/30">
-              <PenLine className="h-8 w-8 text-emerald-600" />
-            </div>
-            <h3 className="text-base font-semibold">AI Помощник по питанию</h3>
-            <p className="max-w-xs text-sm text-muted-foreground">
-              Создайте новый разговор, чтобы получить персонализированные рекомендации по питанию,
-              анализу продуктов и планированию рациона.
-            </p>
-            <Button onClick={handleNewChat} className="gap-2">
-              <Plus className="h-4 w-4" /> Начать разговор
-            </Button>
-          </div>
-        ) : chatMessages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-            <p className="text-sm text-muted-foreground">
-              Задайте вопрос о питании или расскажите, что вы ели сегодня
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3 py-1">
-            {chatMessages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+    <div className="flex h-full gap-0">
+      {/* Sidebar — sessions list */}
+      {sidebarOpen && (
+        <div className="w-64 shrink-0 flex flex-col border-r border-border bg-muted/30 overflow-hidden">
+          {/* Sidebar header */}
+          <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
+            <h3 className="text-sm font-semibold truncate">Разговоры</h3>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={handleNewChat}
+                title="Новый разговор"
               >
-                <div
-                  className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm ${
-                    msg.role === 'user'
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-muted'
-                  }`}
-                >
-                  {msg.role === 'user' ? (
-                    <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
-                  ) : (
-                    <MarkdownRenderer content={msg.content} className="text-foreground" />
-                  )}
-                  <div
-                    className={`mt-1 text-[10px] ${
-                      msg.role === 'user' ? 'text-emerald-200' : 'text-muted-foreground'
-                    }`}
-                  >
-                    {new Date(msg.createdAt).toLocaleTimeString('ru-RU', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                <Plus className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => setSidebarOpen(false)}
+                title="Скрыть панель"
+              >
+                <PanelLeftClose className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Sessions list */}
+          <div className="flex-1 overflow-y-auto">
+            {sessionGroups.length > 0 ? (
+              sessionGroups.map((group) => (
+                <div key={group.label}>
+                  <div className="px-3 pt-2 pb-1">
+                    <span className="text-[10px] font-medium uppercase text-muted-foreground">
+                      {group.label}
+                    </span>
                   </div>
+                  {group.sessions.map((session) => (
+                    <div
+                      key={session.id}
+                      className={`group flex items-center gap-1 px-3 py-2 cursor-pointer transition-colors ${
+                        session.id === currentChatId
+                          ? 'bg-emerald-50 dark:bg-emerald-950/30 border-l-2 border-emerald-500'
+                          : 'hover:bg-muted border-l-2 border-transparent'
+                      }`}
+                      onClick={() => handleSelectSession(session.id)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-xs truncate ${
+                          session.id === currentChatId
+                            ? 'font-medium text-emerald-700 dark:text-emerald-400'
+                            : 'text-foreground'
+                        }`}>
+                          {session.title}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {new Date(session.lastActivity).toLocaleTimeString('ru-RU', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button
+                            className="shrink-0 rounded p-1 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-destructive transition-opacity"
+                            onClick={(e) => e.stopPropagation()}
+                            title="Удалить"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Удалить разговор?</AlertDialogTitle>
+                            <AlertDialogDescription>Все сообщения будут удалены.</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Отмена</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => deleteChatSession(session.id)}
+                              className="bg-destructive text-destructive-foreground"
+                            >
+                              Удалить
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  ))}
                 </div>
-              </div>
-            ))}
-            {isSending && (
-              <div className="flex justify-start">
-                <div className="flex items-center gap-2 rounded-2xl bg-muted px-4 py-3">
-                  <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />
-                  <span className="text-sm text-muted-foreground">Думаю...</span>
-                </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
+                <PenLine className="h-6 w-6 text-muted-foreground/40 mb-2" />
+                <p className="text-xs text-muted-foreground">Нет разговоров</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 gap-1.5 text-xs"
+                  onClick={handleNewChat}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Новый разговор
+                </Button>
               </div>
             )}
           </div>
-        )}
-      </div>
-
-      {/* Error */}
-      {error && (
-        <div className="mx-0 mt-1 rounded-lg bg-destructive/10 p-2 text-xs text-destructive">
-          {error}
-          <button onClick={() => setError('')} className="ml-2 underline">Закрыть</button>
         </div>
       )}
 
-      {/* Input bar */}
-      <div className="shrink-0 border-t bg-background px-0 pt-2 pb-1">
-        <div className="flex gap-2">
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Опишите, что ели, или задайте вопрос..."
-            rows={1}
-            className="min-h-[44px] max-h-24 resize-none flex-1"
-          />
-          <Button
-            onClick={handleSend}
-            disabled={!input.trim() || isSending}
-            size="icon"
-            className="h-11 w-11 shrink-0 rounded-full"
-          >
-            <Send className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Sessions dialog */}
-      <Dialog open={sessionsOpen} onOpenChange={setSessionsOpen}>
-        <DialogContent className="max-h-[70vh]">
-          <DialogHeader>
-            <DialogTitle>Разговоры</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2 overflow-y-auto max-h-[50vh]">
-            {chatSessions.map((session) => (
-              <Card
-                key={session.id}
-                className={`cursor-pointer transition-all ${
-                  session.id === currentChatId
-                    ? 'border-emerald-500'
-                    : 'hover:border-muted-foreground/30'
-                }`}
-                onClick={() => {
-                  selectChatSession(session.id);
-                  setSessionsOpen(false);
-                }}
+      {/* Main chat area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Chat header — toggle sidebar + nutrition context */}
+        <div className="flex items-center justify-between mb-1 shrink-0">
+          <div className="flex items-center gap-2">
+            {!sidebarOpen && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => setSidebarOpen(true)}
+                title="Показать панель диалогов"
               >
-                <CardContent className="flex items-center justify-between p-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{session.title}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {new Date(session.lastActivity).toLocaleDateString('ru-RU', {
-                        day: 'numeric',
-                        month: 'short',
+                <PanelLeft className="h-4 w-4" />
+              </Button>
+            )}
+            <div className="flex items-center gap-1.5">
+              <History className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-[10px] text-muted-foreground">Контекст:</span>
+            </div>
+            <div className="flex gap-1">
+              {([
+                { value: 'today' as const, label: 'Сегодня' },
+                { value: 'week' as const, label: 'Неделя' },
+                { value: 'month' as const, label: 'Месяц' },
+              ]).map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setNutritionPeriod(opt.value)}
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                    nutritionPeriod === opt.value
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {currentSession && (
+            <span className="text-[10px] text-muted-foreground truncate max-w-[40%]">
+              {currentSession.title}
+            </span>
+          )}
+        </div>
+
+        {/* Chat messages */}
+        <div
+          ref={scrollRef}
+          className="flex-1 overflow-y-auto px-1"
+          style={{ minHeight: 0 }}
+        >
+          {!currentChatId ? (
+            <div className="flex h-full flex-col items-center justify-center gap-3 py-12 text-center">
+              <div className="rounded-full bg-emerald-100 p-4 dark:bg-emerald-900/30">
+                <PenLine className="h-8 w-8 text-emerald-600" />
+              </div>
+              <h3 className="text-base font-semibold">AI Помощник по питанию</h3>
+              <p className="max-w-xs text-sm text-muted-foreground">
+                Создайте новый разговор, чтобы получить персонализированные рекомендации по питанию,
+                анализу продуктов и планированию рациона.
+              </p>
+              <Button onClick={handleNewChat} className="gap-2">
+                <Plus className="h-4 w-4" /> Начать разговор
+              </Button>
+            </div>
+          ) : chatMessages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
+              <p className="text-sm text-muted-foreground">
+                Задайте вопрос о питании или расскажите, что вы ели сегодня
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3 py-1">
+              {chatMessages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm ${
+                      msg.role === 'user'
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-muted'
+                    }`}
+                  >
+                    {msg.role === 'user' ? (
+                      <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
+                    ) : (
+                      <MarkdownRenderer content={msg.content} className="text-foreground" />
+                    )}
+                    <div
+                      className={`mt-1 text-[10px] ${
+                        msg.role === 'user' ? 'text-emerald-200' : 'text-muted-foreground'
+                      }`}
+                    >
+                      {new Date(msg.createdAt).toLocaleTimeString('ru-RU', {
                         hour: '2-digit',
                         minute: '2-digit',
                       })}
-                    </p>
+                    </div>
                   </div>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 shrink-0 text-destructive"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Удалить разговор?</AlertDialogTitle>
-                        <AlertDialogDescription>Все сообщения будут удалены.</AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Отмена</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => deleteChatSession(session.id)}
-                          className="bg-destructive text-destructive-foreground"
-                        >
-                          Удалить
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </CardContent>
-              </Card>
-            ))}
-            {chatSessions.length === 0 && (
-              <p className="py-4 text-center text-sm text-muted-foreground">Нет разговоров</p>
-            )}
+                </div>
+              ))}
+              {isSending && (
+                <div className="flex justify-start">
+                  <div className="flex items-center gap-2 rounded-2xl bg-muted px-4 py-3">
+                    <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />
+                    <span className="text-sm text-muted-foreground">Думаю...</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div className="mx-0 mt-1 rounded-lg bg-destructive/10 p-2 text-xs text-destructive shrink-0">
+            {error}
+            <button onClick={() => setError('')} className="ml-2 underline">Закрыть</button>
           </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Закрыть</Button>
-            </DialogClose>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+        )}
+
+        {/* Input bar */}
+        <div className="shrink-0 border-t bg-background px-0 pt-2 pb-1">
+          <div className="flex gap-2">
+            <Textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Опишите, что ели, или задайте вопрос..."
+              rows={1}
+              className="min-h-[44px] max-h-24 resize-none flex-1"
+            />
+            <Button
+              onClick={handleSend}
+              disabled={!input.trim() || isSending}
+              size="icon"
+              className="h-11 w-11 shrink-0 rounded-full"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
