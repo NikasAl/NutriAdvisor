@@ -35,7 +35,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
-  Plus, Camera, ImageIcon, Loader2, Trash2, Utensils, ChevronDown, ChevronUp, Send, Check,
+  Plus, Camera, ImageIcon, Loader2, Trash2, Utensils, ChevronDown, ChevronUp, Send, Check, AlertTriangle, RefreshCw,
 } from 'lucide-react';
 import type { MealType, FoodEntry } from '@/lib/types';
 import { MEAL_LABELS } from '@/lib/types';
@@ -55,28 +55,31 @@ function parseNutritionFromText(text: string): {
     carbs: null as number | null,
   };
 
-  // Calories: look for patterns like "калорийность: 350 ккал", "~350", "350 ккал", "калории: 350"
+  // Calories: "350 ккал", "калорийность: 350 ккал", "~350 ккал"
   const calMatch = text.match(
-    /(?:калор[ияйно]+сть|калори[ияй]+|ккал|calories?)[\s:]*[~≈~]?\s*(\d+(?:[.,]\d+)?)\s*(?:ккал|kcal|kkal)?/i
+    /(?:калор[ияйно]+сть|калори[ияй]+)[\s:]*[~≈]?\s*(\d+(?:[.,]\d+)?)\s*(?:ккал|kcal|kkal)?/i
   ) || text.match(/(\d+(?:[.,]\d+)?)\s*(?:ккал|kcal|kkal)/i);
   if (calMatch) nums.calories = parseFloat(calMatch[1].replace(',', '.'));
 
-  // Protein / Белки
+  // Protein / Белки: "Белки: 25 г", "Б: 25г", "протеин 25 г"
   const protMatch = text.match(
-    /(?:бел(?:ки?|ок)|проте[ияын]+|protein)[\s:]*[~≈~]?\s*(\d+(?:[.,]\d+)?)\s*г/i
-  ) || text.match(/Б[.\s:]+(\d+(?:[.,]\d+)?)\s*г/i);
+    /(?:\*?\s*[Бб]ел(?:ки?|ок)\s*\*?\s*(?:[:|]\s*)?)[~≈]?\s*(\d+(?:[.,]\d+)?)\s*г/i
+  ) || text.match(/(?:проте[ияын]+|protein)[\s:]*[~≈]?\s*(\d+(?:[.,]\d+)?)\s*г/i)
+  || text.match(/[Бб]\s*[.:|]\s*(\d+(?:[.,]\d+)?)\s*г/);
   if (protMatch) nums.protein = parseFloat(protMatch[1].replace(',', '.'));
 
-  // Fat / Жиры
+  // Fat / Жиры: "Жиры: 15 г", "Ж: 15г", "жир 15 г"
   const fatMatch = text.match(
-    /(?:жиры?|жир|fat)[\s:]*[~≈~]?\s*(\d+(?:[.,]\d+)?)\s*г/i
-  ) || text.match(/Ж[.\s:]+(\d+(?:[.,]\d+)?)\s*г/i);
+    /(?:\*?\s*[Жж]ир(?:ы?|ов)?\s*\*?\s*(?:[:|]\s*)?)[~≈]?\s*(\d+(?:[.,]\d+)?)\s*г/i
+  ) || text.match(/(?:fat)[\s:]*[~≈]?\s*(\d+(?:[.,]\d+)?)\s*г/i)
+  || text.match(/[Жж]\s*[.:|]\s*(\d+(?:[.,]\d+)?)\s*г/);
   if (fatMatch) nums.fat = parseFloat(fatMatch[1].replace(',', '.'));
 
-  // Carbs / Углеводы
+  // Carbs / Углеводы: "Углеводы: 40 г", "У: 40г"
   const carbMatch = text.match(
-    /(?:углев(?:оды?)?|carbohydrates?|угл)[\s:]*[~≈~]?\s*(\d+(?:[.,]\d+)?)\s*г/i
-  ) || text.match(/У[.\s:]+(\d+(?:[.,]\d+)?)\s*г/i);
+    /(?:\*?\s*[Уу]глев(?:оды?)?\s*\*?\s*(?:[:|]\s*)?)[~≈]?\s*(\d+(?:[.,]\d+)?)\s*г/i
+  ) || text.match(/(?:carbohydrates?)[\s:]*[~≈]?\s*(\d+(?:[.,]\d+)?)\s*г/i)
+  || text.match(/[Уу]\s*[.:|]\s*(\d+(?:[.,]\d+)?)\s*г/);
   if (carbMatch) nums.carbs = parseFloat(carbMatch[1].replace(',', '.'));
 
   return nums;
@@ -144,13 +147,11 @@ export default function FoodJournalPanel() {
 
       // Parse nutrition values from AI response
       const parsed = parseNutritionFromText(analysis);
-      if (parsed.calories !== null || parsed.protein !== null) {
-        setParsedCal(parsed.calories !== null ? String(parsed.calories) : '');
-        setParsedProt(parsed.protein !== null ? String(parsed.protein) : '');
-        setParsedFat(parsed.fat !== null ? String(parsed.fat) : '');
-        setParsedCarbs(parsed.carbs !== null ? String(parsed.carbs) : '');
-        setShowNutrEdit(true);
-      }
+      setParsedCal(parsed.calories !== null ? String(parsed.calories) : '');
+      setParsedProt(parsed.protein !== null ? String(parsed.protein) : '');
+      setParsedFat(parsed.fat !== null ? String(parsed.fat) : '');
+      setParsedCarbs(parsed.carbs !== null ? String(parsed.carbs) : '');
+      setShowNutrEdit(true);
     } catch (err) {
       setAnalysisResult(`Ошибка: ${err instanceof Error ? err.message : 'Неизвестная ошибка'}`);
     }
@@ -494,7 +495,34 @@ export default function FoodJournalPanel() {
                     />
                   </div>
                 </div>
+
+                {/* Warning if some values are missing */}
+                {(!parsedCal || !parsedProt || !parsedFat || !parsedCarbs) && (
+                  <div className="mt-2 flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 p-2 dark:bg-amber-950/20 dark:border-amber-900">
+                    <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                    <div className="text-[11px] text-amber-700 dark:text-amber-400">
+                      <p className="font-medium">Не все параметры определены</p>
+                      <p className="mt-0.5">
+                        Заполните отсутствующие значения вручную или повторите анализ с более умной моделью.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
+            )}
+
+            {/* Repeat analysis button */}
+            {analysisResult && (
+              <Button
+                onClick={handleAnalyze}
+                disabled={isSending || (!description && !photoBase64)}
+                variant="ghost"
+                size="sm"
+                className="w-full gap-2 text-xs text-muted-foreground"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isSending ? 'animate-spin' : ''}`} />
+                Повторить анализ
+              </Button>
             )}
           </div>
 
