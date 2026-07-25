@@ -106,7 +106,7 @@ export default function ChatAssistantPanel() {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [chatMessages, isSending, streamingContent]);
+  }, [chatMessages, isSending]);
 
   // Auto-focus edit input
   useEffect(() => {

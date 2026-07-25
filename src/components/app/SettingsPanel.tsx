@@ -40,9 +40,10 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Pencil, Key, Zap, Eye, Loader2, CheckCircle2, XCircle, Wifi } from 'lucide-react';
+import { Plus, Trash2, Pencil, Key, Zap, Eye, Loader2, CheckCircle2, XCircle, Wifi, Download, Upload } from 'lucide-react';
 import type { LLMProvider, ProviderType } from '@/lib/types';
 import { testProvider } from '@/lib/llm-client';
+import { db } from '@/lib/db';
 
 const PRESETS: Record<ProviderType, { name: string; baseUrl: string; model: string; supportsVision: boolean; needsKey: boolean }> = {
   openai: { name: 'OpenAI', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini', supportsVision: true, needsKey: true },
@@ -57,6 +58,8 @@ export default function SettingsPanel() {
   const providers = useAppStore((s) => s.providers);
   const activeProviderId = useAppStore((s) => s.activeProviderId);
   const loadProviders = useAppStore((s) => s.loadProviders);
+  const loadProfile = useAppStore((s) => s.loadProfile);
+  const loadFoodEntries = useAppStore((s) => s.loadFoodEntries);
   const addProvider = useAppStore((s) => s.addProvider);
   const updateProvider = useAppStore((s) => s.updateProvider);
   const deleteProvider = useAppStore((s) => s.deleteProvider);
@@ -68,6 +71,11 @@ export default function SettingsPanel() {
   // Test provider state
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  // Export / Import state
+  const [exportStatus, setExportStatus] = useState('');
+  const [importStatus, setImportStatus] = useState('');
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Form state for add
   const initialPreset = PRESETS['openai'];
@@ -139,6 +147,111 @@ export default function SettingsPanel() {
     const result = await testProvider(provider);
     setTestResult(result);
     setTestingId(null);
+  };
+
+  const handleExport = async () => {
+    setExportStatus('Экспорт...');
+    try {
+      const data = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        app: 'NutriAdvisor',
+        providers: await db.providers.toArray(),
+        userProfile: await db.userProfile.toArray(),
+        foodEntries: await db.foodEntries.toArray(),
+        chatSessions: await db.chatSessions.toArray(),
+        chatMessages: await db.chatMessages.toArray(),
+      };
+
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `nutriadvisor-backup-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      const counts = `${data.providers.length} провайдер, ${data.foodEntries.length} записей еды, ${data.chatSessions.length} разговоров, ${data.chatMessages.length} сообщений`;
+      setExportStatus(`Готово! ${counts}`);
+      setTimeout(() => setExportStatus(''), 4000);
+    } catch (err) {
+      setExportStatus(`Ошибка: ${err instanceof Error ? err.message : 'неизвестная ошибка'}`);
+    }
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportStatus('Импорт...');
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      // Validate structure
+      if (!data.app || data.app !== 'NutriAdvisor' || !data.version) {
+        throw new Error('Неверный формат файла резервной копии');
+      }
+
+      // Import providers
+      if (Array.isArray(data.providers)) {
+        await db.providers.clear();
+        for (const p of data.providers) {
+          await db.providers.put({ ...p, createdAt: new Date(p.createdAt), updatedAt: new Date(p.updatedAt) });
+        }
+      }
+
+      // Import profile
+      if (Array.isArray(data.userProfile)) {
+        await db.userProfile.clear();
+        for (const p of data.userProfile) {
+          await db.userProfile.put({ ...p, updatedAt: new Date(p.updatedAt) });
+        }
+      }
+
+      // Import food entries
+      if (Array.isArray(data.foodEntries)) {
+        await db.foodEntries.clear();
+        for (const e of data.foodEntries) {
+          await db.foodEntries.put({ ...e, createdAt: new Date(e.createdAt) });
+        }
+      }
+
+      // Import chat sessions
+      if (Array.isArray(data.chatSessions)) {
+        await db.chatSessions.clear();
+        for (const s of data.chatSessions) {
+          await db.chatSessions.put({ ...s, createdAt: new Date(s.createdAt), lastActivity: new Date(s.lastActivity) });
+        }
+      }
+
+      // Import chat messages
+      if (Array.isArray(data.chatMessages)) {
+        await db.chatMessages.clear();
+        for (const m of data.chatMessages) {
+          await db.chatMessages.put({ ...m, createdAt: new Date(m.createdAt) });
+        }
+      }
+
+      const counts = `${data.providers.length} провайдер, ${data.foodEntries.length} записей, ${data.chatSessions.length} разговоров, ${data.chatMessages.length} сообщений`;
+      setImportStatus(`Импортировано! ${counts}`);
+
+      // Reload all data in store
+      await loadProviders();
+      await loadProfile();
+      await loadFoodEntries();
+      await new Promise((r) => setTimeout(r, 300));
+
+      setTimeout(() => setImportStatus(''), 5000);
+    } catch (err) {
+      setImportStatus(`Ошибка: ${err instanceof Error ? err.message : 'неизвестная ошибка'}`);
+    }
+
+    // Reset file input
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   return (
@@ -391,6 +504,51 @@ export default function SettingsPanel() {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      {/* Data Export / Import */}
+      <div className="border-t pt-4 mt-6">
+        <h2 className="text-lg font-semibold">Данные</h2>
+        <p className="text-sm text-muted-foreground mt-1 mb-3">
+          Экспортируйте все данные для переноса на другое устройство или создания резервной копии.
+        </p>
+
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={handleExport}
+            disabled={!!exportStatus}
+          >
+            <Download className="h-4 w-4" />
+            {exportStatus || 'Экспорт' }
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!!importStatus}
+          >
+            <Upload className="h-4 w-4" />
+            {importStatus || 'Импорт' }
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={handleImport}
+          />
+        </div>
+
+        {(exportStatus || importStatus) && (
+          <p className={`mt-2 text-xs ${importStatus.startsWith('Ошибка') ? 'text-destructive' : 'text-emerald-600'}`}>
+            {exportStatus || importStatus}
+          </p>
+        )}
       </div>
     </div>
   );
