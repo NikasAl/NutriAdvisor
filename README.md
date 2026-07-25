@@ -100,41 +100,77 @@ npm run build
 
 ## Сборка Android APK
 
-Приложение можно собрать как нативный Android APK с помощью **Capacitor**.
+Приложение можно собрать как нативный Android APK с помощью **Capacitor** — через Gradle из командной строки (без Android Studio) или через Android Studio.
 
 ### Требования
 
-- **Android Studio** (с установленным Android SDK и Build Tools)
+- **Android SDK** (установлен и настроен, переменная `ANDROID_HOME`)
 - **Node.js** 18+
 - **JDK 17+**
 
-### Шаги
+> Android Studio не обязателен. Достаточно установить Android SDK командной строки и JDK.
 
-1. **Установите зависимости** (если ещё не установлены):
+### Быстрая сборка через Gradle (без Android Studio)
 
+**Отладочный APK** (для тестирования):
 ```bash
-npm install
+npm run apk:debug
 ```
 
-2. **Соберите веб-приложение и синхронизируйте с Android-проектом**:
+**Релизный APK** (без подписи — для тестирования на устройстве):
+```bash
+npm run apk:release
+```
+
+Готовый APK будет в:
+- Debug: `android/app/build/outputs/apk/debug/app-debug.apk`
+- Release: `android/app/build/outputs/apk/release/app-release-unsigned.apk`
+
+Эти команды выполняют всё за один шаг: сборку Next.js → синхронизацию с Android → сборку APK через `./gradlew`.
+
+Для установки APK на устройство:
+```bash
+adb install android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+### Подпись релизного APK
+
+Для публикации в Google Play или распространения подписанного APK:
+
+```bash
+# 1. Создайте keystore (один раз)
+keytool -genkey -v -keystore nutriadvisor.keystore -alias nutriadvisor -keyalg RSA -keysize 2048 -validity 10000
+
+# 2. Соберите подписанный APK
+cd android
+./gradlew assembleRelease \
+  -PMYAPP_UPLOAD_STORE_PASSWORD=пароль_от_keystore \
+  -PMYAPP_UPLOAD_KEY_PASSWORD=пароль_от_ключа \
+  -PMYAPP_UPLOAD_KEY_ALIAS=nutriadvisor \
+  -PMYAPP_UPLOAD_STORE_FILE=../nutriadvisor.keystore
+```
+
+Или настройте подпись в `android/app/build.gradle` → `signingConfigs`.
+
+### Сборка через Android Studio
+
+Если предпочитаете Android Studio:
 
 ```bash
 npm run build:android
-```
-
-Эта команда выполнит `next build` (статический экспорт в `out/`) и `cap sync android` (копирование файлов в Android-проект).
-
-3. **Откройте проект в Android Studio**:
-
-```bash
 npm run open:android
 ```
 
-4. **Соберите APK** в Android Studio:
-   - **Build → Build Bundle(s) / APK(s) → Build APK(s)** — для отладочного APK.
-   - **Build → Generate Signed Bundle / APK** — для релизного APK с подписью.
+Затем в Android Studio: **Build → Build Bundle(s) / APK(s) → Build APK(s)**.
 
-Готовый APK будет в `android/app/build/outputs/apk/`.
+### Все доступные команды
+
+| Команда | Описание |
+|---|---|
+| `npm run build:android` | Собрать Next.js + синхронизировать с Android |
+| `npm run apk:debug` | Полный цикл: сборка + отладочный APK |
+| `npm run apk:release` | Полный цикл: сборка + релизный APK (unsigned) |
+| `npm run open:android` | Открыть проект в Android Studio |
 
 ### Настройка Android-проекта
 
