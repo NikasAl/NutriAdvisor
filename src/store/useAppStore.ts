@@ -71,6 +71,9 @@ interface AppState {
   createChatSession: () => Promise<string>;
   selectChatSession: (id: string) => Promise<void>;
   deleteChatSession: (id: string) => Promise<void>;
+  renameChatSession: (id: string, title: string) => Promise<void>;
+  updateChatMessage: (id: string, content: string) => Promise<void>;
+  resendFromMessage: (messageId: string, newContent: string, nutritionPeriod?: string) => Promise<void>;
   loadChatMessages: () => Promise<void>;
 
   // LLM interaction
@@ -323,6 +326,93 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentChatId: s.currentChatId === id ? null : s.currentChatId,
       chatMessages: s.currentChatId === id ? [] : s.chatMessages,
     }));
+  },
+
+  renameChatSession: async (id: string, title: string) => {
+    await db.chatSessions.update(id, { title, updatedAt: new Date() });
+ set((s) => ({
+      chatSessions: s.chatSessions.map((cs) => cs.id === id ? { ...cs, title, updatedAt: new Date() } : cs),
+    }));
+  },
+
+  updateChatMessage: async (id: string, content: string) => {
+    await db.chatMessages.update(id, { content });
+    set((s) => ({
+      chatMessages: s.chatMessages.map((m) => m.id === id ? { ...m, content } : m),
+    }));
+  },
+
+  resendFromMessage: async (messageId: string, newContent: string, nutritionPeriod: string = 'today') => {
+    const { currentChatId, chatMessages, profile, foodEntries } = get();
+    const provider = get().getActiveProvider();
+
+    if (!provider || !provider.baseUrl || !provider.model) {
+      throw new Error('Настройте провайдер LLM в настройках');
+    }
+    if (!currentChatId) return;
+
+    // Find index of the message being edited
+    const msgIndex = chatMessages.findIndex((m) => m.id === messageId);
+    if (msgIndex === -1) return;
+
+    set({ isSending: true });
+
+    try {
+      // Update the edited user message content
+      await db.chatMessages.update(messageId, { content: newContent });
+
+      // Delete all messages after this one (assistant response + any following exchange)
+      const messagesToDelete = chatMessages.slice(msgIndex + 1);
+      for (const m of messagesToDelete) {
+        if (m.id) await db.chatMessages.delete(m.id);
+      }
+
+      // Rebuild messages list: keep up to and including edited message
+      const keptMessages = chatMessages.slice(0, msgIndex + 1).map((m) =>
+        m.id === messageId ? { ...m, content: newContent } : m
+      );
+
+      // Build history from kept messages (exclude system)
+      const history: LLMMessage[] = keptMessages
+        .filter((m) => m.role !== 'system')
+        .slice(-20)
+        .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+
+      // Build system prompt
+      const contextType = NutritionPrompts.detectContextFromMessage(newContent);
+      let systemPrompt = NutritionPrompts.getContextualPrompt(contextType, profile);
+      const period = nutritionPeriod as 'today' | 'week' | 'month';
+      const nutritionSummary = buildNutritionSummary(foodEntries, period);
+      systemPrompt += nutritionSummary;
+
+      const llmMessages = buildChatMessages(systemPrompt, history, newContent);
+      const response = await callLLM(provider, llmMessages, 0.8);
+
+      // Save new assistant message
+      const assistantMsg: ChatMessage = {
+        id: uuid(),
+        sessionId: currentChatId,
+        role: 'assistant',
+        content: response.content,
+        createdAt: new Date(),
+      };
+      await db.chatMessages.add(assistantMsg);
+
+      // Update session
+      await db.chatSessions.update(currentChatId, {
+        lastActivity: new Date(),
+      });
+
+      set((s) => ({
+        chatMessages: [...keptMessages, assistantMsg],
+        isSending: false,
+      }));
+
+      get().loadChatSessions();
+    } catch (error) {
+      set({ isSending: false });
+      throw error;
+    }
   },
 
   loadChatMessages: async () => {

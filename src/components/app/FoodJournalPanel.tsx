@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,7 +35,8 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
-  Plus, Camera, ImageIcon, Loader2, Trash2, Utensils, ChevronDown, ChevronUp, Send, Check, AlertTriangle, RefreshCw,
+  Plus, Camera, ImageIcon, Loader2, Trash2, Utensils, ChevronDown, ChevronUp,
+  Send, Check, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import type { MealType, FoodEntry } from '@/lib/types';
 import { MEAL_LABELS } from '@/lib/types';
@@ -55,27 +56,23 @@ function parseNutritionFromText(text: string): {
     carbs: null as number | null,
   };
 
-  // Calories: "350 ккал", "калорийность: 350 ккал", "~350 ккал"
   const calMatch = text.match(
     /(?:калор[ияйно]+сть|калори[ияй]+)[\s:]*[~≈]?\s*(\d+(?:[.,]\d+)?)\s*(?:ккал|kcal|kkal)?/i
   ) || text.match(/(\d+(?:[.,]\d+)?)\s*(?:ккал|kcal|kkal)/i);
   if (calMatch) nums.calories = parseFloat(calMatch[1].replace(',', '.'));
 
-  // Protein / Белки: "Белки: 25 г", "Б: 25г", "протеин 25 г"
   const protMatch = text.match(
     /(?:\*?\s*[Бб]ел(?:ки?|ок)\s*\*?\s*(?:[:|]\s*)?)[~≈]?\s*(\d+(?:[.,]\d+)?)\s*г/i
   ) || text.match(/(?:проте[ияын]+|protein)[\s:]*[~≈]?\s*(\d+(?:[.,]\d+)?)\s*г/i)
   || text.match(/[Бб]\s*[.:|]\s*(\d+(?:[.,]\d+)?)\s*г/);
   if (protMatch) nums.protein = parseFloat(protMatch[1].replace(',', '.'));
 
-  // Fat / Жиры: "Жиры: 15 г", "Ж: 15г", "жир 15 г"
   const fatMatch = text.match(
     /(?:\*?\s*[Жж]ир(?:ы?|ов)?\s*\*?\s*(?:[:|]\s*)?)[~≈]?\s*(\d+(?:[.,]\d+)?)\s*г/i
   ) || text.match(/(?:fat)[\s:]*[~≈]?\s*(\d+(?:[.,]\d+)?)\s*г/i)
   || text.match(/[Жж]\s*[.:|]\s*(\d+(?:[.,]\d+)?)\s*г/);
   if (fatMatch) nums.fat = parseFloat(fatMatch[1].replace(',', '.'));
 
-  // Carbs / Углеводы: "Углеводы: 40 г", "У: 40г"
   const carbMatch = text.match(
     /(?:\*?\s*[Уу]глев(?:оды?)?\s*\*?\s*(?:[:|]\s*)?)[~≈]?\s*(\d+(?:[.,]\d+)?)\s*г/i
   ) || text.match(/(?:carbohydrates?)[\s:]*[~≈]?\s*(\d+(?:[.,]\d+)?)\s*г/i)
@@ -84,6 +81,17 @@ function parseNutritionFromText(text: string): {
 
   return nums;
 }
+
+function formatDateLabel(dateStr: string): string {
+  const today = new Date().toISOString().split('T')[0];
+  const yesterdayDate = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  if (dateStr === today) return 'Сегодня';
+  if (dateStr === yesterdayDate) return 'Вчера';
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: d.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined });
+}
+
+const PAGE_SIZE = 10;
 
 export default function FoodJournalPanel() {
   const foodEntries = useAppStore((s) => s.foodEntries);
@@ -109,6 +117,9 @@ export default function FoodJournalPanel() {
   const [parsedCarbs, setParsedCarbs] = useState('');
   const [showNutrEdit, setShowNutrEdit] = useState(false);
 
+  // Pagination
+  const [page, setPage] = useState(0);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -118,12 +129,29 @@ export default function FoodJournalPanel() {
 
   const today = new Date().toISOString().split('T')[0];
   const todayEntries = foodEntries.filter((e) => e.date === today);
-  const olderEntries = foodEntries.filter((e) => e.date !== today);
 
   const totalCalories = todayEntries.reduce((sum, e) => sum + (e.estimatedCalories ?? 0), 0);
   const totalProtein = todayEntries.reduce((sum, e) => sum + (e.estimatedProtein ?? 0), 0);
   const totalFat = todayEntries.reduce((sum, e) => sum + (e.estimatedFat ?? 0), 0);
   const totalCarbs = todayEntries.reduce((sum, e) => sum + (e.estimatedCarbs ?? 0), 0);
+
+  // Group non-today entries by date
+  const olderEntries = useMemo(() => {
+    const nonToday = foodEntries.filter((e) => e.date !== today);
+    const grouped = new Map<string, FoodEntry[]>();
+    for (const entry of nonToday) {
+      if (!grouped.has(entry.date)) grouped.set(entry.date, []);
+      grouped.get(entry.date)!.push(entry);
+    }
+    const sortedDates = Array.from(grouped.keys()).sort().reverse();
+    return sortedDates.map((date) => ({ date, entries: grouped.get(date)! }));
+  }, [foodEntries, today]);
+
+  // Paginated date groups
+  const totalPages = Math.max(1, Math.ceil(olderEntries.length / PAGE_SIZE));
+  const paginatedGroups = useMemo(() => {
+    return olderEntries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  }, [olderEntries, page]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -135,7 +163,6 @@ export default function FoodJournalPanel() {
 
   const handleAnalyze = async () => {
     if (!description && !photoBase64) return;
-
     try {
       let analysis = '';
       if (photoBase64) {
@@ -144,8 +171,6 @@ export default function FoodJournalPanel() {
         analysis = await analyzeFoodText(description, weight ? Number(weight) : undefined);
       }
       setAnalysisResult(analysis);
-
-      // Parse nutrition values from AI response
       const parsed = parseNutritionFromText(analysis);
       setParsedCal(parsed.calories !== null ? String(parsed.calories) : '');
       setParsedProt(parsed.protein !== null ? String(parsed.protein) : '');
@@ -203,25 +228,17 @@ export default function FoodJournalPanel() {
         <CardContent className="p-3">
           <div className="flex items-start gap-2">
             {entry.photoBase64 && (
-              <img
-                src={entry.photoBase64}
-                alt="Еда"
-                className="h-12 w-12 rounded-md object-cover shrink-0"
-              />
+              <img src={entry.photoBase64} alt="Еда" className="h-12 w-12 rounded-md object-cover shrink-0" />
             )}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="text-[10px]">
-                  {MEAL_LABELS[entry.mealType]}
-                </Badge>
+                <Badge variant="secondary" className="text-[10px]">{MEAL_LABELS[entry.mealType]}</Badge>
                 <span className="text-[10px] text-muted-foreground">
                   {new Date(entry.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
               <p className="mt-0.5 text-sm">{entry.description}</p>
-              {entry.weight && (
-                <span className="text-[10px] text-muted-foreground">{entry.weight}г</span>
-              )}
+              {entry.weight && <span className="text-[10px] text-muted-foreground">{entry.weight}г</span>}
               {(entry.estimatedCalories || entry.estimatedProtein) && (
                 <div className="mt-1 flex flex-wrap gap-2 text-[10px]">
                   {entry.estimatedCalories && (
@@ -316,13 +333,48 @@ export default function FoodJournalPanel() {
 
       {/* Food entries list */}
       <div className="space-y-2">
+        {/* Today entries */}
         {todayEntries.map(renderEntryCard)}
-        {olderEntries.length > 0 && (
-          <>
-            <div className="py-2 text-center text-xs text-muted-foreground">Ранее</div>
-            {olderEntries.map(renderEntryCard)}
-          </>
+
+        {/* Older entries grouped by date with pagination */}
+        {paginatedGroups.map((group) => (
+          <React.Fragment key={group.date}>
+            <div className="flex items-center gap-2 pt-3 pb-1">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-xs text-muted-foreground whitespace-nowrap">{formatDateLabel(group.date)}</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+            {group.entries.map(renderEntryCard)}
+          </React.Fragment>
+        ))}
+
+        {/* Pagination controls */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 pt-2">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              disabled={page === 0}
+              onClick={() => setPage(page - 1)}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              {page + 1} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              disabled={page >= totalPages - 1}
+              onClick={() => setPage(page + 1)}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         )}
+
         {foodEntries.length === 0 && (
           <div className="py-8 text-center text-sm text-muted-foreground">
             <Utensils className="mx-auto mb-2 h-8 w-8 opacity-30" />
@@ -345,27 +397,13 @@ export default function FoodJournalPanel() {
           <DialogHeader>
             <DialogTitle>Добавить приём пищи</DialogTitle>
           </DialogHeader>
-
           <div className="space-y-4 py-2">
             {/* Photo section */}
             <div className="space-y-2">
               <Label className="text-xs">Фото (опционально)</Label>
               <div className="flex gap-2">
-                <input
-                  ref={cameraInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={handleFileChange}
-                />
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleFileChange}
-                />
+                <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
                 <Button variant="outline" size="sm" className="gap-1.5" onClick={() => cameraInputRef.current?.click()}>
                   <Camera className="h-3.5 w-3.5" /> Камера
                 </Button>
@@ -376,17 +414,12 @@ export default function FoodJournalPanel() {
               {photoBase64 && (
                 <div className="relative inline-block">
                   <img src={photoBase64} alt="Preview" className="h-20 w-20 rounded-md object-cover" />
-                  <button
-                    onClick={() => setPhotoBase64(null)}
-                    className="absolute -right-1 -top-1 rounded-full bg-destructive p-0.5 text-destructive-foreground"
-                  >
+                  <button onClick={() => setPhotoBase64(null)} className="absolute -right-1 -top-1 rounded-full bg-destructive p-0.5 text-destructive-foreground">
                     <Trash2 className="h-3 w-3" />
                   </button>
                 </div>
               )}
             </div>
-
-            {/* Meal type */}
             <div className="space-y-1.5">
               <Label className="text-xs">Приём пищи</Label>
               <Select value={mealType} onValueChange={(v) => setMealType(v as MealType)}>
@@ -398,141 +431,70 @@ export default function FoodJournalPanel() {
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Description */}
             <div className="space-y-1.5">
               <Label className="text-xs">Описание</Label>
-              <Textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Овсянка с бананом и мёдом, кофе без сахара"
-                rows={2}
-              />
+              <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Овсянка с бананом и мёдом, кофе без сахара" rows={2} />
             </div>
-
-            {/* Weight */}
             <div className="space-y-1.5">
               <Label className="text-xs">Вес порции (г, опционально)</Label>
-              <Input
-                type="number"
-                value={weight}
-                onChange={(e) => setWeight(e.target.value)}
-                placeholder="250"
-              />
+              <Input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="250" />
             </div>
-
-            {/* Analyze button */}
-            <Button
-              onClick={handleAnalyze}
-              disabled={isSending || (!description && !photoBase64)}
-              variant="outline"
-              className="w-full gap-2"
-            >
-              {isSending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
+            <Button onClick={handleAnalyze} disabled={isSending || (!description && !photoBase64)} variant="outline" className="w-full gap-2">
+              {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               Анализ AI
             </Button>
-
-            {/* Analysis result — rendered as markdown */}
             {analysisResult && (
               <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 p-3 text-xs">
                 <p className="mb-1 font-semibold text-emerald-700 dark:text-emerald-400">Результат анализа:</p>
                 <MarkdownRenderer content={analysisResult} className="text-foreground" />
               </div>
             )}
-
-            {/* Nutrition values — editable after analysis */}
             {showNutrEdit && (
               <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3 dark:border-emerald-900 dark:bg-emerald-950/20">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-                    Пищевая ценность
-                  </p>
+                  <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Пищевая ценность</p>
                   <p className="text-[10px] text-muted-foreground">Проверьте и скорректируйте значения</p>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
                     <Label className="text-[10px] text-muted-foreground">Калории (ккал)</Label>
-                    <Input
-                      type="number"
-                      value={parsedCal}
-                      onChange={(e) => setParsedCal(e.target.value)}
-                      placeholder="0"
-                      className="h-9 text-sm"
-                    />
+                    <Input type="number" value={parsedCal} onChange={(e) => setParsedCal(e.target.value)} placeholder="0" className="h-9 text-sm" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[10px] text-muted-foreground">Белки (г)</Label>
-                    <Input
-                      type="number"
-                      value={parsedProt}
-                      onChange={(e) => setParsedProt(e.target.value)}
-                      placeholder="0"
-                      className="h-9 text-sm"
-                    />
+                    <Input type="number" value={parsedProt} onChange={(e) => setParsedProt(e.target.value)} placeholder="0" className="h-9 text-sm" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[10px] text-muted-foreground">Жиры (г)</Label>
-                    <Input
-                      type="number"
-                      value={parsedFat}
-                      onChange={(e) => setParsedFat(e.target.value)}
-                      placeholder="0"
-                      className="h-9 text-sm"
-                    />
+                    <Input type="number" value={parsedFat} onChange={(e) => setParsedFat(e.target.value)} placeholder="0" className="h-9 text-sm" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[10px] text-muted-foreground">Углеводы (г)</Label>
-                    <Input
-                      type="number"
-                      value={parsedCarbs}
-                      onChange={(e) => setParsedCarbs(e.target.value)}
-                      placeholder="0"
-                      className="h-9 text-sm"
-                    />
+                    <Input type="number" value={parsedCarbs} onChange={(e) => setParsedCarbs(e.target.value)} placeholder="0" className="h-9 text-sm" />
                   </div>
                 </div>
-
-                {/* Warning if some values are missing */}
                 {(!parsedCal || !parsedProt || !parsedFat || !parsedCarbs) && (
                   <div className="mt-2 flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 p-2 dark:bg-amber-950/20 dark:border-amber-900">
                     <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
                     <div className="text-[11px] text-amber-700 dark:text-amber-400">
                       <p className="font-medium">Не все параметры определены</p>
-                      <p className="mt-0.5">
-                        Заполните отсутствующие значения вручную или повторите анализ с более умной моделью.
-                      </p>
+                      <p className="mt-0.5">Заполните отсутствующие значения вручную или повторите анализ с более умной моделью.</p>
                     </div>
                   </div>
                 )}
               </div>
             )}
-
-            {/* Repeat analysis button */}
             {analysisResult && (
-              <Button
-                onClick={handleAnalyze}
-                disabled={isSending || (!description && !photoBase64)}
-                variant="ghost"
-                size="sm"
-                className="w-full gap-2 text-xs text-muted-foreground"
-              >
+              <Button onClick={handleAnalyze} disabled={isSending || (!description && !photoBase64)} variant="ghost" size="sm" className="w-full gap-2 text-xs text-muted-foreground">
                 <RefreshCw className={`h-3.5 w-3.5 ${isSending ? 'animate-spin' : ''}`} />
                 Повторить анализ
               </Button>
             )}
           </div>
-
           <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Отмена</Button>
-            </DialogClose>
+            <DialogClose asChild><Button variant="outline">Отмена</Button></DialogClose>
             <Button onClick={handleSave} disabled={!description && !photoBase64}>
-              <Check className="mr-1.5 h-4 w-4" />
-              Сохранить
+              <Check className="mr-1.5 h-4 w-4" /> Сохранить
             </Button>
           </DialogFooter>
         </DialogContent>

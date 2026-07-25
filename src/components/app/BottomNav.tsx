@@ -24,8 +24,8 @@ export default function BottomNav() {
   const setActiveTab = useAppStore((s) => s.setActiveTab);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-area-bottom">
-      <div className="mx-auto flex h-16 max-w-lg items-center justify-around px-2">
+    <nav className="shrink-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-area-bottom">
+      <div className="mx-auto flex h-16 items-center justify-around px-2">
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
