@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   Plus, Send, Loader2, Trash2, PenLine, History, PanelLeftClose, PanelLeft,
-  Check, X, Pencil,
+  Check, X, Pencil, Square,
 } from 'lucide-react';
 import MarkdownRenderer from '@/components/ui/markdown-renderer';
 import type { ChatSession } from '@/lib/types';
@@ -79,6 +79,8 @@ export default function ChatAssistantPanel() {
   const renameChatSession = useAppStore((s) => s.renameChatSession);
   const resendFromMessage = useAppStore((s) => s.resendFromMessage);
   const sendChatMessage = useAppStore((s) => s.sendChatMessage);
+  const streamingContent = useAppStore((s) => s.streamingContent);
+  const stopStreaming = useAppStore((s) => s.stopStreaming);
 
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
@@ -104,7 +106,7 @@ export default function ChatAssistantPanel() {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [chatMessages, isSending]);
+  }, [chatMessages, isSending, streamingContent]);
 
   // Auto-focus edit input
   useEffect(() => {
@@ -505,7 +507,27 @@ export default function ChatAssistantPanel() {
                   )}
                 </div>
               ))}
-              {isSending && (
+              {isSending && streamingContent && (
+                <div className="flex justify-start">
+                  <div className="max-w-[85%] rounded-2xl bg-muted px-3.5 py-2.5 text-sm relative">
+                    <MarkdownRenderer content={streamingContent} className="text-foreground" />
+                    <div className="flex items-center justify-between mt-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="text-[10px] text-muted-foreground">Генерация...</span>
+                      </div>
+                      <button
+                        onClick={stopStreaming}
+                        className="rounded p-0.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                        title="Остановить генерацию"
+                      >
+                        <Square className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {isSending && !streamingContent && (
                 <div className="flex justify-start">
                   <div className="flex items-center gap-2 rounded-2xl bg-muted px-4 py-3">
                     <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />

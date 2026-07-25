@@ -12,7 +12,7 @@ import type {
   MealType,
 } from '@/lib/types';
 import { NutritionPrompts } from '@/lib/prompts';
-import { callLLM, buildChatMessages, buildVisionMessages } from '@/lib/llm-client';
+import { callLLM, callLLMStream, buildChatMessages, buildVisionMessages } from '@/lib/llm-client';
 import type { LLMMessage } from '@/lib/llm-client';
 
 const DEFAULT_PROVIDER: Omit<LLMProvider, 'id' | 'createdAt' | 'updatedAt'> = {
@@ -76,11 +76,16 @@ interface AppState {
   resendFromMessage: (messageId: string, newContent: string, nutritionPeriod?: string) => Promise<void>;
   loadChatMessages: () => Promise<void>;
 
+  // Streaming abort controller ref
+  _abortController: AbortController | null;
+
   // LLM interaction
   sendChatMessage: (content: string, nutritionPeriod?: string) => Promise<string>;
   analyzeFoodImage: (imageBase64: string) => Promise<string>;
   analyzeFoodText: (description: string, weight?: number) => Promise<string>;
   isSending: boolean;
+  streamingContent: string;
+  stopStreaming: () => void;
 }
 
 /** Build a nutrition summary string from food entries for a given period */
@@ -297,6 +302,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentChatId: null,
   chatMessages: [],
   isSending: false,
+  streamingContent: '',
+  _abortController: null as AbortController | null,
+
+  stopStreaming: () => {
+    const ctrl = get()._abortController;
+    if (ctrl) ctrl.abort();
+    set({ _abortController: null, isSending: false, streamingContent: '' });
+  },
 
   loadChatSessions: async () => {
     const sessions = await db.chatSessions.orderBy('lastActivity').reverse().toArray();
@@ -355,7 +368,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     const msgIndex = chatMessages.findIndex((m) => m.id === messageId);
     if (msgIndex === -1) return;
 
-    set({ isSending: true });
+    const abort = new AbortController();
+    set({ isSending: true, streamingContent: '', _abortController: abort });
 
     try {
       // Update the edited user message content
@@ -386,14 +400,29 @@ export const useAppStore = create<AppState>((set, get) => ({
       systemPrompt += nutritionSummary;
 
       const llmMessages = buildChatMessages(systemPrompt, history, newContent);
-      const response = await callLLM(provider, llmMessages, 0.8);
 
-      // Save new assistant message
+      // Use streaming
+      let finalContent = '';
+      try {
+        await callLLMStream(provider, llmMessages, 0.8, undefined, (text) => {
+          if (abort.signal.aborted) return;
+          finalContent = text;
+          set({ streamingContent: text });
+        });
+      } catch (streamErr) {
+        if (abort.signal.aborted) return;
+        // Streaming not supported — fallback to non-streaming
+        const response = await callLLM(provider, llmMessages, 0.8);
+        finalContent = response.content;
+        set({ streamingContent: finalContent });
+      }
+
+      // Save assistant message
       const assistantMsg: ChatMessage = {
         id: uuid(),
         sessionId: currentChatId,
         role: 'assistant',
-        content: response.content,
+        content: finalContent,
         createdAt: new Date(),
       };
       await db.chatMessages.add(assistantMsg);
@@ -406,11 +435,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       set((s) => ({
         chatMessages: [...keptMessages, assistantMsg],
         isSending: false,
+        streamingContent: '',
+        _abortController: null,
       }));
 
       get().loadChatSessions();
     } catch (error) {
-      set({ isSending: false });
+      set({ isSending: false, streamingContent: '', _abortController: null });
       throw error;
     }
   },
@@ -435,7 +466,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       sessionId = await get().createChatSession();
     }
 
-    set({ isSending: true });
+    const abort = new AbortController();
+    set({ isSending: true, streamingContent: '', _abortController: abort });
 
     try {
       // Save user message
@@ -463,14 +495,29 @@ export const useAppStore = create<AppState>((set, get) => ({
         .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
       const llmMessages = buildChatMessages(systemPrompt, history, content);
-      const response = await callLLM(provider, llmMessages, 0.8);
+
+      // Use streaming
+      let finalContent = '';
+      try {
+        await callLLMStream(provider, llmMessages, 0.8, undefined, (text) => {
+          if (abort.signal.aborted) return;
+          finalContent = text;
+          set({ streamingContent: text });
+        });
+      } catch (streamErr) {
+        if (abort.signal.aborted) return '';
+        // Streaming not supported — fallback to non-streaming
+        const response = await callLLM(provider, llmMessages, 0.8);
+        finalContent = response.content;
+        set({ streamingContent: finalContent });
+      }
 
       // Save assistant message
       const assistantMsg: ChatMessage = {
         id: uuid(),
         sessionId,
         role: 'assistant',
-        content: response.content,
+        content: finalContent,
         createdAt: new Date(),
       };
       await db.chatMessages.add(assistantMsg);
@@ -484,14 +531,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       set((s) => ({
         chatMessages: [...s.chatMessages, userMsg, assistantMsg],
         isSending: false,
+        streamingContent: '',
+        _abortController: null,
       }));
 
       // Reload sessions to update title
       get().loadChatSessions();
 
-      return response.content;
+      return finalContent;
     } catch (error) {
-      set({ isSending: false });
+      set({ isSending: false, streamingContent: '', _abortController: null });
       throw error;
     }
   },

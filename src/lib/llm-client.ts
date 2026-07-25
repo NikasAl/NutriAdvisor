@@ -93,6 +93,99 @@ export async function testProvider(provider: LLMProvider): Promise<{ ok: boolean
   }
 }
 
+/**
+ * Streaming call to LLM using SSE (OpenAI-compatible).
+ * Yields content chunks as they arrive. Returns final usage stats.
+ */
+export async function callLLMStream(
+  provider: LLMProvider,
+  messages: LLMMessage[],
+  temperature: number = 0.7,
+  maxTokens?: number,
+  onChunk: (text: string) => void
+): Promise<Pick<LLMResponse, 'model' | 'provider' | 'usage'>> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  if (provider.apiKey) {
+    headers.Authorization = `Bearer ${provider.apiKey}`;
+  }
+
+  if (provider.headers) {
+    Object.assign(headers, provider.headers);
+  }
+
+  const payload: Record<string, unknown> = {
+    model: provider.model,
+    messages,
+    temperature,
+    stream: true,
+  };
+  if (maxTokens !== undefined) payload.max_tokens = maxTokens;
+
+  const url = `${provider.baseUrl.replace(/\/+$/, '')}/chat/completions`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => 'Unknown error');
+    throw new Error(`LLM API error (${res.status}): ${errText}`);
+  }
+
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error('Streaming не поддерживается: тело ответа пустое');
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let totalContent = '';
+  let model = provider.model;
+  let usage: LLMResponse['usage'];
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+
+    // Process SSE lines from buffer
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? ''; // Keep incomplete line in buffer
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+
+      // Skip empty lines and comments
+      if (!trimmed || trimmed.startsWith(':')) continue;
+
+      if (trimmed === 'data: [DONE]') continue;
+
+      if (trimmed.startsWith('data: ')) {
+        try {
+          const json = JSON.parse(trimmed.slice(6));
+          const delta = json.choices?.[0]?.delta;
+
+          if (delta?.content) {
+            totalContent += delta.content;
+            onChunk(totalContent);
+          }
+
+          if (json.model) model = json.model;
+          if (json.usage) usage = json.usage;
+        } catch {
+          // Skip malformed JSON chunks
+        }
+      }
+    }
+  }
+
+  return { model, provider: provider.name, usage };
+}
+
 export async function callLLM(
   provider: LLMProvider,
   messages: LLMMessage[],
