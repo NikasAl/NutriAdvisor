@@ -81,8 +81,9 @@ interface AppState {
 
   // LLM interaction
   sendChatMessage: (content: string, nutritionPeriod?: string) => Promise<string>;
-  analyzeFoodImage: (imageBase64: string) => Promise<string>;
+  analyzeFoodImage: (imageBase64: string, description?: string, weight?: number) => Promise<string>;
   analyzeFoodText: (description: string, weight?: number) => Promise<string>;
+  lastAnalysisDebug: { prompt: string; response: string } | null;
   isSending: boolean;
   streamingContent: string;
   stopStreaming: () => void;
@@ -303,6 +304,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   chatMessages: [],
   isSending: false,
   streamingContent: '',
+  lastAnalysisDebug: null,
   _abortController: null as AbortController | null,
 
   stopStreaming: () => {
@@ -545,26 +547,39 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  analyzeFoodImage: async (imageBase64: string): Promise<string> => {
+  analyzeFoodImage: async (imageBase64: string, description?: string, weight?: number): Promise<string> => {
     const provider = get().getActiveProvider();
     if (!provider || !provider.baseUrl || !provider.model) {
       throw new Error('Настройте провайдер LLM с поддержкой Vision в настройках');
     }
 
-    set({ isSending: true });
+    set({ isSending: true, lastAnalysisDebug: null });
 
     try {
+      // Step 1: Get image description using vision
       const visionMessages = buildVisionMessages(imageBase64);
-      const description = await callLLM(provider, visionMessages, 0.6);
+      const imgDescription = await callLLM(provider, visionMessages, 0.6);
 
-      // Now analyze the food description
+      // Step 2: Build combined food description (image + user text + weight)
+      let combinedDesc = `Описание с фото: ${imgDescription.content}`;
+      if (description) combinedDesc += `\nДополнительное описание от пользователя: ${description}`;
+      if (weight) combinedDesc += `\nУказанный вес порции: ${weight}г`;
+
+      // Step 3: Analyze with nutrition prompt
+      const systemPrompt = NutritionPrompts.getFoodAnalysisPrompt();
       const analysisMessages: LLMMessage[] = [
-        { role: 'system', content: NutritionPrompts.getFoodAnalysisPrompt() },
-        { role: 'user', content: `Проанализируй эту еду: ${description.content}` },
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Проанализируй эту еду: ${combinedDesc}` },
       ];
       const analysis = await callLLM(provider, analysisMessages, 0.6);
 
-      set({ isSending: false });
+      set({
+        isSending: false,
+        lastAnalysisDebug: {
+          prompt: `--- Системный промпт ---\n${systemPrompt}\n\n--- Запрос пользователя ---\nПроанализируй эту еду: ${combinedDesc}`,
+          response: analysis.content,
+        },
+      });
       return analysis.content;
     } catch (error) {
       set({ isSending: false });
@@ -578,20 +593,26 @@ export const useAppStore = create<AppState>((set, get) => ({
       throw new Error('Настройте провайдер LLM в настройках');
     }
 
-    set({ isSending: true });
+    set({ isSending: true, lastAnalysisDebug: null });
 
     try {
+      const systemPrompt = NutritionPrompts.getFoodAnalysisPrompt();
+      const userContent = weight
+        ? `Проанализируй эту еду: ${description}. Вес порции: ${weight}г.`
+        : `Проанализируй эту еду: ${description}`;
       const messages: LLMMessage[] = [
-        { role: 'system', content: NutritionPrompts.getFoodAnalysisPrompt() },
-        {
-          role: 'user',
-          content: weight
-            ? `Проанализируй эту еду: ${description}. Вес порции: ${weight}г.`
-            : `Проанализируй эту еду: ${description}`,
-        },
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userContent },
       ];
       const response = await callLLM(provider, messages, 0.6);
-      set({ isSending: false });
+
+      set({
+        isSending: false,
+        lastAnalysisDebug: {
+          prompt: `--- Системный промпт ---\n${systemPrompt}\n\n--- Запрос пользователя ---\n${userContent}`,
+          response: response.content,
+        },
+      });
       return response.content;
     } catch (error) {
       set({ isSending: false });

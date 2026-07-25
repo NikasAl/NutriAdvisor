@@ -36,13 +36,13 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   Plus, Camera, ImageIcon, Loader2, Trash2, Utensils, ChevronDown, ChevronUp,
-  Send, Check, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight,
+  Send, Check, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, Bug,
 } from 'lucide-react';
 import type { MealType, FoodEntry } from '@/lib/types';
 import { MEAL_LABELS } from '@/lib/types';
 import MarkdownRenderer from '@/components/ui/markdown-renderer';
 
-/** Parse numeric KBJU from AI analysis text */
+/** Parse numeric KBJU from AI analysis text — robust multi-pattern matching */
 function parseNutritionFromText(text: string): {
   calories: number | null;
   protein: number | null;
@@ -56,28 +56,55 @@ function parseNutritionFromText(text: string): {
     carbs: null as number | null,
   };
 
-  const calMatch = text.match(
-    /(?:калор[ияйно]+сть|калори[ияй]+)[\s:]*[~≈]?\s*(\d+(?:[.,]\d+)?)\s*(?:ккал|kcal|kkal)?/i
-  ) || text.match(/(\d+(?:[.,]\d+)?)\s*(?:ккал|kcal|kkal)/i);
-  if (calMatch) nums.calories = parseFloat(calMatch[1].replace(',', '.'));
+  const num = '([\\d]+(?:[.,][\\d]+)?)';
 
-  const protMatch = text.match(
-    /(?:\*?\s*[Бб]ел(?:ки?|ок)\s*\*?\s*(?:[:|]\s*)?)[~≈]?\s*(\d+(?:[.,]\d+)?)\s*г/i
-  ) || text.match(/(?:проте[ияын]+|protein)[\s:]*[~≈]?\s*(\d+(?:[.,]\d+)?)\s*г/i)
-  || text.match(/[Бб]\s*[.:|]\s*(\d+(?:[.,]\d+)?)\s*г/);
-  if (protMatch) nums.protein = parseFloat(protMatch[1].replace(',', '.'));
+  // Calories: many possible formats
+  // "Калорийность: 500 ккал" / "**Калорийность:** 500 ккал" / "~500 ккал" / "500 ккал"
+  const calPatterns = [
+    new RegExp(`(?:калор[ияйно]+сть|\\*\\*Калорийность\\*\\*)[\\s:*]*[~≈]?\\s*${num}\\s*(?:ккал|kcal|kkal)?`, 'i'),
+    new RegExp(`${num}\\s*(?:ккал|kcal|kkal)`, 'i'),
+  ];
+  for (const p of calPatterns) {
+    const m = text.match(p);
+    if (m) { nums.calories = parseFloat(m[1].replace(',', '.')); break; }
+  }
 
-  const fatMatch = text.match(
-    /(?:\*?\s*[Жж]ир(?:ы?|ов)?\s*\*?\s*(?:[:|]\s*)?)[~≈]?\s*(\d+(?:[.,]\d+)?)\s*г/i
-  ) || text.match(/(?:fat)[\s:]*[~≈]?\s*(\d+(?:[.,]\d+)?)\s*г/i)
-  || text.match(/[Жж]\s*[.:|]\s*(\d+(?:[.,]\d+)?)\s*г/);
-  if (fatMatch) nums.fat = parseFloat(fatMatch[1].replace(',', '.'));
+  // Protein: "**Белки:** 25 г" / "Белки: 25г" / "Б: 25 г" / "белки — 25 г" / "протеин 25г"
+  const protPatterns = [
+    new RegExp(`\\*\\*\\s*[Бб]ел(?:ки?|ок)\\s*\\*\\*[\\s:*|]*[~≈]?\\s*${num}\\s*г`, 'i'),
+    new RegExp(`[Бб]ел(?:ки?|ов)?[\\s:*|—–-]+[~≈]?\\s*${num}\\s*г`, 'i'),
+    new RegExp(`[Бб]\\s*[.:|]\\s*[~≈]?\\s*${num}\\s*г`, 'i'),
+    new RegExp(`проте[ияын]+[\\s:*|—–-]+[~≈]?\\s*${num}\\s*г`, 'i'),
+    new RegExp(`protein[\\s:*|—–-]+[~≈]?\\s*${num}\\s*г?`, 'i'),
+  ];
+  for (const p of protPatterns) {
+    const m = text.match(p);
+    if (m) { nums.protein = parseFloat(m[1].replace(',', '.')); break; }
+  }
 
-  const carbMatch = text.match(
-    /(?:\*?\s*[Уу]глев(?:оды?)?\s*\*?\s*(?:[:|]\s*)?)[~≈]?\s*(\d+(?:[.,]\d+)?)\s*г/i
-  ) || text.match(/(?:carbohydrates?)[\s:]*[~≈]?\s*(\d+(?:[.,]\d+)?)\s*г/i)
-  || text.match(/[Уу]\s*[.:|]\s*(\d+(?:[.,]\d+)?)\s*г/);
-  if (carbMatch) nums.carbs = parseFloat(carbMatch[1].replace(',', '.'));
+  // Fat: "**Жиры:** 15 г" / "Жиры: 15г" / "Ж: 15 г" / "жиры — 15 г" / "fat 15g"
+  const fatPatterns = [
+    new RegExp(`\\*\\*\\s*[Жж]ир(?:ы?|ов)?\\s*\\*\\*[\\s:*|]*[~≈]?\\s*${num}\\s*г`, 'i'),
+    new RegExp(`[Жж]ир(?:ы?|ов)?[\\s:*|—–-]+[~≈]?\\s*${num}\\s*г`, 'i'),
+    new RegExp(`[Жж]\\s*[.:|]\\s*[~≈]?\\s*${num}\\s*г`, 'i'),
+    new RegExp(`fat[\\s:*|—–-]+[~≈]?\\s*${num}\\s*г?`, 'i'),
+  ];
+  for (const p of fatPatterns) {
+    const m = text.match(p);
+    if (m) { nums.fat = parseFloat(m[1].replace(',', '.')); break; }
+  }
+
+  // Carbs: "**Углеводы:** 60 г" / "Углеводы: 60г" / "У: 60 г" / "углеводы — 60 г" / "carbs 60g"
+  const carbPatterns = [
+    new RegExp(`\\*\\*\\s*[Уу]глев(?:оды?)?\\s*\\*\\*[\\s:*|]*[~≈]?\\s*${num}\\s*г`, 'i'),
+    new RegExp(`[Уу]глев(?:оды?)?[\\s:*|—–-]+[~≈]?\\s*${num}\\s*г`, 'i'),
+    new RegExp(`[Уу]\\s*[.:|]\\s*[~≈]?\\s*${num}\\s*г`, 'i'),
+    new RegExp(`carbo?hydrates?[\\s:*|—–-]+[~≈]?\\s*${num}\\s*г?`, 'i'),
+  ];
+  for (const p of carbPatterns) {
+    const m = text.match(p);
+    if (m) { nums.carbs = parseFloat(m[1].replace(',', '.')); break; }
+  }
 
   return nums;
 }
@@ -101,6 +128,7 @@ export default function FoodJournalPanel() {
   const analyzeFoodText = useAppStore((s) => s.analyzeFoodText);
   const analyzeFoodImage = useAppStore((s) => s.analyzeFoodImage);
   const isSending = useAppStore((s) => s.isSending);
+  const lastAnalysisDebug = useAppStore((s) => s.lastAnalysisDebug);
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [description, setDescription] = useState('');
@@ -119,6 +147,7 @@ export default function FoodJournalPanel() {
 
   // Pagination
   const [page, setPage] = useState(0);
+  const [showDebug, setShowDebug] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -166,7 +195,11 @@ export default function FoodJournalPanel() {
     try {
       let analysis = '';
       if (photoBase64) {
-        analysis = await analyzeFoodImage(photoBase64);
+        analysis = await analyzeFoodImage(
+          photoBase64,
+          description || undefined,
+          weight ? Number(weight) : undefined
+        );
       } else {
         analysis = await analyzeFoodText(description, weight ? Number(weight) : undefined);
       }
@@ -489,6 +522,37 @@ export default function FoodJournalPanel() {
                 <RefreshCw className={`h-3.5 w-3.5 ${isSending ? 'animate-spin' : ''}`} />
                 Повторить анализ
               </Button>
+            )}
+            {/* Debug info */}
+            {lastAnalysisDebug && (
+              <div className="space-y-1">
+                <button
+                  onClick={() => setShowDebug(!showDebug)}
+                  className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors w-full"
+                >
+                  <Bug className="h-3 w-3" />
+                  {showDebug ? 'Скрыть отладку' : 'Отладка промптов и ответов'}
+                  <ChevronDown className={`h-3 w-3 transition-transform ${showDebug ? 'rotate-180' : ''}`} />
+                </button>
+                {showDebug && (
+                  <div className="rounded-md border border-border bg-muted/30 p-2 space-y-2 text-[10px] font-mono max-h-48 overflow-y-auto">
+                    <div>
+                      <p className="font-semibold text-muted-foreground mb-0.5">Промпт:</p>
+                      <pre className="whitespace-pre-wrap break-words text-foreground/80 leading-relaxed">{lastAnalysisDebug.prompt}</pre>
+                    </div>
+                    <div className="h-px bg-border" />
+                    <div>
+                      <p className="font-semibold text-muted-foreground mb-0.5">Ответ LLM:</p>
+                      <pre className="whitespace-pre-wrap break-words text-foreground/80 leading-relaxed">{lastAnalysisDebug.response}</pre>
+                    </div>
+                    <div className="h-px bg-border" />
+                    <div>
+                      <p className="font-semibold text-muted-foreground mb-0.5">Результат парсинга KBJU:</p>
+                      <p>Калории: {parsedCal || '—'} | Белки: {parsedProt || '—'} | Жиры: {parsedFat || '—'} | Углеводы: {parsedCarbs || '—'}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
           <DialogFooter>
