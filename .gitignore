@@ -28,5 +28,11 @@ Thumbs.db
 *.swp
 *.swo
 
+# Android build artifacts
+android/app/build/
+android/.gradle/
+android/build/
+
 # Misc
 bun.lock
+android-resources/
