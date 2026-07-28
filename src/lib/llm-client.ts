@@ -1,4 +1,5 @@
 import type { LLMProvider } from './types';
+import { nativeRequest, isNativePlatform } from './nativeHttp';
 
 export interface LLMMessage {
   role: 'system' | 'user' | 'assistant';
@@ -51,20 +52,28 @@ export function buildChatMessages(
   return messages;
 }
 
-export async function testProvider(provider: LLMProvider): Promise<{ ok: boolean; message: string }> {
+/**
+ * Build common headers for LLM API requests
+ */
+function buildHeaders(provider: LLMProvider): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
   if (provider.apiKey) {
     headers.Authorization = `Bearer ${provider.apiKey}`;
   }
+  if (provider.headers) {
+    Object.assign(headers, provider.headers);
+  }
+  return headers;
+}
+
+export async function testProvider(provider: LLMProvider): Promise<{ ok: boolean; message: string }> {
+  const headers = buildHeaders(provider);
 
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
     const url = `${provider.baseUrl.replace(/\/+$/, '')}/chat/completions`;
-    const res = await fetch(url, {
+    const res = await nativeRequest(url, {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -72,23 +81,16 @@ export async function testProvider(provider: LLMProvider): Promise<{ ok: boolean
         messages: [{ role: 'user', content: 'Hi' }],
         max_tokens: 5,
       }),
-      signal: controller.signal,
     });
 
-    clearTimeout(timeoutId);
-
-    if (!res.ok) {
-      const errText = await res.text().catch(() => 'Unknown error');
-      return { ok: false, message: `HTTP ${res.status}: ${errText.slice(0, 200)}` };
+    if (res.status < 200 || res.status >= 300) {
+      return { ok: false, message: `HTTP ${res.status}: ${res.body.slice(0, 200)}` };
     }
 
-    const data = await res.json();
+    const data = JSON.parse(res.body);
     const content = data.choices?.[0]?.message?.content ?? '';
     return { ok: true, message: `Провайдер работает. Модель: ${data.model ?? provider.model}. Ответ: "${content.slice(0, 50)}"` };
   } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      return { ok: false, message: 'Таймаут (10 сек) — сервер не отвечает' };
-    }
     return { ok: false, message: `Ошибка соединения: ${err instanceof Error ? err.message : 'Неизвестная ошибка'}` };
   }
 }
@@ -96,6 +98,10 @@ export async function testProvider(provider: LLMProvider): Promise<{ ok: boolean
 /**
  * Streaming call to LLM using SSE (OpenAI-compatible).
  * Yields content chunks as they arrive. Returns final usage stats.
+ *
+ * On native Android: uses nativeRequest to get the full response, then
+ * simulates streaming by parsing SSE data lines and calling onChunk progressively.
+ * This is necessary because WebView fetch is blocked by CORS/mixed content.
  */
 export async function callLLMStream(
   provider: LLMProvider,
@@ -104,17 +110,7 @@ export async function callLLMStream(
   maxTokens?: number,
   onChunk: (text: string) => void
 ): Promise<Pick<LLMResponse, 'model' | 'provider' | 'usage'>> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-
-  if (provider.apiKey) {
-    headers.Authorization = `Bearer ${provider.apiKey}`;
-  }
-
-  if (provider.headers) {
-    Object.assign(headers, provider.headers);
-  }
+  const headers = buildHeaders(provider);
 
   const payload: Record<string, unknown> = {
     model: provider.model,
@@ -126,18 +122,59 @@ export async function callLLMStream(
 
   const url = `${provider.baseUrl.replace(/\/+$/, '')}/chat/completions`;
 
-  const res = await fetch(url, {
+  if (isNativePlatform()) {
+    // Native path: get full response, parse SSE lines
+    const res = await nativeRequest(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    });
+
+    if (res.status < 200 || res.status >= 300) {
+      throw new Error(`LLM API error (${res.status}): ${res.body}`);
+    }
+
+    // Parse SSE lines from response body
+    let totalContent = '';
+    let model = provider.model;
+    let usage: LLMResponse['usage'];
+
+    for (const line of res.body.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith(':') || trimmed === 'data: [DONE]') continue;
+
+      if (trimmed.startsWith('data: ')) {
+        try {
+          const json = JSON.parse(trimmed.slice(6));
+          const delta = json.choices?.[0]?.delta;
+          if (delta?.content) {
+            totalContent += delta.content;
+            onChunk(totalContent);
+          }
+          if (json.model) model = json.model;
+          if (json.usage) usage = json.usage;
+        } catch {
+          // Skip malformed JSON chunks
+        }
+      }
+    }
+
+    return { model, provider: provider.name, usage };
+  }
+
+  // Browser path: use fetch() with ReadableStream for true streaming
+  const fetchRes = await fetch(url, {
     method: 'POST',
     headers,
     body: JSON.stringify(payload),
   });
 
-  if (!res.ok) {
-    const errText = await res.text().catch(() => 'Unknown error');
-    throw new Error(`LLM API error (${res.status}): ${errText}`);
+  if (!fetchRes.ok) {
+    const errText = await fetchRes.text().catch(() => 'Unknown error');
+    throw new Error(`LLM API error (${fetchRes.status}): ${errText}`);
   }
 
-  const reader = res.body?.getReader();
+  const reader = fetchRes.body?.getReader();
   if (!reader) throw new Error('Streaming не поддерживается: тело ответа пустое');
 
   const decoder = new TextDecoder();
@@ -152,28 +189,21 @@ export async function callLLMStream(
 
     buffer += decoder.decode(value, { stream: true });
 
-    // Process SSE lines from buffer
     const lines = buffer.split('\n');
-    buffer = lines.pop() ?? ''; // Keep incomplete line in buffer
+    buffer = lines.pop() ?? '';
 
     for (const line of lines) {
       const trimmed = line.trim();
-
-      // Skip empty lines and comments
-      if (!trimmed || trimmed.startsWith(':')) continue;
-
-      if (trimmed === 'data: [DONE]') continue;
+      if (!trimmed || trimmed.startsWith(':') || trimmed === 'data: [DONE]') continue;
 
       if (trimmed.startsWith('data: ')) {
         try {
           const json = JSON.parse(trimmed.slice(6));
           const delta = json.choices?.[0]?.delta;
-
           if (delta?.content) {
             totalContent += delta.content;
             onChunk(totalContent);
           }
-
           if (json.model) model = json.model;
           if (json.usage) usage = json.usage;
         } catch {
@@ -192,18 +222,7 @@ export async function callLLM(
   temperature: number = 0.7,
   maxTokens?: number
 ): Promise<LLMResponse> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-
-  // Only add Authorization header if API key is present
-  if (provider.apiKey) {
-    headers.Authorization = `Bearer ${provider.apiKey}`;
-  }
-
-  if (provider.headers) {
-    Object.assign(headers, provider.headers);
-  }
+  const headers = buildHeaders(provider);
 
   const payload: Record<string, unknown> = {
     model: provider.model,
@@ -213,19 +232,17 @@ export async function callLLM(
   if (maxTokens !== undefined) payload.max_tokens = maxTokens;
 
   const url = `${provider.baseUrl.replace(/\/+$/, '')}/chat/completions`;
-
-  const res = await fetch(url, {
+  const res = await nativeRequest(url, {
     method: 'POST',
     headers,
     body: JSON.stringify(payload),
   });
 
-  if (!res.ok) {
-    const errText = await res.text().catch(() => 'Unknown error');
-    throw new Error(`LLM API error (${res.status}): ${errText}`);
+  if (res.status < 200 || res.status >= 300) {
+    throw new Error(`LLM API error (${res.status}): ${res.body}`);
   }
 
-  const data = await res.json();
+  const data = JSON.parse(res.body);
   const content = data.choices?.[0]?.message?.content ?? '';
   const usage = data.usage ?? undefined;
 
