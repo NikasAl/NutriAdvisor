@@ -1,19 +1,27 @@
 package com.nutriadvisor.app;
 
+import android.os.Bundle;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
 
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
     @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        // Register local plugins BEFORE super.onCreate() creates the Bridge
+        registerPlugin(NativeHttpPlugin.class);
+        super.onCreate(savedInstanceState);
+    }
+
+    @Override
     public void onStart() {
         super.onStart();
-        // Allow mixed content for local HTTP LLM servers (llama.cpp, Ollama)
+        // Allow mixed content for local HTTP resources (images, fonts from CDN)
         WebView webView = getBridge().getWebView();
         if (webView != null) {
-            webView.getSettings().setMixedContentMode(
-                android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-            );
+            WebSettings settings = webView.getSettings();
+            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         }
     }
 }
