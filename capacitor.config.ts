@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'NutriAdvisor',
   webDir: 'out',
   server: {
-    androidScheme: 'https',
+    androidScheme: 'http',
   },
   splashScreen: {
     launchShowDuration: 500,

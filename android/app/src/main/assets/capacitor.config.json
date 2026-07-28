@@ -1,0 +1,17 @@
+{
+  "appId": "com.nutriadvisor.app",
+  "appName": "NutriAdvisor",
+  "webDir": "out",
+  "server": {
+    "androidScheme": "http"
+  },
+  "splashScreen": {
+    "launchShowDuration": 500,
+    "backgroundColor": "#059669",
+    "showSpinner": false,
+    "androidScaleType": "CENTER_CROP"
+  },
+  "android": {
+    "backgroundColor": "#059669"
+  }
+}
