@@ -36,7 +36,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   Plus, Camera, ImageIcon, Loader2, Trash2, Utensils, ChevronDown, ChevronUp,
-  Send, Check, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, Bug,
+  Send, Check, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, Bug, CalendarDays,
 } from 'lucide-react';
 import type { MealType, FoodEntry } from '@/lib/types';
 import { MEAL_LABELS } from '@/lib/types';
@@ -131,6 +131,7 @@ export default function FoodJournalPanel() {
   const lastAnalysisDebug = useAppStore((s) => s.lastAnalysisDebug);
 
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [description, setDescription] = useState('');
   const [weight, setWeight] = useState('');
   const [mealType, setMealType] = useState<MealType>('lunch');
@@ -217,7 +218,7 @@ export default function FoodJournalPanel() {
 
   const handleSave = async () => {
     await addFoodEntry({
-      date: today,
+      date: selectedDate,
       mealType,
       description,
       photoBase64: photoBase64 ?? undefined,
@@ -232,6 +233,7 @@ export default function FoodJournalPanel() {
   };
 
   const resetForm = () => {
+    setSelectedDate(new Date().toISOString().split('T')[0]);
     setDescription('');
     setWeight('');
     setMealType('lunch');
@@ -452,6 +454,18 @@ export default function FoodJournalPanel() {
                   </button>
                 </div>
               )}
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Дата</Label>
+              <div className="relative">
+                <CalendarDays className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                <Input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Приём пищи</Label>
