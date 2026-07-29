@@ -347,15 +347,16 @@ export default function SettingsPanel() {
             onClick={() => handleSetActive(provider.id)}
           >
             <CardHeader className="pb-2 pt-4 px-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
                   <Zap className={`h-4 w-4 shrink-0 ${provider.id === activeProviderId ? 'text-emerald-600' : 'text-muted-foreground'}`} />
-                  <CardTitle className="text-base truncate">{provider.name}</CardTitle>
-                  {provider.id === activeProviderId && (
-                    <Badge variant="default" className="bg-emerald-600 text-[10px] shrink-0">Активен</Badge>
-                  )}
+                  <CardTitle className="text-sm truncate">{provider.name}</CardTitle>
                 </div>
-                <div className="flex gap-1 shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {provider.id === activeProviderId && (
+                    <Badge variant="default" className="bg-emerald-600 text-[9px] px-1.5 py-0">Активен</Badge>
+                  )}
+                  <div className="flex gap-0.5">
                   {/* Test button */}
                   <Button
                     variant="ghost"
@@ -463,6 +464,7 @@ export default function SettingsPanel() {
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
+                  </div>
                 </div>
               </div>
             </CardHeader>

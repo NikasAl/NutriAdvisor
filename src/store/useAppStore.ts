@@ -374,7 +374,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isSending: true, streamingContent: '', _abortController: abort });
 
     try {
-      // Update the edited user message content
+      // Update the edited user message in DB and state
       await db.chatMessages.update(messageId, { content: newContent });
 
       // Delete all messages after this one (assistant response + any following exchange)
@@ -383,10 +383,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         if (m.id) await db.chatMessages.delete(m.id);
       }
 
-      // Rebuild messages list: keep up to and including edited message
+      // Rebuild messages list: keep up to and including edited message, update in state immediately
       const keptMessages = chatMessages.slice(0, msgIndex + 1).map((m) =>
         m.id === messageId ? { ...m, content: newContent } : m
       );
+      set({ chatMessages: keptMessages });
 
       // Build history from kept messages (exclude system)
       const history: LLMMessage[] = keptMessages
@@ -441,6 +442,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         _abortController: null,
       }));
 
+      // Note: keptMessages was already set in state above, so this appends assistantMsg
+
       get().loadChatSessions();
     } catch (error) {
       set({ isSending: false, streamingContent: '', _abortController: null });
@@ -472,7 +475,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isSending: true, streamingContent: '', _abortController: abort });
 
     try {
-      // Save user message
+      // Save user message to DB and immediately show in chat
       const userMsg: ChatMessage = {
         id: uuid(),
         sessionId,
@@ -481,6 +484,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         createdAt: new Date(),
       };
       await db.chatMessages.add(userMsg);
+      set((s) => ({ chatMessages: [...s.chatMessages, userMsg] }));
 
       // Detect context and build system prompt
       const contextType = NutritionPrompts.detectContextFromMessage(content);
@@ -531,7 +535,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
 
       set((s) => ({
-        chatMessages: [...s.chatMessages, userMsg, assistantMsg],
+        chatMessages: [...s.chatMessages, assistantMsg],
         isSending: false,
         streamingContent: '',
         _abortController: null,
