@@ -511,18 +511,9 @@ export default function ChatAssistantPanel() {
                 <div className="flex justify-start">
                   <div className="max-w-[85%] rounded-2xl bg-muted px-3.5 py-2.5 text-sm relative">
                     <MarkdownRenderer content={streamingContent} className="text-foreground" />
-                    <div className="flex items-center justify-between mt-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        <span className="text-[10px] text-muted-foreground">Генерация...</span>
-                      </div>
-                      <button
-                        onClick={stopStreaming}
-                        className="rounded p-0.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                        title="Остановить генерацию"
-                      >
-                        <Square className="h-3 w-3" />
-                      </button>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-[10px] text-muted-foreground">Генерация...</span>
                     </div>
                   </div>
                 </div>
@@ -532,13 +523,6 @@ export default function ChatAssistantPanel() {
                   <div className="flex items-center gap-2 rounded-2xl bg-muted px-4 py-3">
                     <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />
                     <span className="text-sm text-muted-foreground">Думаю...</span>
-                    <button
-                      onClick={stopStreaming}
-                      className="ml-1 rounded p-0.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                      title="Остановить"
-                    >
-                      <Square className="h-3 w-3" />
-                    </button>
                   </div>
                 </div>
               )}
@@ -565,14 +549,25 @@ export default function ChatAssistantPanel() {
               rows={1}
               className="min-h-[44px] max-h-24 resize-none flex-1"
             />
-            <Button
-              onClick={handleSend}
-              disabled={!input.trim() || isSending}
-              size="icon"
-              className="h-11 w-11 shrink-0 rounded-full"
-            >
-              <Send className="h-4 w-4" />
-            </Button>
+            {isSending ? (
+              <Button
+                onClick={stopStreaming}
+                size="icon"
+                className="h-11 w-11 shrink-0 rounded-full bg-destructive hover:bg-destructive/90 text-white"
+                title="Остановить генерацию"
+              >
+                <Square className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button
+                onClick={handleSend}
+                disabled={!input.trim()}
+                size="icon"
+                className="h-11 w-11 shrink-0 rounded-full"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
       </div>
