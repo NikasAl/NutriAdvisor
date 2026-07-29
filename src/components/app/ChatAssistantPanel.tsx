@@ -496,7 +496,7 @@ export default function ChatAssistantPanel() {
                         {msg.role === 'user' && (
                           <button
                             onClick={() => startEditMessage(msg.id!, msg.content)}
-                            className="opacity-0 group-hover/msg:opacity-100 rounded p-0.5 hover:bg-white/10 transition-opacity"
+                            className="rounded p-0.5 hover:bg-white/10 transition-opacity text-emerald-200/60 hover:text-emerald-200 md:opacity-0 md:group-hover/msg:opacity-100"
                             title="Редактировать"
                           >
                             <Pencil className="h-3 w-3" />

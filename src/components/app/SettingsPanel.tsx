@@ -70,7 +70,7 @@ export default function SettingsPanel() {
 
   // Test provider state
   const [testingId, setTestingId] = useState<string | null>(null);
-  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [testResult, setTestResult] = useState<{ providerId: string; ok: boolean; message: string } | null>(null);
 
   // Export / Import state
   const [exportStatus, setExportStatus] = useState('');
@@ -145,7 +145,7 @@ export default function SettingsPanel() {
     setTestingId(provider.id);
     setTestResult(null);
     const result = await testProvider(provider);
-    setTestResult(result);
+    setTestResult({ providerId: provider.id, ...result });
     setTestingId(null);
   };
 
@@ -483,14 +483,14 @@ export default function SettingsPanel() {
                 {provider.apiKey ? '••••••••' + provider.apiKey.slice(-4) : 'Без ключа доступа'}
               </p>
 
-              {/* Test result */}
+              {/* Test result — only for the tested provider */}
               {testingId === provider.id && (
                 <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   Проверяю подключение...
                 </div>
               )}
-              {testResult && testingId !== provider.id && (
+              {testResult && testResult.providerId === provider.id && (
                 <div className={`mt-2 flex items-start gap-2 rounded-md p-2 text-xs ${
                   testResult.ok
                     ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
