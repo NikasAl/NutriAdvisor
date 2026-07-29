@@ -7,6 +7,7 @@ export interface LLMProvider {
   baseUrl: string;
   apiKey: string; // Can be empty for keyless providers (llama.cpp, Ollama)
   model: string;
+  models?: string[]; // List of saved model names for quick selection
   isActive: boolean;
   supportsVision: boolean;
   headers?: Record<string, string>;

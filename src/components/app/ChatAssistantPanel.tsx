@@ -532,6 +532,13 @@ export default function ChatAssistantPanel() {
                   <div className="flex items-center gap-2 rounded-2xl bg-muted px-4 py-3">
                     <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />
                     <span className="text-sm text-muted-foreground">Думаю...</span>
+                    <button
+                      onClick={stopStreaming}
+                      className="ml-1 rounded p-0.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                      title="Остановить"
+                    >
+                      <Square className="h-3 w-3" />
+                    </button>
                   </div>
                 </div>
               )}

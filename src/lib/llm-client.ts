@@ -1,5 +1,5 @@
 import type { LLMProvider } from './types';
-import { nativeRequest, isNativePlatform } from './nativeHttp';
+import { nativeRequest, nativeStreamRequest, isNativePlatform } from './nativeHttp';
 
 export interface LLMMessage {
   role: 'system' | 'user' | 'assistant';
@@ -52,9 +52,6 @@ export function buildChatMessages(
   return messages;
 }
 
-/**
- * Build common headers for LLM API requests
- */
 function buildHeaders(provider: LLMProvider): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -96,12 +93,40 @@ export async function testProvider(provider: LLMProvider): Promise<{ ok: boolean
 }
 
 /**
+ * Parse SSE data lines from a stream and extract content chunks.
+ * Accumulates content and calls onChunk with the full content so far.
+ */
+function parseSSELines(
+  lines: string[],
+  state: { totalContent: string; model: string; usage: LLMResponse['usage'] },
+  provider: LLMProvider,
+  onChunk: (text: string) => void
+) {
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith(':') || trimmed === 'data: [DONE]') continue;
+
+    if (trimmed.startsWith('data: ')) {
+      try {
+        const json = JSON.parse(trimmed.slice(6));
+        const delta = json.choices?.[0]?.delta;
+        if (delta?.content) {
+          state.totalContent += delta.content;
+          onChunk(state.totalContent);
+        }
+        if (json.model) state.model = json.model;
+        if (json.usage) state.usage = json.usage;
+      } catch {
+        // Skip malformed JSON
+      }
+    }
+  }
+}
+
+/**
  * Streaming call to LLM using SSE (OpenAI-compatible).
- * Yields content chunks as they arrive. Returns final usage stats.
- *
- * On native Android: uses nativeRequest to get the full response, then
- * simulates streaming by parsing SSE data lines and calling onChunk progressively.
- * This is necessary because WebView fetch is blocked by CORS/mixed content.
+ * True streaming on both native (via Java InputStream + notifyListeners)
+ * and browser (via fetch ReadableStream).
  */
 export async function callLLMStream(
   provider: LLMProvider,
@@ -123,46 +148,35 @@ export async function callLLMStream(
   const url = `${provider.baseUrl.replace(/\/+$/, '')}/chat/completions`;
 
   if (isNativePlatform()) {
-    // Native path: get full response, parse SSE lines
-    const res = await nativeRequest(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload),
+    // Native path: true streaming via requestStream + notifyListeners
+    return new Promise<Pick<LLMResponse, 'model' | 'provider' | 'usage'>>((resolve, reject) => {
+      const state = { totalContent: '', model: provider.model, usage: undefined as LLMResponse['usage'] };
+      let settled = false;
+
+      nativeStreamRequest(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+        onLine: (line: string) => {
+          if (settled) return;
+          // Parse line-by-line as they arrive from Java
+          parseSSELines([line], state, provider, onChunk);
+        },
+        onDone: (_status: number) => {
+          if (settled) return;
+          settled = true;
+          resolve({ model: state.model, provider: provider.name, usage: state.usage });
+        },
+        onError: (message: string) => {
+          if (settled) return;
+          settled = true;
+          reject(new Error(`LLM stream error: ${message}`));
+        },
+      });
     });
-
-    if (res.status < 200 || res.status >= 300) {
-      throw new Error(`LLM API error (${res.status}): ${res.body}`);
-    }
-
-    // Parse SSE lines from response body
-    let totalContent = '';
-    let model = provider.model;
-    let usage: LLMResponse['usage'];
-
-    for (const line of res.body.split('\n')) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith(':') || trimmed === 'data: [DONE]') continue;
-
-      if (trimmed.startsWith('data: ')) {
-        try {
-          const json = JSON.parse(trimmed.slice(6));
-          const delta = json.choices?.[0]?.delta;
-          if (delta?.content) {
-            totalContent += delta.content;
-            onChunk(totalContent);
-          }
-          if (json.model) model = json.model;
-          if (json.usage) usage = json.usage;
-        } catch {
-          // Skip malformed JSON chunks
-        }
-      }
-    }
-
-    return { model, provider: provider.name, usage };
   }
 
-  // Browser path: use fetch() with ReadableStream for true streaming
+  // Browser path: fetch() with ReadableStream for true streaming
   const fetchRes = await fetch(url, {
     method: 'POST',
     headers,
@@ -179,9 +193,7 @@ export async function callLLMStream(
 
   const decoder = new TextDecoder();
   let buffer = '';
-  let totalContent = '';
-  let model = provider.model;
-  let usage: LLMResponse['usage'];
+  const state = { totalContent: '', model: provider.model, usage: undefined as LLMResponse['usage'] };
 
   while (true) {
     const { done, value } = await reader.read();
@@ -192,28 +204,15 @@ export async function callLLMStream(
     const lines = buffer.split('\n');
     buffer = lines.pop() ?? '';
 
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith(':') || trimmed === 'data: [DONE]') continue;
-
-      if (trimmed.startsWith('data: ')) {
-        try {
-          const json = JSON.parse(trimmed.slice(6));
-          const delta = json.choices?.[0]?.delta;
-          if (delta?.content) {
-            totalContent += delta.content;
-            onChunk(totalContent);
-          }
-          if (json.model) model = json.model;
-          if (json.usage) usage = json.usage;
-        } catch {
-          // Skip malformed JSON chunks
-        }
-      }
-    }
+    parseSSELines(lines, state, provider, onChunk);
   }
 
-  return { model, provider: provider.name, usage };
+  // Process remaining buffer
+  if (buffer) {
+    parseSSELines([buffer], state, provider, onChunk);
+  }
+
+  return { model: state.model, provider: provider.name, usage: state.usage };
 }
 
 export async function callLLM(

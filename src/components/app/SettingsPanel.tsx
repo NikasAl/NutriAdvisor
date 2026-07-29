@@ -40,7 +40,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Pencil, Key, Zap, Eye, Loader2, CheckCircle2, XCircle, Wifi, Download, Upload } from 'lucide-react';
+import { Plus, Trash2, Pencil, Key, Zap, Eye, Loader2, CheckCircle2, XCircle, Wifi, Download, Upload, X, ListChecks } from 'lucide-react';
 import type { LLMProvider, ProviderType } from '@/lib/types';
 import { testProvider } from '@/lib/llm-client';
 import { db } from '@/lib/db';
@@ -84,6 +84,7 @@ export default function SettingsPanel() {
   const [newBaseUrl, setNewBaseUrl] = useState(initialPreset.baseUrl);
   const [newApiKey, setNewApiKey] = useState('');
   const [newModel, setNewModel] = useState(initialPreset.model);
+  const [newModels, setNewModels] = useState<string[]>([]);
   const [newVision, setNewVision] = useState(initialPreset.supportsVision);
 
   const needsKey = PRESETS[newType]?.needsKey ?? false;
@@ -98,6 +99,7 @@ export default function SettingsPanel() {
     setNewName(preset.name);
     setNewBaseUrl(preset.baseUrl);
     setNewModel(preset.model);
+    setNewModels([]);
     setNewVision(preset.supportsVision);
     if (preset.needsKey) {
       // Keep existing key if user already typed one
@@ -113,11 +115,13 @@ export default function SettingsPanel() {
       baseUrl: newBaseUrl,
       apiKey: newApiKey,
       model: newModel,
+      models: newModels.length > 0 ? newModels : undefined,
       supportsVision: newVision,
       isActive: providers.length === 0,
     });
     setIsAddOpen(false);
     setNewApiKey('');
+    setNewModels([]);
     loadProviders();
   };
 
@@ -310,7 +314,51 @@ export default function SettingsPanel() {
               )}
               <div className="space-y-2">
                 <Label>Модель</Label>
-                <Input value={newModel} onChange={(e) => setNewModel(e.target.value)} placeholder="gpt-4o-mini" />
+                <div className="space-y-1.5">
+                  <Input
+                    value={newModel}
+                    onChange={(e) => setNewModel(e.target.value)}
+                    placeholder="gpt-4o-mini"
+                  />
+                  {newModel.trim() && !PRESETS[newType]?.model?.includes(newModel.trim()) && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 gap-1 text-xs text-muted-foreground"
+                      onClick={() => {
+                        const models = [...(newModels), newModel.trim()];
+                        setNewModels(models);
+                      }}
+                    >
+                      <Plus className="h-3 w-3" /> Сохранить в список
+                    </Button>
+                  )}
+                  {newModels.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {newModels.map((m) => (
+                        <button
+                          key={m}
+                          onClick={() => setNewModel(m)}
+                          className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
+                            newModel === m
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                          }`}
+                        >
+                          {m}
+                          <X
+                            className="h-2.5 w-2.5 opacity-60 hover:opacity-100"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setNewModels(newModels.filter((x) => x !== m));
+                            }}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <Switch checked={newVision} onCheckedChange={setNewVision} />
@@ -415,10 +463,53 @@ export default function SettingsPanel() {
                           </div>
                           <div className="space-y-2">
                             <Label>Модель</Label>
-                            <Input
-                              value={editingProvider.model}
-                              onChange={(e) => setEditingProvider({ ...editingProvider, model: e.target.value })}
-                            />
+                            <div className="space-y-1.5">
+                              <Input
+                                value={editingProvider.model}
+                                onChange={(e) => setEditingProvider({ ...editingProvider, model: e.target.value })}
+                              />
+                              {(editingProvider.models ?? []).length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {editingProvider.models!.map((m) => (
+                                    <button
+                                      key={m}
+                                      onClick={() => setEditingProvider({ ...editingProvider, model: m })}
+                                      className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
+                                        editingProvider.model === m
+                                          ? 'bg-emerald-600 text-white'
+                                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                                      }`}
+                                    >
+                                      {m}
+                                      <X
+                                        className="h-2.5 w-2.5 opacity-60 hover:opacity-100"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setEditingProvider({
+                                            ...editingProvider,
+                                            models: editingProvider.models!.filter((x) => x !== m),
+                                          });
+                                        }}
+                                      />
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                              {editingProvider.model.trim() && !(editingProvider.models ?? []).includes(editingProvider.model.trim()) && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 gap-1 text-xs text-muted-foreground"
+                                  onClick={() => {
+                                    const models = [...(editingProvider.models ?? []), editingProvider.model.trim()];
+                                    setEditingProvider({ ...editingProvider, models });
+                                  }}
+                                >
+                                  <Plus className="h-3 w-3" /> Сохранить в список
+                                </Button>
+                              )}
+                            </div>
                           </div>
                           <div className="flex items-center gap-3">
                             <Switch
