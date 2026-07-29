@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Heart, TrendingDown, TrendingUp, Dumbbell, Flame, Moon, Smile, Brain, Zap, Target, Check,
+  Plus, Trash2, Star,
 } from 'lucide-react';
 import type { GoalType, ActivityLevel } from '@/lib/types';
 import { GOAL_LABELS } from '@/lib/types';
@@ -44,13 +45,21 @@ export default function ProfilePanel() {
   const profile = useAppStore((s) => s.profile);
   const saveProfile = useAppStore((s) => s.saveProfile);
   const loadProfile = useAppStore((s) => s.loadProfile);
+  const customGoals = useAppStore((s) => s.customGoals);
+  const loadCustomGoals = useAppStore((s) => s.loadCustomGoals);
+  const addCustomGoal = useAppStore((s) => s.addCustomGoal);
+  const deleteCustomGoal = useAppStore((s) => s.deleteCustomGoal);
+  const toggleCustomGoal = useAppStore((s) => s.toggleCustomGoal);
 
   const [localProfile, setLocalProfile] = useState(profile);
   const [saved, setSaved] = useState(false);
+  const [newGoalName, setNewGoalName] = useState('');
+  const [goalError, setGoalError] = useState('');
 
   useEffect(() => {
     loadProfile();
-  }, [loadProfile]);
+    loadCustomGoals();
+  }, [loadProfile, loadCustomGoals]);
 
   useEffect(() => {
     setLocalProfile(profile);
@@ -62,6 +71,28 @@ export default function ProfilePanel() {
     if (idx >= 0) goals.splice(idx, 1);
     else goals.push(goal);
     setLocalProfile({ ...localProfile, goals });
+  };
+
+  const handleAddCustomGoal = async () => {
+    const name = newGoalName.trim();
+    if (!name) {
+      setGoalError('Введите название цели');
+      return;
+    }
+    if (name.length > 50) {
+      setGoalError('Название слишком длинное (макс. 50 символов)');
+      return;
+    }
+    setGoalError('');
+    await addCustomGoal(name);
+    setNewGoalName('');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddCustomGoal();
+    }
   };
 
   const handleSave = async () => {
@@ -154,9 +185,10 @@ export default function ProfilePanel() {
         </TabsContent>
 
         <TabsContent value="goals" className="mt-4 space-y-4">
+          {/* Preset goals */}
           <Card>
             <CardHeader className="pb-3 pt-4 px-4">
-              <CardTitle className="text-base">Ваши цели</CardTitle>
+              <CardTitle className="text-base">Предустановленные цели</CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4">
               <p className="mb-3 text-xs text-muted-foreground">
@@ -183,6 +215,82 @@ export default function ProfilePanel() {
                   );
                 })}
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Custom goals */}
+          <Card>
+            <CardHeader className="pb-3 pt-4 px-4">
+              <CardTitle className="text-base">Свои цели</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <p className="mb-3 text-xs text-muted-foreground">
+                Создайте собственные цели. Активные цели используются в рекомендациях.
+              </p>
+              <div className="flex gap-2 mb-3">
+                <Input
+                  value={newGoalName}
+                  onChange={(e) => { setNewGoalName(e.target.value); setGoalError(''); }}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Название цели..."
+                  maxLength={50}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleAddCustomGoal}
+                  size="icon"
+                  disabled={!newGoalName.trim()}
+                  className="shrink-0 rounded-full"
+                  title="Добавить цель"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              {goalError && (
+                <p className="text-xs text-destructive mb-2">{goalError}</p>
+              )}
+              {customGoals.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">
+                  Нет созданных целей. Добавьте первую выше.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {customGoals.map((goal) => (
+                    <div
+                      key={goal.id}
+                      className={`flex items-center gap-2 rounded-lg border p-3 transition-all ${
+                        goal.isActive
+                          ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30'
+                          : 'opacity-60'
+                      }`}
+                    >
+                      <button
+                        onClick={() => toggleCustomGoal(goal.id)}
+                        className="shrink-0"
+                        title={goal.isActive ? 'Деактивировать' : 'Активировать'}
+                      >
+                        <Star
+                          className={`h-4 w-4 transition-colors ${
+                            goal.isActive
+                              ? 'fill-emerald-500 text-emerald-500'
+                              : 'text-muted-foreground'
+                          }`}
+                        />
+                      </button>
+                      <span className={`text-sm font-medium flex-1 ${goal.isActive ? 'text-emerald-700 dark:text-emerald-400' : ''}`}>
+                        {goal.name}
+                      </span>
+                      <button
+                        onClick={() => deleteCustomGoal(goal.id)}
+                        className="shrink-0 rounded p-1 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                        title="Удалить цель"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

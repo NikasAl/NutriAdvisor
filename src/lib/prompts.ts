@@ -194,7 +194,8 @@ export class NutritionPrompts {
 
   static getContextualPrompt(
     contextType: string,
-    profile: UserProfile | null
+    profile: UserProfile | null,
+    activeCustomGoalNames?: string[]
   ): string {
     const prompts: Record<string, string> = {
       initial: this.getInitialAssessmentPrompt(),
@@ -227,7 +228,8 @@ export class NutritionPrompts {
       if (profile.weight) basePrompt += `Вес: ${profile.weight} кг\n`;
       if (profile.height) basePrompt += `Рост: ${profile.height} см\n`;
       if (profile.gender) basePrompt += `Пол: ${profile.gender === 'male' ? 'Мужской' : profile.gender === 'female' ? 'Женский' : 'Другой'}\n`;
-      basePrompt += `Цели: ${goalNames || 'не указаны'}\n`;
+      const allGoalNames = [goalNames, ...(activeCustomGoalNames?.filter(Boolean) || [])].filter(Boolean).join(', ');
+      basePrompt += `Цели: ${allGoalNames || 'не указаны'}\n`;
       basePrompt += `Уровень активности: ${actLabel}\n`;
       if (profile.restrictions)
         basePrompt += `Ограничения: ${profile.restrictions}\n`;

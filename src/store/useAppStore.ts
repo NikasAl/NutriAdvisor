@@ -10,6 +10,7 @@ import type {
   ChatMessage,
   FoodEntry,
   MealType,
+  CustomGoal,
 } from '@/lib/types';
 import { NutritionPrompts } from '@/lib/prompts';
 import { callLLM, callLLMStream, buildChatMessages, buildVisionMessages } from '@/lib/llm-client';
@@ -55,6 +56,13 @@ interface AppState {
   profile: UserProfile;
   loadProfile: () => Promise<void>;
   saveProfile: (p: Partial<UserProfile>) => Promise<void>;
+
+  // Custom Goals
+  customGoals: CustomGoal[];
+  loadCustomGoals: () => Promise<void>;
+  addCustomGoal: (name: string) => Promise<void>;
+  deleteCustomGoal: (id: string) => Promise<void>;
+  toggleCustomGoal: (id: string) => Promise<void>;
 
   // Food entries
   foodEntries: FoodEntry[];
@@ -273,6 +281,37 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ profile: updated });
   },
 
+  // Custom Goals
+  customGoals: [],
+
+  loadCustomGoals: async () => {
+    const goals = await db.customGoals.orderBy('createdAt').reverse().toArray();
+    set({ customGoals: goals });
+  },
+
+  addCustomGoal: async (name: string) => {
+    const id = uuid();
+    const now = new Date();
+    const goal: CustomGoal = { id, name, isActive: true, createdAt: now };
+    await db.customGoals.add(goal);
+    set((s) => ({ customGoals: [goal, ...s.customGoals] }));
+  },
+
+  deleteCustomGoal: async (id: string) => {
+    await db.customGoals.delete(id);
+    set((s) => ({ customGoals: s.customGoals.filter((g) => g.id !== id) }));
+  },
+
+  toggleCustomGoal: async (id: string) => {
+    const goal = get().customGoals.find((g) => g.id === id);
+    if (!goal) return;
+    const updated = { ...goal, isActive: !goal.isActive };
+    await db.customGoals.update(id, { isActive: updated.isActive });
+    set((s) => ({
+      customGoals: s.customGoals.map((g) => (g.id === id ? updated : g)),
+    }));
+  },
+
   // Food entries
   foodEntries: [],
 
@@ -358,7 +397,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   resendFromMessage: async (messageId: string, newContent: string, nutritionPeriod: string = 'today') => {
-    const { currentChatId, chatMessages, profile, foodEntries } = get();
+    const { currentChatId, chatMessages, profile, foodEntries, customGoals } = get();
     const provider = get().getActiveProvider();
 
     if (!provider || !provider.baseUrl || !provider.model) {
@@ -397,7 +436,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       // Build system prompt
       const contextType = NutritionPrompts.detectContextFromMessage(newContent);
-      let systemPrompt = NutritionPrompts.getContextualPrompt(contextType, profile);
+      const activeGoalNames = customGoals.filter((g) => g.isActive).map((g) => g.name);
+      let systemPrompt = NutritionPrompts.getContextualPrompt(contextType, profile, activeGoalNames);
       const period = nutritionPeriod as 'today' | 'week' | 'month';
       const nutritionSummary = buildNutritionSummary(foodEntries, period);
       systemPrompt += nutritionSummary;
@@ -459,7 +499,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   sendChatMessage: async (content: string, nutritionPeriod: string = 'today'): Promise<string> => {
-    const { currentChatId, chatMessages, profile, foodEntries } = get();
+    const { currentChatId, chatMessages, profile, foodEntries, customGoals } = get();
     const provider = get().getActiveProvider();
 
     if (!provider || !provider.baseUrl || !provider.model) {
@@ -488,7 +528,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       // Detect context and build system prompt
       const contextType = NutritionPrompts.detectContextFromMessage(content);
-      let systemPrompt = NutritionPrompts.getContextualPrompt(contextType, profile);
+      const activeGoalNames = customGoals.filter((g) => g.isActive).map((g) => g.name);
+      let systemPrompt = NutritionPrompts.getContextualPrompt(contextType, profile, activeGoalNames);
 
       // Add nutrition context based on selected period
       const period = nutritionPeriod as 'today' | 'week' | 'month';

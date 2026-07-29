@@ -123,4 +123,11 @@ export interface ConversationContext {
   summary: string | null;
 }
 
+export interface CustomGoal {
+  id: string;
+  name: string;
+  isActive: boolean;
+  createdAt: Date;
+}
+
 export type TabId = 'dashboard' | 'food' | 'chat' | 'profile' | 'settings';
