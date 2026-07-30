@@ -36,7 +36,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   Plus, Camera, ImageIcon, Loader2, Trash2, Utensils, ChevronDown, ChevronUp,
-  Send, Check, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, Bug, CalendarDays,
+  Send, Check, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, Bug, CalendarDays, Pencil,
 } from 'lucide-react';
 import type { MealType, FoodEntry } from '@/lib/types';
 import { MEAL_LABELS } from '@/lib/types';
@@ -56,50 +56,47 @@ function parseNutritionFromText(text: string): {
     carbs: null as number | null,
   };
 
-  const num = '([\\d]+(?:[.,][\\d]+)?)';
+  const num = '(\\d+[.,]?\\d*)';
 
-  // Calories: many possible formats
-  // "Калорийность: 500 ккал" / "**Калорийность:** 500 ккал" / "~500 ккал" / "500 ккал"
+  // Calories
   const calPatterns = [
-    new RegExp(`(?:калор[ияйно]+сть|\\*\\*Калорийность\\*\\*)[\\s:*]*[~≈]?\\s*${num}\\s*(?:ккал|kcal|kkal)?`, 'i'),
-    new RegExp(`${num}\\s*(?:ккал|kcal|kkal)`, 'i'),
+    new RegExp(`(?:калори[ияй]|ккал|cal|kcal|Calories|Калории)[:\s]*[~≈]?\\s*${num}\\s*(?:ккал|кКал|kkal|cal|к)?`, 'i'),
+    new RegExp(`${num}\\s*(?:ккал|kkal|cal)`, 'i'),
+    new RegExp(`Калории[:\s]*${num}`, 'i'),
+    new RegExp(`К:[\\s:*|—–-]+[~≈]?\\s*${num}\\s*ккал`, 'i'),
   ];
   for (const p of calPatterns) {
     const m = text.match(p);
     if (m) { nums.calories = parseFloat(m[1].replace(',', '.')); break; }
   }
 
-  // Protein: "**Белки:** 25 г" / "Белки: 25г" / "Б: 25 г" / "белки — 25 г" / "протеин 25г"
+  // Protein
   const protPatterns = [
-    new RegExp(`\\*\\*\\s*[Бб]ел(?:ки?|ок)\\s*\\*\\*[\\s:*|]*[~≈]?\\s*${num}\\s*г`, 'i'),
-    new RegExp(`[Бб]ел(?:ки?|ов)?[\\s:*|—–-]+[~≈]?\\s*${num}\\s*г`, 'i'),
-    new RegExp(`[Бб]\\s*[.:|]\\s*[~≈]?\\s*${num}\\s*г`, 'i'),
-    new RegExp(`проте[ияын]+[\\s:*|—–-]+[~≈]?\\s*${num}\\s*г`, 'i'),
-    new RegExp(`protein[\\s:*|—–-]+[~≈]?\\s*${num}\\s*г?`, 'i'),
+    new RegExp(`(?:бел(?:ок|ки|ка)|протеин|protein)[:\s]*[~≈]?\\s*${num}\\s*г?`, 'i'),
+    new RegExp(`${num}\\s*г?\\s*(?:бел(?:ок|ки|ка)|протеин)`, 'i'),
+    new RegExp(`Б[:\s]*[~≈]?\\s*${num}\\s*г`, 'i'),
   ];
   for (const p of protPatterns) {
     const m = text.match(p);
     if (m) { nums.protein = parseFloat(m[1].replace(',', '.')); break; }
   }
 
-  // Fat: "**Жиры:** 15 г" / "Жиры: 15г" / "Ж: 15 г" / "жиры — 15 г" / "fat 15g"
+  // Fat
   const fatPatterns = [
-    new RegExp(`\\*\\*\\s*[Жж]ир(?:ы?|ов)?\\s*\\*\\*[\\s:*|]*[~≈]?\\s*${num}\\s*г`, 'i'),
-    new RegExp(`[Жж]ир(?:ы?|ов)?[\\s:*|—–-]+[~≈]?\\s*${num}\\s*г`, 'i'),
-    new RegExp(`[Жж]\\s*[.:|]\\s*[~≈]?\\s*${num}\\s*г`, 'i'),
-    new RegExp(`fat[\\s:*|—–-]+[~≈]?\\s*${num}\\s*г?`, 'i'),
+    new RegExp(`(?:жиры?|fats?)[:\s]*[~≈]?\\s*${num}\\s*г?`, 'i'),
+    new RegExp(`Ж[:\s]*[~≈]?\\s*${num}\\s*г`, 'i'),
   ];
   for (const p of fatPatterns) {
     const m = text.match(p);
     if (m) { nums.fat = parseFloat(m[1].replace(',', '.')); break; }
   }
 
-  // Carbs: "**Углеводы:** 60 г" / "Углеводы: 60г" / "У: 60 г" / "углеводы — 60 г" / "carbs 60g"
+  // Carbs
   const carbPatterns = [
-    new RegExp(`\\*\\*\\s*[Уу]глев(?:оды?)?\\s*\\*\\*[\\s:*|]*[~≈]?\\s*${num}\\s*г`, 'i'),
+    new RegExp(`углев(?:оды?)?[\s:*|—–-]+[~≈]?\\s*${num}\\s*г`, 'i'),
     new RegExp(`[Уу]глев(?:оды?)?[\\s:*|—–-]+[~≈]?\\s*${num}\\s*г`, 'i'),
     new RegExp(`[Уу]\\s*[.:|]\\s*[~≈]?\\s*${num}\\s*г`, 'i'),
-    new RegExp(`carbo?hydrates?[\\s:*|—–-]+[~≈]?\\s*${num}\\s*г?`, 'i'),
+    new RegExp(`carbo?hydrates?[\s:*|—–-]+[~≈]?\\s*${num}\\s*г?`, 'i'),
   ];
   for (const p of carbPatterns) {
     const m = text.match(p);
@@ -124,6 +121,7 @@ export default function FoodJournalPanel() {
   const foodEntries = useAppStore((s) => s.foodEntries);
   const loadFoodEntries = useAppStore((s) => s.loadFoodEntries);
   const addFoodEntry = useAppStore((s) => s.addFoodEntry);
+  const updateFoodEntry = useAppStore((s) => s.updateFoodEntry);
   const deleteFoodEntry = useAppStore((s) => s.deleteFoodEntry);
   const analyzeFoodText = useAppStore((s) => s.analyzeFoodText);
   const analyzeFoodImage = useAppStore((s) => s.analyzeFoodImage);
@@ -145,6 +143,9 @@ export default function FoodJournalPanel() {
   const [parsedFat, setParsedFat] = useState('');
   const [parsedCarbs, setParsedCarbs] = useState('');
   const [showNutrEdit, setShowNutrEdit] = useState(false);
+
+  // Edit mode
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
 
   // Pagination
   const [page, setPage] = useState(0);
@@ -217,22 +218,40 @@ export default function FoodJournalPanel() {
   };
 
   const handleSave = async () => {
-    await addFoodEntry({
-      date: selectedDate,
-      mealType,
-      description,
-      photoBase64: photoBase64 ?? undefined,
-      weight: weight ? Number(weight) : undefined,
-      estimatedCalories: parsedCal ? Number(parsedCal) : undefined,
-      estimatedProtein: parsedProt ? Number(parsedProt) : undefined,
-      estimatedFat: parsedFat ? Number(parsedFat) : undefined,
-      estimatedCarbs: parsedCarbs ? Number(parsedCarbs) : undefined,
-      aiAnalysis: analysisResult || undefined,
-    });
+    if (editingEntryId) {
+      // Update existing entry
+      await updateFoodEntry(editingEntryId, {
+        date: selectedDate,
+        mealType,
+        description,
+        photoBase64: photoBase64 ?? undefined,
+        weight: weight ? Number(weight) : undefined,
+        estimatedCalories: parsedCal ? Number(parsedCal) : undefined,
+        estimatedProtein: parsedProt ? Number(parsedProt) : undefined,
+        estimatedFat: parsedFat ? Number(parsedFat) : undefined,
+        estimatedCarbs: parsedCarbs ? Number(parsedCarbs) : undefined,
+        aiAnalysis: analysisResult || undefined,
+      });
+    } else {
+      // Add new entry
+      await addFoodEntry({
+        date: selectedDate,
+        mealType,
+        description,
+        photoBase64: photoBase64 ?? undefined,
+        weight: weight ? Number(weight) : undefined,
+        estimatedCalories: parsedCal ? Number(parsedCal) : undefined,
+        estimatedProtein: parsedProt ? Number(parsedProt) : undefined,
+        estimatedFat: parsedFat ? Number(parsedFat) : undefined,
+        estimatedCarbs: parsedCarbs ? Number(parsedCarbs) : undefined,
+        aiAnalysis: analysisResult || undefined,
+      });
+    }
     resetForm();
   };
 
   const resetForm = () => {
+    setEditingEntryId(null);
     setSelectedDate(new Date().toISOString().split('T')[0]);
     setDescription('');
     setWeight('');
@@ -244,6 +263,22 @@ export default function FoodJournalPanel() {
     setParsedFat('');
     setParsedCarbs('');
     setShowNutrEdit(false);
+  };
+
+  const handleEditEntry = (entry: FoodEntry) => {
+    setEditingEntryId(entry.id ?? null);
+    setSelectedDate(entry.date);
+    setMealType(entry.mealType);
+    setDescription(entry.description);
+    setWeight(entry.weight ? String(entry.weight) : '');
+    setPhotoBase64(entry.photoBase64 ?? null);
+    setAnalysisResult(entry.aiAnalysis ?? '');
+    setParsedCal(entry.estimatedCalories ? String(entry.estimatedCalories) : '');
+    setParsedProt(entry.estimatedProtein ? String(entry.estimatedProtein) : '');
+    setParsedFat(entry.estimatedFat ? String(entry.estimatedFat) : '');
+    setParsedCarbs(entry.estimatedCarbs ? String(entry.estimatedCarbs) : '');
+    setShowNutrEdit(!!entry.aiAnalysis);
+    setIsAddOpen(true);
   };
 
   const toggleExpand = (id: string) => {
@@ -288,6 +323,13 @@ export default function FoodJournalPanel() {
               )}
             </div>
             <div className="flex flex-col items-center gap-1 shrink-0">
+              <button
+                onClick={() => handleEditEntry(entry)}
+                className="rounded-md p-1 hover:bg-muted text-muted-foreground"
+                title="Редактировать"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
               <button
                 onClick={() => toggleExpand(eid)}
                 className="rounded-md p-1 hover:bg-muted text-muted-foreground"
@@ -419,7 +461,7 @@ export default function FoodJournalPanel() {
         )}
       </div>
 
-      {/* FAB */}
+      {/* FAB + Dialog */}
       <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) resetForm(); }}>
         <Button
           className="fixed bottom-20 right-4 z-40 h-14 w-14 rounded-full shadow-lg"
@@ -430,7 +472,7 @@ export default function FoodJournalPanel() {
         </Button>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Добавить приём пищи</DialogTitle>
+            <DialogTitle>{editingEntryId ? 'Редактировать приём пищи' : 'Добавить приём пищи'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             {/* Photo section */}
@@ -572,7 +614,7 @@ export default function FoodJournalPanel() {
           <DialogFooter>
             <DialogClose asChild><Button variant="outline">Отмена</Button></DialogClose>
             <Button onClick={handleSave} disabled={!description && !photoBase64}>
-              <Check className="mr-1.5 h-4 w-4" /> Сохранить
+              <Check className="mr-1.5 h-4 w-4" /> {editingEntryId ? 'Сохранить изменения' : 'Сохранить'}
             </Button>
           </DialogFooter>
         </DialogContent>

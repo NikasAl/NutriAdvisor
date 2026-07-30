@@ -68,6 +68,7 @@ interface AppState {
   foodEntries: FoodEntry[];
   loadFoodEntries: () => Promise<void>;
   addFoodEntry: (entry: Omit<FoodEntry, 'id' | 'createdAt'>) => Promise<void>;
+  updateFoodEntry: (id: string, updates: Partial<FoodEntry>) => Promise<void>;
   deleteFoodEntry: (id: string) => Promise<void>;
   getEntriesForDate: (date: string) => FoodEntry[];
 
@@ -331,6 +332,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   deleteFoodEntry: async (id) => {
     await db.foodEntries.delete(id);
     set((s) => ({ foodEntries: s.foodEntries.filter((e) => e.id !== id) }));
+  },
+
+  updateFoodEntry: async (id, updates) => {
+    await db.foodEntries.update(id, updates);
+    set((s) => ({
+      foodEntries: s.foodEntries.map((e) => (e.id === id ? { ...e, ...updates } : e)),
+    }));
   },
 
   getEntriesForDate: (date: string) => {

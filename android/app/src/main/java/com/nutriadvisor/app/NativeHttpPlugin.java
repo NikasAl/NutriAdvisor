@@ -53,7 +53,7 @@ public class NativeHttpPlugin extends Plugin {
                 conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod(method);
                 conn.setConnectTimeout(30000);
-                conn.setReadTimeout(120000);
+                conn.setReadTimeout(300000);
                 conn.setDoInput(true);
 
                 Iterator<String> keys = headers.keys();

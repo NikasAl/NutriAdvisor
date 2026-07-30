@@ -60,6 +60,7 @@ export async function nativeRequest(
     method: options.method ?? 'POST',
     headers: options.headers ?? {},
     body: options.body,
+    signal: AbortSignal.timeout(300_000),
   });
 
   const responseBody = await res.text();
