@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -36,7 +36,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   Plus, Camera, ImageIcon, Loader2, Trash2, Utensils, ChevronDown, ChevronUp,
-  Send, Check, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, Bug, CalendarDays, Pencil,
+  Send, Check, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, Bug, CalendarDays, Pencil, Search, BookOpen, X,
 } from 'lucide-react';
 import type { MealType, FoodEntry } from '@/lib/types';
 import { MEAL_LABELS } from '@/lib/types';
@@ -126,12 +126,18 @@ export default function FoodJournalPanel() {
   const analyzeFoodText = useAppStore((s) => s.analyzeFoodText);
   const analyzeFoodImage = useAppStore((s) => s.analyzeFoodImage);
   const isSending = useAppStore((s) => s.isSending);
+  const foodLibrary = useAppStore((s) => s.foodLibrary);
+  const loadFoodLibrary = useAppStore((s) => s.loadFoodLibrary);
+  const seedFoodLibraryFromEntries = useAppStore((s) => s.seedFoodLibraryFromEntries);
+  const deleteFoodLibraryItem = useAppStore((s) => s.deleteFoodLibraryItem);
   const lastAnalysisDebug = useAppStore((s) => s.lastAnalysisDebug);
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [description, setDescription] = useState('');
   const [weight, setWeight] = useState('');
+  const [libSearch, setLibSearch] = useState('');
+  const [showLibrary, setShowLibrary] = useState(false);
   const [mealType, setMealType] = useState<MealType>('lunch');
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState('');
@@ -156,7 +162,9 @@ export default function FoodJournalPanel() {
 
   React.useEffect(() => {
     loadFoodEntries();
-  }, [loadFoodEntries]);
+    loadFoodLibrary();
+    seedFoodLibraryFromEntries();
+  }, [loadFoodEntries, loadFoodLibrary, seedFoodLibraryFromEntries]);
 
   const today = new Date().toISOString().split('T')[0];
   const todayEntries = foodEntries.filter((e) => e.date === today);
@@ -263,6 +271,20 @@ export default function FoodJournalPanel() {
     setParsedFat('');
     setParsedCarbs('');
     setShowNutrEdit(false);
+    setLibSearch('');
+  };
+
+  const filteredLibrary = useMemo(() => {
+    const q = libSearch.trim().toLowerCase();
+    if (!q) return foodLibrary.slice(0, 20);
+    return foodLibrary.filter((i) => i.name.toLowerCase().includes(q)).slice(0, 20);
+  }, [foodLibrary, libSearch]);
+
+  const selectLibraryItem = (item: typeof foodLibrary[0]) => {
+    setDescription(item.name);
+    setWeight(item.defaultWeight ? String(item.defaultWeight) : '');
+    setMealType(item.lastMealType);
+    setLibSearch('');
   };
 
   const handleEditEntry = (entry: FoodEntry) => {
@@ -408,6 +430,27 @@ export default function FoodJournalPanel() {
         </CardContent>
       </Card>
 
+      {foodLibrary.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-sm">Мои продукты ({foodLibrary.length})</CardTitle></CardHeader>
+          <CardContent className="px-4 pb-3"><div className="flex flex-wrap gap-1.5">
+            {foodLibrary.slice(0, 30).map((item) => (
+              <div key={item.id} className="group relative flex items-center gap-1 rounded-full border bg-background px-2.5 py-1">
+                <button onClick={() => { setDescription(item.name); setWeight(item.defaultWeight ? String(item.defaultWeight) : ''); setMealType(item.lastMealType); setIsAddOpen(true); }} className="text-xs hover:text-emerald-600 transition-colors" >
+                  {item.name}{item.defaultWeight ? ` ${item.defaultWeight}г` : ''}
+                </button>
+                <button onClick={() => deleteFoodLibraryItem(item.id)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all" >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+            {foodLibrary.length > 30 && (
+              <span className="text-[10px] text-muted-foreground self-center">+{foodLibrary.length - 30}</span>
+            )}
+          </div></CardContent>
+        </Card>
+      )}
+
       {/* Food entries list */}
       <div className="space-y-2">
         {/* Today entries */}
@@ -520,6 +563,45 @@ export default function FoodJournalPanel() {
                 </SelectContent>
               </Select>
             </div>
+            {foodLibrary.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Быстрый выбор</Label>
+                  <button onClick={() => setShowLibrary(!showLibrary)} className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors" >
+                    <BookOpen className="h-3 w-3" />
+                    {showLibrary ? 'Скрыть' : 'Все продукты'}
+                  </button>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                  <Input value={libSearch} onChange={(e) => setLibSearch(e.target.value)} placeholder="Поиск по названию..." className="pl-8 pr-8 h-9 text-sm" onFocus={() => setShowLibrary(true)} />
+                  {libSearch && (
+                    <button onClick={() => setLibSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+                {showLibrary && filteredLibrary.length > 0 && (
+                  <div className="max-h-40 overflow-y-auto rounded-lg border bg-popover p-1 space-y-0.5">
+                    {filteredLibrary.map((item) => (
+                      <button key={item.id} onClick={() => selectLibraryItem(item)} className="w-full flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent transition-colors" >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium truncate">{item.name}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {item.defaultWeight ? `${item.defaultWeight}г` : '—'}
+                            {' · '}{MEAL_LABELS[item.lastMealType]}
+                          </p>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground shrink-0">x{item.useCount}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {showLibrary && filteredLibrary.length === 0 && libSearch && (
+                  <p className="text-xs text-muted-foreground text-center py-2">Ничего не найдено</p>
+                )}
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label className="text-xs">Описание</Label>
               <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Овсянка с бананом и мёдом, кофе без сахара" rows={2} />

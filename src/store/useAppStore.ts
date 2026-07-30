@@ -11,6 +11,7 @@ import type {
   FoodEntry,
   MealType,
   CustomGoal,
+  FoodLibraryItem,
 } from '@/lib/types';
 import { NutritionPrompts } from '@/lib/prompts';
 import { callLLM, callLLMStream, buildChatMessages, buildVisionMessages } from '@/lib/llm-client';
@@ -63,6 +64,13 @@ interface AppState {
   addCustomGoal: (name: string) => Promise<void>;
   deleteCustomGoal: (id: string) => Promise<void>;
   toggleCustomGoal: (id: string) => Promise<void>;
+
+  // Food Library
+  foodLibrary: FoodLibraryItem[];
+  loadFoodLibrary: () => Promise<void>;
+  addFoodLibraryItem: (name: string, mealType: MealType, weight?: number) => Promise<void>;
+  deleteFoodLibraryItem: (id: string) => Promise<void>;
+  seedFoodLibraryFromEntries: () => Promise<void>;
 
   // Food entries
   foodEntries: FoodEntry[];
@@ -313,6 +321,76 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
   },
 
+  // Food Library
+  foodLibrary: [],
+
+  loadFoodLibrary: async () => {
+    const items = await db.foodLibrary.orderBy('lastUsedAt').reverse().toArray();
+    set({ foodLibrary: items });
+  },
+
+  addFoodLibraryItem: async (name: string, mealType: MealType, weight?: number) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const existing = await db.foodLibrary.where('name').equalsIgnoreCase(trimmed).first();
+    const now = new Date();
+    if (existing) {
+      const updated = {
+        ...existing,
+        useCount: existing.useCount + 1,
+        lastUsedAt: now,
+        lastMealType: mealType,
+        defaultWeight: weight ?? existing.defaultWeight,
+      };
+      await db.foodLibrary.update(existing.id, updated);
+      set((s) => ({
+        foodLibrary: [updated, ...s.foodLibrary.filter((i) => i.id !== existing.id)],
+      }));
+    } else {
+      const id = uuid();
+      const item: FoodLibraryItem = {
+        id, name: trimmed, defaultWeight: weight, lastMealType: mealType,
+        useCount: 1, lastUsedAt: now, createdAt: now,
+      };
+      await db.foodLibrary.add(item);
+      set((s) => ({ foodLibrary: [item, ...s.foodLibrary] }));
+    }
+  },
+
+  deleteFoodLibraryItem: async (id: string) => {
+    await db.foodLibrary.delete(id);
+    set((s) => ({ foodLibrary: s.foodLibrary.filter((i) => i.id !== id) }));
+  },
+
+  seedFoodLibraryFromEntries: async () => {
+    const existingCount = await db.foodLibrary.count();
+    if (existingCount > 0) return; // Already seeded
+    const entries = await db.foodEntries.toArray();
+    // Extract unique descriptions, keep latest weight per description
+    const map = new Map<string, { weight?: number; mealType: MealType; lastUsed: Date }>();
+    for (const e of entries) {
+      const key = e.description.trim().toLowerCase();
+      const prev = map.get(key);
+      if (!prev || e.createdAt > prev.lastUsed) {
+        map.set(key, { weight: e.weight ?? undefined, mealType: e.mealType, lastUsed: e.createdAt });
+      }
+    }
+    const now = new Date();
+    const items: FoodLibraryItem[] = [];
+    for (const [key, val] of map) {
+      // Use original casing from entries
+      const originalName = entries.find((e) => e.description.trim().toLowerCase() === key)?.description.trim() ?? key;
+      items.push({
+        id: uuid(), name: originalName, defaultWeight: val.weight,
+        lastMealType: val.mealType, useCount: 1, lastUsedAt: val.lastUsed, createdAt: now,
+      });
+    }
+    if (items.length > 0) {
+      await db.foodLibrary.bulkAdd(items);
+      set((s) => ({ foodLibrary: [...items, ...s.foodLibrary] }));
+    }
+  },
+
   // Food entries
   foodEntries: [],
 
@@ -327,6 +405,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     const full: FoodEntry = { ...entry, id, createdAt: now };
     await db.foodEntries.add(full);
     set((s) => ({ foodEntries: [full, ...s.foodEntries] }));
+    // Auto-update food library
+    get().addFoodLibraryItem(entry.description, entry.mealType, entry.weight);
   },
 
   deleteFoodEntry: async (id) => {
@@ -339,6 +419,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((s) => ({
       foodEntries: s.foodEntries.map((e) => (e.id === id ? { ...e, ...updates } : e)),
     }));
+    // Update library if description changed
+    if (updates.description) {
+      get().addFoodLibraryItem(updates.description, updates.mealType ?? 'lunch', updates.weight);
+    }
   },
 
   getEntriesForDate: (date: string) => {

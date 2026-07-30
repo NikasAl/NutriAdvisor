@@ -130,4 +130,14 @@ export interface CustomGoal {
   createdAt: Date;
 }
 
+export interface FoodLibraryItem {
+  id: string;
+  name: string;
+  defaultWeight?: number;
+  lastMealType: MealType;
+  useCount: number;
+  lastUsedAt: Date;
+  createdAt: Date;
+}
+
 export type TabId = 'dashboard' | 'food' | 'chat' | 'profile' | 'settings';
