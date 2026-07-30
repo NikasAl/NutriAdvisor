@@ -138,6 +138,7 @@ export default function FoodJournalPanel() {
   const [weight, setWeight] = useState('');
   const [libSearch, setLibSearch] = useState('');
   const [showLibrary, setShowLibrary] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
   const [mealType, setMealType] = useState<MealType>('lunch');
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState('');
@@ -432,22 +433,35 @@ export default function FoodJournalPanel() {
 
       {foodLibrary.length > 0 && (
         <Card>
-          <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-sm">Мои продукты ({foodLibrary.length})</CardTitle></CardHeader>
-          <CardContent className="px-4 pb-3"><div className="flex flex-wrap gap-1.5">
-            {foodLibrary.slice(0, 30).map((item) => (
-              <div key={item.id} className="group relative flex items-center gap-1 rounded-full border bg-background px-2.5 py-1">
-                <button onClick={() => { setDescription(item.name); setWeight(item.defaultWeight ? String(item.defaultWeight) : ''); setMealType(item.lastMealType); setIsAddOpen(true); }} className="text-xs hover:text-emerald-600 transition-colors" >
-                  {item.name}{item.defaultWeight ? ` ${item.defaultWeight}г` : ''}
-                </button>
-                <button onClick={() => deleteFoodLibraryItem(item.id)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all" >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-            {foodLibrary.length > 30 && (
-              <span className="text-[10px] text-muted-foreground self-center">+{foodLibrary.length - 30}</span>
-            )}
-          </div></CardContent>
+          <CardHeader className="pb-2 pt-4 px-4">
+            <button
+              onClick={() => setShowTemplates(!showTemplates)}
+              className="flex items-center justify-between w-full text-left"
+            >
+              <CardTitle className="text-sm">Шаблоны еды ({foodLibrary.length})</CardTitle>
+              {showTemplates
+                ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              }
+            </button>
+          </CardHeader>
+          {showTemplates && (
+            <CardContent className="px-4 pb-3"><div className="flex flex-wrap gap-1.5">
+              {foodLibrary.slice(0, 30).map((item) => (
+                <div key={item.id} className="group relative flex items-center gap-1 rounded-full border bg-background px-2.5 py-1">
+                  <button onClick={() => { setDescription(item.name); setWeight(item.defaultWeight ? String(item.defaultWeight) : ''); setMealType(item.lastMealType); setIsAddOpen(true); }} className="text-xs hover:text-emerald-600 transition-colors max-w-[180px] truncate" >
+                    {item.name}{item.defaultWeight ? ` ${item.defaultWeight}г` : ''}
+                  </button>
+                  <button onClick={() => deleteFoodLibraryItem(item.id)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all" >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              {foodLibrary.length > 30 && (
+                <span className="text-[10px] text-muted-foreground self-center">+{foodLibrary.length - 30}</span>
+              )}
+            </div></CardContent>
+          )}
         </Card>
       )}
 
@@ -513,7 +527,7 @@ export default function FoodJournalPanel() {
         >
           <Plus className="h-6 w-6" />
         </Button>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
             <DialogTitle>{editingEntryId ? 'Редактировать приём пищи' : 'Добавить приём пищи'}</DialogTitle>
           </DialogHeader>
@@ -582,12 +596,12 @@ export default function FoodJournalPanel() {
                   )}
                 </div>
                 {showLibrary && filteredLibrary.length > 0 && (
-                  <div className="max-h-40 overflow-y-auto rounded-lg border bg-popover p-1 space-y-0.5">
+                  <div className="max-h-40 overflow-y-auto rounded-lg border bg-popover p-1 space-y-0.5 max-w-full overflow-x-hidden">
                     {filteredLibrary.map((item) => (
-                      <button key={item.id} onClick={() => selectLibraryItem(item)} className="w-full flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent transition-colors" >
-                        <div className="min-w-0 flex-1">
+                      <button key={item.id} onClick={() => selectLibraryItem(item)} className="w-full flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent transition-colors min-w-0 max-w-full" >
+                        <div className="min-w-0 flex-1 overflow-hidden">
                           <p className="text-xs font-medium truncate">{item.name}</p>
-                          <p className="text-[10px] text-muted-foreground">
+                          <p className="text-[10px] text-muted-foreground truncate">
                             {item.defaultWeight ? `${item.defaultWeight}г` : '—'}
                             {' · '}{MEAL_LABELS[item.lastMealType]}
                           </p>
