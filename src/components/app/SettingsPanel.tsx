@@ -40,10 +40,11 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Pencil, Key, Zap, Eye, Loader2, CheckCircle2, XCircle, Wifi, Download, Upload, X, ListChecks } from 'lucide-react';
+import { Plus, Trash2, Pencil, Key, Zap, Eye, Loader2, CheckCircle2, XCircle, Wifi, Download, Upload, X, ListChecks, Share2 } from 'lucide-react';
 import type { LLMProvider, ProviderType } from '@/lib/types';
 import { testProvider } from '@/lib/llm-client';
 import { db } from '@/lib/db';
+import { isNativePlatform } from '@/lib/nativeHttp';
 
 const PRESETS: Record<ProviderType, { name: string; baseUrl: string; model: string; supportsVision: boolean; needsKey: boolean }> = {
   openai: { name: 'OpenAI', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini', supportsVision: true, needsKey: true },
@@ -168,18 +169,45 @@ export default function SettingsPanel() {
       };
 
       const json = JSON.stringify(data, null, 2);
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `nutriadvisor-backup-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
       const counts = `${data.providers.length} провайдер, ${data.foodEntries.length} записей еды, ${data.chatSessions.length} разговоров, ${data.chatMessages.length} сообщений`;
-      setExportStatus(`Готово! ${counts}`);
+      const fileName = `nutriadvisor-backup-${new Date().toISOString().split('T')[0]}.json`;
+
+      if (isNativePlatform()) {
+        // Native: save file then share via Android share sheet
+        const { Filesystem, Directory, Encoding } = await import('@capacitor/filesystem');
+        const { Share } = await import('@capacitor/share');
+
+        const result = await Filesystem.writeFile({
+          path: fileName,
+          data: json,
+          directory: Directory.Cache,
+          encoding: Encoding.UTF8,
+        });
+
+        const uri = result.uri;
+        await Share.share({
+          title: 'NutriAdvisor — резервная копия',
+          text: `Бэкап NutriAdvisor от ${new Date().toLocaleDateString('ru-RU')}`,
+          url: uri,
+        });
+
+        // Clean up cached file after sharing
+        try { await Filesystem.deleteFile({ path: fileName, directory: Directory.Cache }); } catch {}
+
+        setExportStatus(`Отправлено! ${counts}`);
+      } else {
+        // Browser: download via <a> trick
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setExportStatus(`Готово! ${counts}`);
+      }
       setTimeout(() => setExportStatus(''), 4000);
     } catch (err) {
       setExportStatus(`Ошибка: ${err instanceof Error ? err.message : 'неизвестная ошибка'}`);
@@ -614,8 +642,8 @@ export default function SettingsPanel() {
             onClick={handleExport}
             disabled={!!exportStatus}
           >
-            <Download className="h-4 w-4" />
-            {exportStatus || 'Экспорт' }
+            <Share2 className="h-4 w-4" />
+            {exportStatus || 'Отправить бэкап' }
           </Button>
 
           <Button

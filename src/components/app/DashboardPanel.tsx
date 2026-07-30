@@ -171,8 +171,8 @@ export default function DashboardPanel() {
             className="h-auto gap-2 py-3"
             onClick={() => setActiveTab('food')}
           >
-            <UtensilsCrossed className="h-4 w-4" />
-            <span className="text-xs">Записать приём пищи</span>
+            <UtensilsCrossed className="h-4 w-4 shrink-0" />
+            <span className="text-xs text-center leading-tight">Записать<br/>приём пищи</span>
           </Button>
           <Button
             variant="outline"
