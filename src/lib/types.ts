@@ -130,6 +130,31 @@ export interface CustomGoal {
   createdAt: Date;
 }
 
+export type DiaryEntryType = 'activity' | 'wellbeing' | 'blood_pressure';
+
+export const DIARY_TYPE_LABELS: Record<DiaryEntryType, string> = {
+  activity: 'Активность',
+  wellbeing: 'Самочувствие',
+  blood_pressure: 'Давление',
+};
+
+export interface DiaryEntry {
+  id?: string;
+  type: DiaryEntryType;
+  date: string; // ISO date string
+  time?: string; // HH:MM optional
+  // activity
+  description?: string;
+  durationMinutes?: number;
+  // wellbeing
+  note?: string;
+  // blood_pressure
+  systolic?: number;
+  diastolic?: number;
+  pulse?: number;
+  createdAt: Date;
+}
+
 export interface FoodLibraryItem {
   id: string;
   name: string;
@@ -140,4 +165,4 @@ export interface FoodLibraryItem {
   createdAt: Date;
 }
 
-export type TabId = 'dashboard' | 'food' | 'chat' | 'profile' | 'settings';
+export type TabId = 'dashboard' | 'food' | 'diary' | 'chat' | 'profile' | 'settings';

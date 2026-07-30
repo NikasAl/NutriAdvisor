@@ -12,6 +12,7 @@ import type {
   MealType,
   CustomGoal,
   FoodLibraryItem,
+  DiaryEntry,
 } from '@/lib/types';
 import { NutritionPrompts } from '@/lib/prompts';
 import { callLLM, callLLMStream, buildChatMessages, buildVisionMessages } from '@/lib/llm-client';
@@ -72,6 +73,13 @@ interface AppState {
   deleteFoodLibraryItem: (id: string) => Promise<void>;
   seedFoodLibraryFromEntries: () => Promise<void>;
 
+  // Diary entries
+  diaryEntries: DiaryEntry[];
+  loadDiaryEntries: () => Promise<void>;
+  addDiaryEntry: (entry: Omit<DiaryEntry, 'id' | 'createdAt'>) => Promise<void>;
+  updateDiaryEntry: (id: string, updates: Partial<DiaryEntry>) => Promise<void>;
+  deleteDiaryEntry: (id: string) => Promise<void>;
+
   // Food entries
   foodEntries: FoodEntry[];
   loadFoodEntries: () => Promise<void>;
@@ -104,6 +112,48 @@ interface AppState {
   isSending: boolean;
   streamingContent: string;
   stopStreaming: () => void;
+}
+
+/** Build a diary summary string from diary entries for a given period */
+function buildDiarySummary(
+  diaryEntries: DiaryEntry[],
+  period: 'today' | 'week' | 'month'
+): string {
+  const now = new Date();
+  const periodStart = new Date();
+  if (period === 'today') {
+    periodStart.setHours(0, 0, 0, 0);
+  } else if (period === 'week') {
+    periodStart.setDate(periodStart.getDate() - 7);
+    periodStart.setHours(0, 0, 0, 0);
+  } else {
+    periodStart.setDate(periodStart.getDate() - 30);
+    periodStart.setHours(0, 0, 0, 0);
+  }
+
+  const filtered = diaryEntries.filter((e) => new Date(e.date) >= periodStart);
+
+  if (filtered.length === 0) {
+    const label = period === 'today' ? 'за сегодня' : period === 'week' ? 'за последнюю неделю' : 'за последний месяц';
+    return `\n--- Записи дневника ${label} ---\nНет записей.\n--- Конец записей дневника ---`;
+  }
+
+  const label = period === 'today' ? 'за сегодня' : period === 'week' ? 'за последнюю неделю' : 'за последний месяц';
+  let summary = `\n--- Записи дневника ${label} ---\n`;
+
+  for (const e of filtered) {
+    const time = e.time ? ` ${e.time}` : '';
+    if (e.type === 'activity') {
+      const dur = e.durationMinutes ? ` ${e.durationMinutes} мин` : '';
+      summary += `• [${e.date}${time}] Активность: ${e.description || ''}${dur}\n`;
+    } else if (e.type === 'wellbeing') {
+      summary += `• [${e.date}${time}] Самочувствие: ${e.note || ''}\n`;
+    } else if (e.type === 'blood_pressure') {
+      summary += `• [${e.date}${time}] Давление: ${e.systolic ?? '?'}/${e.diastolic ?? '?'} мм рт.ст., пульс ${e.pulse ?? '?'} уд/мин\n`;
+    }
+  }
+  summary += '--- Конец записей дневника ---';
+  return summary;
 }
 
 /** Build a nutrition summary string from food entries for a given period */
@@ -391,6 +441,32 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  // Diary entries
+  diaryEntries: [],
+
+  loadDiaryEntries: async () => {
+    const entries = await db.diaryEntries.orderBy('createdAt').reverse().toArray();
+    set({ diaryEntries: entries });
+  },
+
+  addDiaryEntry: async (entry) => {
+    const newEntry: DiaryEntry = { ...entry, id: uuid(), createdAt: new Date() };
+    await db.diaryEntries.add(newEntry);
+    set((s) => ({ diaryEntries: [newEntry, ...s.diaryEntries] }));
+  },
+
+  updateDiaryEntry: async (id, updates) => {
+    await db.diaryEntries.update(id, updates);
+    set((s) => ({
+      diaryEntries: s.diaryEntries.map((e) => (e.id === id ? { ...e, ...updates } : e)),
+    }));
+  },
+
+  deleteDiaryEntry: async (id) => {
+    await db.diaryEntries.delete(id);
+    set((s) => ({ diaryEntries: s.diaryEntries.filter((e) => e.id !== id) }));
+  },
+
   // Food entries
   foodEntries: [],
 
@@ -489,7 +565,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   resendFromMessage: async (messageId: string, newContent: string, nutritionPeriod: string = 'today') => {
-    const { currentChatId, chatMessages, profile, foodEntries, customGoals } = get();
+    const { currentChatId, chatMessages, profile, foodEntries, customGoals, diaryEntries } = get();
     const provider = get().getActiveProvider();
 
     if (!provider || !provider.baseUrl || !provider.model) {
@@ -532,7 +608,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       let systemPrompt = NutritionPrompts.getContextualPrompt(contextType, profile, activeGoalNames);
       const period = nutritionPeriod as 'today' | 'week' | 'month';
       const nutritionSummary = buildNutritionSummary(foodEntries, period);
-      systemPrompt += nutritionSummary;
+      const diarySummary = buildDiarySummary(diaryEntries, period);
+      systemPrompt += nutritionSummary + diarySummary;
 
       const llmMessages = buildChatMessages(systemPrompt, history, newContent);
 
@@ -591,7 +668,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   sendChatMessage: async (content: string, nutritionPeriod: string = 'today'): Promise<string> => {
-    const { currentChatId, chatMessages, profile, foodEntries, customGoals } = get();
+    const { currentChatId, chatMessages, profile, foodEntries, customGoals, diaryEntries } = get();
     const provider = get().getActiveProvider();
 
     if (!provider || !provider.baseUrl || !provider.model) {
@@ -626,7 +703,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       // Add nutrition context based on selected period
       const period = nutritionPeriod as 'today' | 'week' | 'month';
       const nutritionSummary = buildNutritionSummary(foodEntries, period);
-      systemPrompt += nutritionSummary;
+      const diarySummary = buildDiarySummary(diaryEntries, period);
+      systemPrompt += nutritionSummary + diarySummary;
 
       // Build history for LLM (limit to last 20 messages)
       const history: LLMMessage[] = chatMessages

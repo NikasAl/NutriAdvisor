@@ -5,6 +5,7 @@ import { useAppStore } from '@/store/useAppStore';
 import BottomNav from '@/components/app/BottomNav';
 import DashboardPanel from '@/components/app/DashboardPanel';
 import FoodJournalPanel from '@/components/app/FoodJournalPanel';
+import DiaryPanel from '@/components/app/DiaryPanel';
 import ChatAssistantPanel from '@/components/app/ChatAssistantPanel';
 import ProfilePanel from '@/components/app/ProfilePanel';
 import SettingsPanel from '@/components/app/SettingsPanel';
@@ -14,12 +15,14 @@ export default function Home() {
   const loadProviders = useAppStore((s) => s.loadProviders);
   const loadProfile = useAppStore((s) => s.loadProfile);
   const loadFoodEntries = useAppStore((s) => s.loadFoodEntries);
+  const loadDiaryEntries = useAppStore((s) => s.loadDiaryEntries);
 
   useEffect(() => {
     loadProviders();
     loadProfile();
     loadFoodEntries();
-  }, [loadProviders, loadProfile, loadFoodEntries]);
+    loadDiaryEntries();
+  }, [loadProviders, loadProfile, loadFoodEntries, loadDiaryEntries]);
 
   return (
     <div className="h-[100dvh] bg-background flex flex-col">
@@ -34,6 +37,7 @@ export default function Home() {
         <main className="flex-1 min-h-0 overflow-y-auto mx-auto w-full max-w-lg px-4 pt-4 pb-20">
           {activeTab === 'dashboard' && <DashboardPanel />}
           {activeTab === 'food' && <FoodJournalPanel />}
+          {activeTab === 'diary' && <DiaryPanel />}
           {activeTab === 'profile' && <ProfilePanel />}
           {activeTab === 'settings' && <SettingsPanel />}
         </main>
