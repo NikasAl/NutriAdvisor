@@ -449,7 +449,7 @@ export default function FoodJournalPanel() {
             <CardContent className="px-4 pb-3"><div className="flex flex-wrap gap-1.5">
               {foodLibrary.slice(0, 30).map((item) => (
                 <div key={item.id} className="group relative flex items-center gap-1 rounded-full border bg-background px-2.5 py-1">
-                  <button onClick={() => { setDescription(item.name); setWeight(item.defaultWeight ? String(item.defaultWeight) : ''); setMealType(item.lastMealType); setIsAddOpen(true); }} className="text-xs hover:text-emerald-600 transition-colors max-w-[180px] truncate" >
+                  <button onClick={() => { setDescription(item.name); setWeight(item.defaultWeight ? String(item.defaultWeight) : ''); setMealType(item.lastMealType); setIsAddOpen(true); }} className="text-xs hover:text-emerald-600 transition-colors" >
                     {item.name}{item.defaultWeight ? ` ${item.defaultWeight}г` : ''}
                   </button>
                   <button onClick={() => deleteFoodLibraryItem(item.id)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all" >
@@ -596,17 +596,17 @@ export default function FoodJournalPanel() {
                   )}
                 </div>
                 {showLibrary && filteredLibrary.length > 0 && (
-                  <div className="max-h-40 overflow-y-auto rounded-lg border bg-popover p-1 space-y-0.5 max-w-full overflow-x-hidden">
+                  <div className="max-h-40 overflow-y-auto rounded-lg border bg-popover p-1 space-y-0.5">
                     {filteredLibrary.map((item) => (
-                      <button key={item.id} onClick={() => selectLibraryItem(item)} className="w-full flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent transition-colors min-w-0 max-w-full" >
-                        <div className="min-w-0 flex-1 overflow-hidden">
-                          <p className="text-xs font-medium truncate">{item.name}</p>
-                          <p className="text-[10px] text-muted-foreground truncate">
+                      <button key={item.id} onClick={() => selectLibraryItem(item)} className="w-full flex items-start justify-between gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent transition-colors" >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium break-words" style={{maxWidth:'300ch'}}>{item.name}</p>
+                          <p className="text-[10px] text-muted-foreground">
                             {item.defaultWeight ? `${item.defaultWeight}г` : '—'}
                             {' · '}{MEAL_LABELS[item.lastMealType]}
                           </p>
                         </div>
-                        <span className="text-[10px] text-muted-foreground shrink-0">x{item.useCount}</span>
+                        <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5">x{item.useCount}</span>
                       </button>
                     ))}
                   </div>
