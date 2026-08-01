@@ -6,15 +6,17 @@ import type { TabId } from '@/lib/types';
 import {
   LayoutDashboard,
   UtensilsCrossed,
+  Package,
+  BookOpen,
   MessageSquare,
   User,
   Settings,
-  BookOpen,
 } from 'lucide-react';
 
 const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'dashboard', label: 'Главная', icon: LayoutDashboard },
   { id: 'food', label: 'Питание', icon: UtensilsCrossed },
+  { id: 'catalog', label: 'Продукты', icon: Package },
   { id: 'diary', label: 'Дневник', icon: BookOpen },
   { id: 'chat', label: 'Чат', icon: MessageSquare },
   { id: 'profile', label: 'Профиль', icon: User },

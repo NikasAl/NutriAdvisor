@@ -13,6 +13,10 @@ import type {
   CustomGoal,
   FoodLibraryItem,
   DiaryEntry,
+  FoodProduct,
+  Dish,
+  DishIngredientData,
+  FoodEntryItem,
 } from '@/lib/types';
 import { NutritionPrompts } from '@/lib/prompts';
 import { callLLM, callLLMStream, buildChatMessages, buildVisionMessages } from '@/lib/llm-client';
@@ -79,6 +83,23 @@ interface AppState {
   addDiaryEntry: (entry: Omit<DiaryEntry, 'id' | 'createdAt'>) => Promise<void>;
   updateDiaryEntry: (id: string, updates: Partial<DiaryEntry>) => Promise<void>;
   deleteDiaryEntry: (id: string) => Promise<void>;
+
+  // Food Products
+  foodProducts: FoodProduct[];
+  loadFoodProducts: () => Promise<void>;
+  addFoodProduct: (name: string) => Promise<void>;
+  updateFoodProduct: (id: string, updates: Partial<FoodProduct>) => Promise<void>;
+  deleteFoodProduct: (id: string) => Promise<void>;
+
+  // Dishes
+  dishes: Dish[];
+  loadDishes: () => Promise<void>;
+  addDish: (name: string, ingredients: DishIngredientData[]) => Promise<void>;
+  updateDish: (id: string, updates: Partial<Dish>) => Promise<void>;
+  deleteDish: (id: string) => Promise<void>;
+
+  // Expand food entry items to description for LLM
+  expandEntryItemsToText: (items: FoodEntryItem[]) => string;
 
   // Food entries
   foodEntries: FoodEntry[];
@@ -159,7 +180,8 @@ function buildDiarySummary(
 /** Build a nutrition summary string from food entries for a given period */
 function buildNutritionSummary(
   foodEntries: FoodEntry[],
-  period: 'today' | 'week' | 'month'
+  period: 'today' | 'week' | 'month',
+  expandItems?: (items: FoodEntryItem[]) => string
 ): string {
   const now = new Date();
   const today = now.toISOString().split('T')[0];
@@ -189,6 +211,9 @@ function buildNutritionSummary(
 
   const periodLabel = period === 'today' ? 'сегодня' : period === 'week' ? 'за последнюю неделю' : 'за последний месяц';
 
+  const desc = (e: FoodEntry) =>
+    e.items && expandItems ? expandItems(e.items) : e.description;
+
   let summary = `\n--- Данные о питании ${periodLabel} ---\n`;
 
   // Group by date for today; aggregate for week/month
@@ -196,7 +221,7 @@ function buildNutritionSummary(
     summary += `Количество приёмов пищи: ${filtered.length}\n\n`;
     for (const entry of filtered) {
       summary += `• [${entry.date} ${new Date(entry.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}] `;
-      summary += `${entry.description}`;
+      summary += `${desc(entry)}`;
       if (entry.weight) summary += ` (${entry.weight}г)`;
       if (entry.estimatedCalories) summary += ` — ${entry.estimatedCalories} ккал`;
       if (entry.estimatedProtein || entry.estimatedFat || entry.estimatedCarbs) {
@@ -246,7 +271,7 @@ function buildNutritionSummary(
       const dayCal = entries.reduce((s, e) => s + (e.estimatedCalories ?? 0), 0);
       summary += `\n${date} (${dayCal} ккал, ${entries.length} приёмов):\n`;
       for (const entry of entries) {
-        summary += `  • ${entry.description}`;
+        summary += `  • ${desc(entry)}`;
         if (entry.weight) summary += ` (${entry.weight}г)`;
         if (entry.estimatedCalories) summary += ` — ${entry.estimatedCalories} ккал`;
         summary += '\n';
@@ -467,6 +492,83 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((s) => ({ diaryEntries: s.diaryEntries.filter((e) => e.id !== id) }));
   },
 
+  // Food Products
+  foodProducts: [],
+
+  loadFoodProducts: async () => {
+    const products = await db.foodProducts.orderBy('name').toArray();
+    set({ foodProducts: products });
+  },
+
+  addFoodProduct: async (name) => {
+    const product: FoodProduct = { id: uuid(), name: name.trim(), createdAt: new Date() };
+    await db.foodProducts.add(product);
+    set((s) => ({ foodProducts: [...s.foodProducts, product].sort((a, b) => a.name.localeCompare(b.name)) }));
+  },
+
+  updateFoodProduct: async (id, updates) => {
+    await db.foodProducts.update(id, updates);
+    set((s) => ({
+      foodProducts: s.foodProducts.map((p) => (p.id === id ? { ...p, ...updates } : p)).sort((a, b) => a.name.localeCompare(b.name)),
+    }));
+  },
+
+  deleteFoodProduct: async (id) => {
+    await db.foodProducts.delete(id);
+    set((s) => ({ foodProducts: s.foodProducts.filter((p) => p.id !== id) }));
+  },
+
+  // Dishes
+  dishes: [],
+
+  loadDishes: async () => {
+    const dishes = await db.dishes.orderBy('name').toArray();
+    set({ dishes });
+  },
+
+  addDish: async (name, ingredients) => {
+    const dish: Dish = { id: uuid(), name: name.trim(), ingredients, createdAt: new Date() };
+    await db.dishes.add(dish);
+    set((s) => ({ dishes: [...s.dishes, dish].sort((a, b) => a.name.localeCompare(b.name)) }));
+  },
+
+  updateDish: async (id, updates) => {
+    await db.dishes.update(id, updates);
+    set((s) => ({
+      dishes: s.dishes.map((d) => (d.id === id ? { ...d, ...updates } : d)).sort((a, b) => a.name.localeCompare(b.name)),
+    }));
+  },
+
+  deleteDish: async (id) => {
+    await db.dishes.delete(id);
+    set((s) => ({ dishes: s.dishes.filter((d) => d.id !== id) }));
+  },
+
+  // Expand food entry items to text description for LLM prompts
+  expandEntryItemsToText: (items: FoodEntryItem[]): string => {
+    const { foodProducts, dishes } = get();
+    const parts: string[] = [];
+    for (const item of items) {
+      if (item.dishId) {
+        const dish = dishes.find((d) => d.id === item.dishId);
+        if (dish && dish.ingredients.length > 0) {
+          const totalDishWeight = dish.ingredients.reduce((s, i) => s + i.weightGrams, 0);
+          const expanded = dish.ingredients.map((ing) => {
+            const prod = foodProducts.find((p) => p.id === ing.productId);
+            const scaled = totalDishWeight > 0 ? Math.round((ing.weightGrams / totalDishWeight) * item.weightGrams) : ing.weightGrams;
+            return `${prod?.name ?? 'неизвестно'} ${scaled}г`;
+          }).join(', ');
+          parts.push(`${item.name} ${item.weightGrams}г (${expanded})`);
+        } else {
+          parts.push(`${item.name} ${item.weightGrams}г`);
+        }
+      } else {
+        parts.push(`${item.name} ${item.weightGrams}г`);
+      }
+    }
+    return parts.join(', ');
+  },
+
   // Food entries
   foodEntries: [],
 
@@ -607,7 +709,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const activeGoalNames = customGoals.filter((g) => g.isActive).map((g) => g.name);
       let systemPrompt = NutritionPrompts.getContextualPrompt(contextType, profile, activeGoalNames);
       const period = nutritionPeriod as 'today' | 'week' | 'month';
-      const nutritionSummary = buildNutritionSummary(foodEntries, period);
+      const nutritionSummary = buildNutritionSummary(foodEntries, period, get().expandEntryItemsToText);
       const diarySummary = buildDiarySummary(diaryEntries, period);
       systemPrompt += nutritionSummary + diarySummary;
 
@@ -702,7 +804,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       // Add nutrition context based on selected period
       const period = nutritionPeriod as 'today' | 'week' | 'month';
-      const nutritionSummary = buildNutritionSummary(foodEntries, period);
+      const nutritionSummary = buildNutritionSummary(foodEntries, period, get().expandEntryItemsToText);
       const diarySummary = buildDiarySummary(diaryEntries, period);
       systemPrompt += nutritionSummary + diarySummary;
 

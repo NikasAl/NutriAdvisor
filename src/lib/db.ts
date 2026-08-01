@@ -8,6 +8,8 @@ import type {
   CustomGoal,
   FoodLibraryItem,
   DiaryEntry,
+  FoodProduct,
+  Dish,
 } from './types';
 
 export class NutriDexie extends Dexie {
@@ -19,6 +21,8 @@ export class NutriDexie extends Dexie {
   customGoals!: Table<CustomGoal, string>;
   foodLibrary!: Table<FoodLibraryItem, string>;
   diaryEntries!: Table<DiaryEntry, string>;
+  foodProducts!: Table<FoodProduct, string>;
+  dishes!: Table<Dish, string>;
 
   constructor() {
     super('NutriAdvisorDB');
@@ -59,6 +63,19 @@ export class NutriDexie extends Dexie {
       customGoals: 'id, isActive, createdAt',
       foodLibrary: 'id, name, lastUsedAt, useCount',
       diaryEntries: 'id, type, date, createdAt',
+    });
+
+    this.version(5).stores({
+      providers: 'id, name, type, isActive',
+      userProfile: 'id',
+      foodEntries: 'id, date, mealType, createdAt',
+      chatSessions: 'id, lastActivity',
+      chatMessages: 'id, sessionId, createdAt',
+      customGoals: 'id, isActive, createdAt',
+      foodLibrary: 'id, name, lastUsedAt, useCount',
+      diaryEntries: 'id, type, date, createdAt',
+      foodProducts: 'id, name, createdAt',
+      dishes: 'id, name, createdAt',
     });
   }
 }

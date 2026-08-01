@@ -85,11 +85,37 @@ export interface UserProfile {
   updatedAt: Date;
 }
 
+export interface FoodProduct {
+  id: string;
+  name: string;
+  createdAt: Date;
+}
+
+export interface DishIngredientData {
+  productId: string;
+  weightGrams: number;
+}
+
+export interface Dish {
+  id?: string;
+  name: string;
+  ingredients: DishIngredientData[];
+  createdAt: Date;
+}
+
+export interface FoodEntryItem {
+  productId?: string;
+  dishId?: string;
+  name: string;
+  weightGrams: number;
+}
+
 export interface FoodEntry {
   id?: string;
   date: string; // ISO date string
   mealType: MealType;
   description: string;
+  items?: FoodEntryItem[]; // structured items
   photoBase64?: string;
   weight?: number; // grams
   estimatedCalories?: number;
@@ -165,4 +191,4 @@ export interface FoodLibraryItem {
   createdAt: Date;
 }
 
-export type TabId = 'dashboard' | 'food' | 'diary' | 'chat' | 'profile' | 'settings';
+export type TabId = 'dashboard' | 'food' | 'catalog' | 'diary' | 'chat' | 'profile' | 'settings';
