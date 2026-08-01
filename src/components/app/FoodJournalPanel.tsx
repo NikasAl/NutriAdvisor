@@ -139,10 +139,34 @@ export default function FoodJournalPanel() {
     return results;
   }, [itemSearch, foodProducts, dishes]);
 
-  // Auto-generate description from items
-  const generateDescription = useCallback((items: FoodEntryItem[]): string => {
-    return items.map((i) => `${i.name} ${i.weightGrams}г`).join(', ');
-  }, []);
+  // Expand dish composition with recalculated ingredient weights
+  const expandDishItems = useCallback((entryItems: FoodEntryItem[]): string => {
+    const parts: string[] = [];
+    for (const item of entryItems) {
+      if (item.dishId) {
+        const dish = dishes.find((d) => d.id === item.dishId);
+        if (dish && dish.ingredients.length > 0) {
+          const totalDishWeight = dish.ingredients.reduce((s, i) => s + i.weightGrams, 0);
+          const expanded = dish.ingredients.map((ing) => {
+            const prod = foodProducts.find((p) => p.id === ing.productId);
+            const scaled = totalDishWeight > 0 ? Math.round((ing.weightGrams / totalDishWeight) * item.weightGrams) : ing.weightGrams;
+            return `${prod?.name ?? '?'} ${scaled}г`;
+          }).join(', ');
+          parts.push(`${item.name} ${item.weightGrams}г (${expanded})`);
+        } else {
+          parts.push(`${item.name} ${item.weightGrams}г`);
+        }
+      } else {
+        parts.push(`${item.name} ${item.weightGrams}г`);
+      }
+    }
+    return parts.join(', ');
+  }, [dishes, foodProducts]);
+
+  // Auto-generate description from items (with expanded dish composition)
+  const generateDescription = useCallback((entryItems: FoodEntryItem[]): string => {
+    return expandDishItems(entryItems);
+  }, [expandDishItems]);
 
   // Update description when items change
   React.useEffect(() => {
@@ -182,13 +206,17 @@ export default function FoodJournalPanel() {
   };
 
   const handleAnalyze = async () => {
-    if (!description && !photoBase64) return;
+    // Build description: use expanded dish composition if items are present
+    const analysisDescription = items.length > 0
+      ? expandDishItems(items)
+      : description;
+    if (!analysisDescription && !photoBase64) return;
     try {
       let analysis = '';
       if (photoBase64) {
-        analysis = await analyzeFoodImage(photoBase64, description || undefined);
+        analysis = await analyzeFoodImage(photoBase64, analysisDescription || undefined);
       } else {
-        analysis = await analyzeFoodText(description);
+        analysis = await analyzeFoodText(analysisDescription);
       }
       setAnalysisResult(analysis);
       const parsed = parseNutritionFromText(analysis);
@@ -274,6 +302,26 @@ export default function FoodJournalPanel() {
                 <span className="text-[10px] text-muted-foreground">{new Date(entry.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
               <p className="mt-0.5 text-sm">{entry.description}</p>
+              {/* Show expanded dish composition */}
+              {isExpanded && entry.items && entry.items.length > 0 && entry.items.some((i) => i.dishId) && (
+                <div className="mt-1.5 text-[11px] text-muted-foreground space-y-0.5">
+                  {entry.items.filter((i) => i.dishId).map((item, idx) => {
+                    const dish = dishes.find((d) => d.id === item.dishId);
+                    if (!dish || dish.ingredients.length === 0) return null;
+                    const totalDishWeight = dish.ingredients.reduce((s, i) => s + i.weightGrams, 0);
+                    return (
+                      <div key={idx} className="pl-2 border-l-2 border-muted-foreground/30">
+                        <span className="font-medium">{item.name} {item.weightGrams}г:</span>{' '}
+                        {dish.ingredients.map((ing) => {
+                          const prod = foodProducts.find((p) => p.id === ing.productId);
+                          const scaled = totalDishWeight > 0 ? Math.round((ing.weightGrams / totalDishWeight) * item.weightGrams) : ing.weightGrams;
+                          return `${prod?.name ?? '?'} ${scaled}г`;
+                        }).join(', ')}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               {(entry.estimatedCalories || entry.estimatedProtein) && (
                 <div className="mt-1 flex flex-wrap gap-2 text-[10px]">
                   {entry.estimatedCalories && <span className="rounded bg-emerald-100 px-1.5 py-0.5 font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">{entry.estimatedCalories} ккал</span>}
