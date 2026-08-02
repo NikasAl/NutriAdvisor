@@ -61,6 +61,11 @@ export default function SettingsPanel() {
   const loadProviders = useAppStore((s) => s.loadProviders);
   const loadProfile = useAppStore((s) => s.loadProfile);
   const loadFoodEntries = useAppStore((s) => s.loadFoodEntries);
+  const loadDiaryEntries = useAppStore((s) => s.loadDiaryEntries);
+  const loadFoodProducts = useAppStore((s) => s.loadFoodProducts);
+  const loadDishes = useAppStore((s) => s.loadDishes);
+  const loadCustomGoals = useAppStore((s) => s.loadCustomGoals);
+  const loadWaterLog = useAppStore((s) => s.loadWaterLog);
   const addProvider = useAppStore((s) => s.addProvider);
   const updateProvider = useAppStore((s) => s.updateProvider);
   const deleteProvider = useAppStore((s) => s.deleteProvider);
@@ -158,7 +163,7 @@ export default function SettingsPanel() {
     setExportStatus('Экспорт...');
     try {
       const data = {
-        version: 1,
+        version: 2,
         exportedAt: new Date().toISOString(),
         app: 'NutriAdvisor',
         providers: await db.providers.toArray(),
@@ -166,10 +171,27 @@ export default function SettingsPanel() {
         foodEntries: await db.foodEntries.toArray(),
         chatSessions: await db.chatSessions.toArray(),
         chatMessages: await db.chatMessages.toArray(),
+        customGoals: await db.customGoals.toArray(),
+        foodLibrary: await db.foodLibrary.toArray(),
+        diaryEntries: await db.diaryEntries.toArray(),
+        foodProducts: await db.foodProducts.toArray(),
+        dishes: await db.dishes.toArray(),
+        waterLogs: await db.waterLogs.toArray(),
       };
 
       const json = JSON.stringify(data, null, 2);
-      const counts = `${data.providers.length} провайдер, ${data.foodEntries.length} записей еды, ${data.chatSessions.length} разговоров, ${data.chatMessages.length} сообщений`;
+      const parts = [
+        `${data.providers.length} провайдер`,
+        `${data.foodEntries.length} записей еды`,
+        `${data.foodProducts.length} продуктов`,
+        `${data.dishes.length} блюд`,
+        `${data.diaryEntries.length} записей дневника`,
+        `${data.waterLogs.length} записей воды`,
+        `${data.chatSessions.length} разговоров`,
+        `${data.chatMessages.length} сообщений`,
+        `${data.customGoals.length} целей`,
+      ];
+      const counts = parts.join(', ');
       const fileName = `nutriadvisor-backup-${new Date().toISOString().split('T')[0]}.json`;
 
       if (isNativePlatform()) {
@@ -268,14 +290,78 @@ export default function SettingsPanel() {
         }
       }
 
-      const counts = `${data.providers.length} провайдер, ${data.foodEntries.length} записей, ${data.chatSessions.length} разговоров, ${data.chatMessages.length} сообщений`;
-      setImportStatus(`Импортировано! ${counts}`);
+      // Import custom goals
+      if (Array.isArray(data.customGoals)) {
+        await db.customGoals.clear();
+        for (const g of data.customGoals) {
+          await db.customGoals.put({ ...g, createdAt: new Date(g.createdAt) });
+        }
+      }
+
+      // Import food library
+      if (Array.isArray(data.foodLibrary)) {
+        await db.foodLibrary.clear();
+        for (const f of data.foodLibrary) {
+          await db.foodLibrary.put({ ...f, lastUsedAt: new Date(f.lastUsedAt), createdAt: new Date(f.createdAt) });
+        }
+      }
+
+      // Import diary entries
+      if (Array.isArray(data.diaryEntries)) {
+        await db.diaryEntries.clear();
+        for (const d of data.diaryEntries) {
+          await db.diaryEntries.put({ ...d, createdAt: new Date(d.createdAt) });
+        }
+      }
+
+      // Import food products
+      if (Array.isArray(data.foodProducts)) {
+        await db.foodProducts.clear();
+        for (const p of data.foodProducts) {
+          await db.foodProducts.put({ ...p, createdAt: new Date(p.createdAt) });
+        }
+      }
+
+      // Import dishes
+      if (Array.isArray(data.dishes)) {
+        await db.dishes.clear();
+        for (const d of data.dishes) {
+          await db.dishes.put({ ...d, createdAt: new Date(d.createdAt) });
+        }
+      }
+
+      // Import water logs
+      if (Array.isArray(data.waterLogs)) {
+        await db.waterLogs.clear();
+        for (const w of data.waterLogs) {
+          await db.waterLogs.put({ ...w, updatedAt: new Date(w.updatedAt) });
+        }
+      }
+
+      const parts = [];
+      if (data.providers) parts.push(`${data.providers.length} провайдер`);
+      if (data.foodEntries) parts.push(`${data.foodEntries.length} записей еды`);
+      if (data.foodProducts) parts.push(`${data.foodProducts.length} продуктов`);
+      if (data.dishes) parts.push(`${data.dishes.length} блюд`);
+      if (data.diaryEntries) parts.push(`${data.diaryEntries.length} записей дневника`);
+      if (data.waterLogs) parts.push(`${data.waterLogs.length} записей воды`);
+      if (data.chatSessions) parts.push(`${data.chatSessions.length} разговоров`);
+      if (data.chatMessages) parts.push(`${data.chatMessages.length} сообщений`);
+      if (data.customGoals) parts.push(`${data.customGoals.length} целей`);
+      setImportStatus(`Импортировано! ${parts.join(', ')}`);
 
       // Reload all data in store
-      await loadProviders();
-      await loadProfile();
-      await loadFoodEntries();
-      await new Promise((r) => setTimeout(r, 300));
+      await Promise.all([
+        loadProviders(),
+        loadProfile(),
+        loadFoodEntries(),
+        loadDiaryEntries(),
+        loadFoodProducts(),
+        loadDishes(),
+        loadCustomGoals(),
+      ]);
+      const today = new Date().toISOString().split('T')[0];
+      await loadWaterLog(today);
 
       setTimeout(() => setImportStatus(''), 5000);
     } catch (err) {
