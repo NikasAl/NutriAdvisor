@@ -17,6 +17,7 @@ import type {
   Dish,
   DishIngredientData,
   FoodEntryItem,
+  WaterLog,
 } from '@/lib/types';
 import { NutritionPrompts } from '@/lib/prompts';
 import { callLLM, callLLMStream, buildChatMessages, buildVisionMessages } from '@/lib/llm-client';
@@ -84,6 +85,14 @@ interface AppState {
   updateDiaryEntry: (id: string, updates: Partial<DiaryEntry>) => Promise<void>;
   deleteDiaryEntry: (id: string) => Promise<void>;
 
+  // Water tracking
+  waterLog: WaterLog | null;
+  waterGlassMl: number;
+  loadWaterLog: (date: string) => Promise<void>;
+  setWaterGlassMl: (ml: number) => void;
+  addWaterGlass: () => Promise<void>;
+  removeWaterGlass: () => Promise<void>;
+
   // Food Products
   foodProducts: FoodProduct[];
   loadFoodProducts: () => Promise<void>;
@@ -127,12 +136,39 @@ interface AppState {
 
   // LLM interaction
   sendChatMessage: (content: string, nutritionPeriod?: string) => Promise<string>;
-  analyzeFoodImage: (imageBase64: string, description?: string, weight?: number) => Promise<string>;
-  analyzeFoodText: (description: string, weight?: number) => Promise<string>;
+  analyzeFoodImage: (imageBase64: string, description?: string, weight?: number, mealType?: string) => Promise<string>;
+  analyzeFoodText: (description: string, weight?: number, mealType?: string) => Promise<string>;
   lastAnalysisDebug: { prompt: string; response: string } | null;
   isSending: boolean;
   streamingContent: string;
   stopStreaming: () => void;
+}
+
+/** Build a compact profile info string for food analysis prompts */
+function buildProfileInfoForAnalysis(profile: UserProfile, customGoals: CustomGoal[]): string | undefined {
+  const parts: string[] = [];
+  if (profile.name) parts.push(`Пациент: ${profile.name}`);
+  if (profile.age) parts.push(`Возраст: ${profile.age}`);
+  if (profile.weight) parts.push(`Вес: ${profile.weight} кг`);
+  if (profile.height) parts.push(`Рост: ${profile.height} см`);
+  if (profile.gender) parts.push(`Пол: ${profile.gender === 'male' ? 'мужской' : profile.gender === 'female' ? 'женский' : 'другой'}`);
+  const actLabels: Record<string, string> = { low: 'низкий', moderate: 'умеренный', high: 'высокий', very_high: 'очень высокий' };
+  parts.push(`Активность: ${actLabels[profile.activityLevel] || profile.activityLevel}`);
+  const goalNames = profile.goals.map((g) => NutritionPrompts.goalLabel(g));
+  const customActive = customGoals.filter((g) => g.isActive).map((g) => g.name);
+  const allGoals = [...goalNames, ...customActive].filter(Boolean);
+  if (allGoals.length > 0) parts.push(`Цели: ${allGoals.join(', ')}`);
+  if (profile.restrictions) parts.push(`Ограничения: ${profile.restrictions}`);
+  if (profile.healthNotes) parts.push(`Здоровье: ${profile.healthNotes}`);
+  return parts.length > 0 ? `Информация о пациенте:\n${parts.join('\n')}` : undefined;
+}
+
+/** Build a water summary string for a given period */
+function buildWaterSummary(waterLog: WaterLog | null, period: 'today' | 'week' | 'month'): string {
+  if (!waterLog) return '';
+  if (period !== 'today') return ''; // Only show today's water for now
+  const totalMl = waterLog.glasses * waterLog.glassMl;
+  return `\n--- Вода за сегодня ---\nВыпито: ${waterLog.glasses} стаканов (${totalMl} мл, по ${waterLog.glassMl} мл/стакан)\n--- Конец данных о воде ---`;
 }
 
 /** Build a diary summary string from diary entries for a given period */
@@ -492,6 +528,53 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((s) => ({ diaryEntries: s.diaryEntries.filter((e) => e.id !== id) }));
   },
 
+  // Water tracking
+  waterLog: null,
+  waterGlassMl: 250,
+
+  loadWaterLog: async (date: string) => {
+    const logs = await db.waterLogs.where('date').equals(date).toArray();
+    if (logs.length > 0) {
+      set({ waterLog: logs[0], waterGlassMl: logs[0].glassMl });
+    } else {
+      set({ waterLog: null });
+    }
+  },
+
+  setWaterGlassMl: (ml: number) => {
+    set({ waterGlassMl: ml });
+  },
+
+  addWaterGlass: async () => {
+    const { waterLog, waterGlassMl } = get();
+    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    if (waterLog && waterLog.date === today) {
+      const updated = { ...waterLog, glasses: waterLog.glasses + 1, glassMl: waterGlassMl, updatedAt: now };
+      await db.waterLogs.put(updated);
+      set({ waterLog: updated });
+    } else {
+      const newLog: WaterLog = { id: uuid(), date: today, glasses: 1, glassMl: waterGlassMl, updatedAt: now };
+      await db.waterLogs.add(newLog);
+      set({ waterLog: newLog });
+    }
+  },
+
+  removeWaterGlass: async () => {
+    const { waterLog, waterGlassMl } = get();
+    if (!waterLog || waterLog.glasses <= 0) return;
+    const today = new Date().toISOString().split('T')[0];
+    if (waterLog.date !== today) return;
+    const updated = { ...waterLog, glasses: Math.max(0, waterLog.glasses - 1), glassMl: waterGlassMl, updatedAt: new Date() };
+    if (updated.glasses === 0) {
+      await db.waterLogs.delete(waterLog.id!);
+      set({ waterLog: null });
+    } else {
+      await db.waterLogs.put(updated);
+      set({ waterLog: updated });
+    }
+  },
+
   // Food Products
   foodProducts: [],
 
@@ -711,7 +794,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       const period = nutritionPeriod as 'today' | 'week' | 'month';
       const nutritionSummary = buildNutritionSummary(foodEntries, period, get().expandEntryItemsToText);
       const diarySummary = buildDiarySummary(diaryEntries, period);
-      systemPrompt += nutritionSummary + diarySummary;
+      const waterSummary = buildWaterSummary(get().waterLog, period);
+      systemPrompt += nutritionSummary + diarySummary + waterSummary;
 
       const llmMessages = buildChatMessages(systemPrompt, history, newContent);
 
@@ -806,7 +890,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       const period = nutritionPeriod as 'today' | 'week' | 'month';
       const nutritionSummary = buildNutritionSummary(foodEntries, period, get().expandEntryItemsToText);
       const diarySummary = buildDiarySummary(diaryEntries, period);
-      systemPrompt += nutritionSummary + diarySummary;
+      const waterSummary = buildWaterSummary(get().waterLog, period);
+      systemPrompt += nutritionSummary + diarySummary + waterSummary;
 
       // Build history for LLM (limit to last 20 messages)
       const history: LLMMessage[] = chatMessages
@@ -864,7 +949,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  analyzeFoodImage: async (imageBase64: string, description?: string, weight?: number): Promise<string> => {
+  analyzeFoodImage: async (imageBase64: string, description?: string, weight?: number, mealType?: string): Promise<string> => {
+    const { profile, customGoals } = get();
     const provider = get().getActiveProvider();
     if (!provider || !provider.baseUrl || !provider.model) {
       throw new Error('Настройте провайдер LLM с поддержкой Vision в настройках');
@@ -882,8 +968,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (description) combinedDesc += `\nДополнительное описание от пользователя: ${description}`;
       if (weight) combinedDesc += `\nУказанный вес порции: ${weight}г`;
 
-      // Step 3: Analyze with nutrition prompt
-      const systemPrompt = NutritionPrompts.getFoodAnalysisPrompt();
+      // Step 3: Analyze with nutrition prompt (with mealType and profile context)
+      const profileInfo = buildProfileInfoForAnalysis(profile, customGoals);
+      const systemPrompt = NutritionPrompts.getFoodAnalysisPrompt(mealType, profileInfo);
       const analysisMessages: LLMMessage[] = [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `Проанализируй эту еду: ${combinedDesc}` },
@@ -904,7 +991,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  analyzeFoodText: async (description: string, weight?: number): Promise<string> => {
+  analyzeFoodText: async (description: string, weight?: number, mealType?: string): Promise<string> => {
+    const { profile, customGoals } = get();
     const provider = get().getActiveProvider();
     if (!provider || !provider.baseUrl || !provider.model) {
       throw new Error('Настройте провайдер LLM в настройках');
@@ -913,7 +1001,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isSending: true, lastAnalysisDebug: null });
 
     try {
-      const systemPrompt = NutritionPrompts.getFoodAnalysisPrompt();
+      const profileInfo = buildProfileInfoForAnalysis(profile, customGoals);
+      const systemPrompt = NutritionPrompts.getFoodAnalysisPrompt(mealType, profileInfo);
       const userContent = weight
         ? `Проанализируй эту еду: ${description}. Вес порции: ${weight}г.`
         : `Проанализируй эту еду: ${description}`;

@@ -36,7 +36,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   Plus, Camera, ImageIcon, Loader2, Trash2, Utensils, ChevronDown, ChevronUp,
-  Send, Check, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, Bug, CalendarDays, Pencil, Search, X,
+  Send, Check, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, Bug, CalendarDays, Pencil, Search, X, Droplets, Minus,
 } from 'lucide-react';
 import type { MealType, FoodEntry, FoodEntryItem } from '@/lib/types';
 import { MEAL_LABELS } from '@/lib/types';
@@ -46,13 +46,28 @@ import MarkdownRenderer from '@/components/ui/markdown-renderer';
 function parseNutritionFromText(text: string) {
   const nums = { calories: null as number | null, protein: null as number | null, fat: null as number | null, carbs: null as number | null };
   const num = '(\\d+[.,]?\\d*)';
-  const calP = [new RegExp(`(?:калори[ияй]|ккал|cal|kcal|Calories|Калории)[:\\s]*[~≈]?\\s*${num}\\s*(?:ккал|кКал|kkal|cal|к)?`, 'i'), new RegExp(`${num}\\s*(?:ккал|kkal|cal)`, 'i'), new RegExp(`Калории[:\\s]*${num}`, 'i'), new RegExp(`К:[\\s:*|—–-]+[~≈]?\\s*${num}\\s*ккал`, 'i')];
+  const sep = '[\\s:*|\\u2014\\u2013-]+'; // separator: spaces, *, |, —, –, -
+  const calP = [
+    new RegExp(`(?:калори[ияй]|ккал|cal|kcal|Calories|Калории)${sep}[~≈]?\\s*${num}\\s*(?:ккал|кКал|kkal|cal|к)?`, 'i'),
+    new RegExp(`${num}\\s*(?:ккал|kkal|cal)`, 'i'),
+    new RegExp(`Калории${sep}${num}`, 'i'),
+    new RegExp(`К${sep}[~≈]?\\s*${num}\\s*ккал`, 'i'),
+  ];
   for (const p of calP) { const m = text.match(p); if (m) { nums.calories = parseFloat(m[1].replace(',', '.')); break; } }
-  const protP = [new RegExp(`(?:бел(?:ок|ки|ка)|протеин|protein)[:\\s]*[~≈]?\\s*${num}\\s*г?`, 'i'), new RegExp(`${num}\\s*г?\\s*(?:бел(?:ок|ки|ка)|протеин)`, 'i'), new RegExp(`Б[:\\s]*[~≈]?\\s*${num}\\s*г`, 'i')];
+  const protP = [
+    new RegExp(`(?:Бел(?:ок|ки|ка)|протеин|protein)${sep}[~≈]?\\s*${num}\\s*г?`, 'i'),
+    new RegExp(`Б${sep}[~≈]?\\s*${num}\\s*г`, 'i'),
+  ];
   for (const p of protP) { const m = text.match(p); if (m) { nums.protein = parseFloat(m[1].replace(',', '.')); break; } }
-  const fatP = [new RegExp(`(?:жиры?|fats?)[:\\s]*[~≈]?\\s*${num}\\s*г?`, 'i'), new RegExp(`Ж[:\\s]*[~≈]?\\s*${num}\\s*г`, 'i')];
+  const fatP = [
+    new RegExp(`(?:Жиры?|Fats?)${sep}[~≈]?\\s*${num}\\s*г?`, 'i'),
+    new RegExp(`Ж${sep}[~≈]?\\s*${num}\\s*г`, 'i'),
+  ];
   for (const p of fatP) { const m = text.match(p); if (m) { nums.fat = parseFloat(m[1].replace(',', '.')); break; } }
-  const carbP = [new RegExp(`углев(?:оды?)?[\\s:*|—–-]+[~≈]?\\s*${num}\\s*г`, 'i'), new RegExp(`[Уу]глев(?:оды?)?[\\s:*|—–-]+[~≈]?\\s*${num}\\s*г`, 'i'), new RegExp(`[Уу]\\s*[.:|]\\s*[~≈]?\\s*${num}\\s*г`, 'i'), new RegExp(`carbo?hydrates?[\\s:*|—–-]+[~≈]?\\s*${num}\\s*г?`, 'i')];
+  const carbP = [
+    new RegExp(`(?:Углев(?:оды?)?|Carbo?hydrates?)${sep}[~≈]?\\s*${num}\\s*г?`, 'i'),
+    new RegExp(`У${sep}[~≈]?\\s*${num}\\s*г`, 'i'),
+  ];
   for (const p of carbP) { const m = text.match(p); if (m) { nums.carbs = parseFloat(m[1].replace(',', '.')); break; } }
   return nums;
 }
@@ -80,6 +95,10 @@ export default function FoodJournalPanel() {
   const lastAnalysisDebug = useAppStore((s) => s.lastAnalysisDebug);
   const foodProducts = useAppStore((s) => s.foodProducts);
   const dishes = useAppStore((s) => s.dishes);
+  const waterLog = useAppStore((s) => s.waterLog);
+  const waterGlassMl = useAppStore((s) => s.waterGlassMl);
+  const addWaterGlass = useAppStore((s) => s.addWaterGlass);
+  const removeWaterGlass = useAppStore((s) => s.removeWaterGlass);
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -214,9 +233,9 @@ export default function FoodJournalPanel() {
     try {
       let analysis = '';
       if (photoBase64) {
-        analysis = await analyzeFoodImage(photoBase64, analysisDescription || undefined);
+        analysis = await analyzeFoodImage(photoBase64, analysisDescription || undefined, undefined, mealType);
       } else {
-        analysis = await analyzeFoodText(analysisDescription);
+        analysis = await analyzeFoodText(analysisDescription, undefined, mealType);
       }
       setAnalysisResult(analysis);
       const parsed = parseNutritionFromText(analysis);
@@ -369,6 +388,19 @@ export default function FoodJournalPanel() {
               <div><div className="text-lg font-bold">{totalCarbs.toFixed(0)}</div><div className="text-[10px] text-muted-foreground">углеводы</div></div>
             </div>
           ) : <p className="text-xs text-muted-foreground text-center py-2">Добавьте приём пищи для отслеживания</p>}
+          {/* Water in today summary */}
+          <div className="mt-2 flex items-center justify-between rounded-lg bg-blue-50 px-3 py-2 dark:bg-blue-950/20">
+            <div className="flex items-center gap-2">
+              <Droplets className="h-4 w-4 text-blue-500" />
+              <span className="text-xs text-muted-foreground">Вода:</span>
+              <span className="text-sm font-semibold text-blue-600">{(waterLog?.glasses ?? 0) * waterGlassMl} мл</span>
+              <span className="text-[10px] text-muted-foreground">({waterLog?.glasses ?? 0} ст.)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <button onClick={() => removeWaterGlass()} disabled={!waterLog || waterLog.glasses <= 0} className="rounded-md p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 disabled:opacity-30"><Minus className="h-3.5 w-3.5" /></button>
+              <button onClick={() => addWaterGlass()} className="rounded-md p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600"><Plus className="h-3.5 w-3.5" /></button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

@@ -192,3 +192,11 @@ export interface FoodLibraryItem {
 }
 
 export type TabId = 'dashboard' | 'food' | 'catalog' | 'diary' | 'chat' | 'profile' | 'settings';
+
+export interface WaterLog {
+  id?: string;
+  date: string; // ISO date string
+  glasses: number;
+  glassMl: number;
+  updatedAt: Date;
+}

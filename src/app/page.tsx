@@ -19,6 +19,7 @@ export default function Home() {
   const loadDiaryEntries = useAppStore((s) => s.loadDiaryEntries);
   const loadFoodProducts = useAppStore((s) => s.loadFoodProducts);
   const loadDishes = useAppStore((s) => s.loadDishes);
+  const loadWaterLog = useAppStore((s) => s.loadWaterLog);
 
   useEffect(() => {
     loadProviders();
@@ -27,7 +28,8 @@ export default function Home() {
     loadDiaryEntries();
     loadFoodProducts();
     loadDishes();
-  }, [loadProviders, loadProfile, loadFoodEntries, loadDiaryEntries, loadFoodProducts, loadDishes]);
+    loadWaterLog(new Date().toISOString().split('T')[0]);
+  }, [loadProviders, loadProfile, loadFoodEntries, loadDiaryEntries, loadFoodProducts, loadDishes, loadWaterLog]);
 
   return (
     <div className="h-[100dvh] bg-background flex flex-col">

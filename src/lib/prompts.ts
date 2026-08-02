@@ -163,8 +163,8 @@ export class NutritionPrompts {
 Давай рекомендации для повышения концентрации, памяти и ясности мышления.`;
   }
 
-  static getFoodAnalysisPrompt(): string {
-    return `Ты — эксперт по анализу питания. Проанализируй описание еды и дай оценку.
+  static getFoodAnalysisPrompt(mealType?: string, profileInfo?: string): string {
+    let prompt = `Ты — эксперт по анализу питания. Проанализируй описание еды и дай оценку.
 
 ВАЖНО: Ты ОБЯЗАН указать калорийность и все три макронутриента (белки, жиры, углеводы) в каждом ответе. Не пропускай ни один параметр.
 
@@ -180,6 +180,19 @@ export class NutritionPrompts {
 **Белки:** XX г | **Жиры:** XX г | **Углеводы:** XX г
 **Оценка:** ...
 **Рекомендации:** ...`;
+
+    if (mealType) {
+      const labels: Record<string, string> = {
+        breakfast: 'Завтрак', lunch: 'Обед', dinner: 'Ужин', snack: 'Перекус',
+      };
+      prompt += `\n\nТип приёма пищи: ${labels[mealType] || mealType}. Учти это при оценке — завтрак должен быть сытным и содержать сложные углеводы, обед сбалансированным, ужин лёгким, перекус небольшим.`;
+    }
+
+    if (profileInfo) {
+      prompt += `\n\n${profileInfo}`;
+    }
+
+    return prompt;
   }
 
   static getImageAnalysisPrompt(): string {

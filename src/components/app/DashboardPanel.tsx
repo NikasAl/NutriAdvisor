@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
-  UtensilsCrossed, MessageSquare, Target, TrendingUp, Zap, Moon, Brain, Heart, Flame,
+  UtensilsCrossed, MessageSquare, Target, TrendingUp, Zap, Moon, Brain, Heart, Flame, Plus, Minus, Droplets, Settings2,
 } from 'lucide-react';
 import { GOAL_LABELS } from '@/lib/types';
 import type { GoalType } from '@/lib/types';
@@ -27,6 +27,12 @@ export default function DashboardPanel() {
   const loadProfile = useAppStore((s) => s.loadProfile);
   const loadFoodEntries = useAppStore((s) => s.loadFoodEntries);
   const loadChatSessions = useAppStore((s) => s.loadChatSessions);
+  const waterLog = useAppStore((s) => s.waterLog);
+  const waterGlassMl = useAppStore((s) => s.waterGlassMl);
+  const addWaterGlass = useAppStore((s) => s.addWaterGlass);
+  const removeWaterGlass = useAppStore((s) => s.removeWaterGlass);
+  const setWaterGlassMl = useAppStore((s) => s.setWaterGlassMl);
+  const [showGlassSettings, setShowGlassSettings] = useState(false);
 
   useEffect(() => {
     loadProfile();
@@ -156,6 +162,80 @@ export default function DashboardPanel() {
               <div className="text-sm font-bold text-orange-600">{totalCarbs.toFixed(0)}г</div>
               <div className="text-[10px] text-muted-foreground">Углеводы</div>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Water tracker */}
+      <Card className="border-blue-200 dark:border-blue-900">
+        <CardHeader className="pb-2 pt-4 px-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Droplets className="h-4 w-4 text-blue-500" />
+              Вода
+            </CardTitle>
+            <div className="flex items-center gap-1">
+              {showGlassSettings ? (
+                <div className="flex items-center gap-1">
+                  <select
+                    value={waterGlassMl}
+                    onChange={(e) => { setWaterGlassMl(Number(e.target.value)); setShowGlassSettings(false); }}
+                    className="text-xs border rounded px-1.5 py-0.5 bg-background"
+                    onBlur={() => setShowGlassSettings(false)}
+                    autoFocus
+                  >
+                    {[100, 150, 200, 250, 300, 350, 500].map((ml) => (
+                      <option key={ml} value={ml}>{ml} мл</option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowGlassSettings(true)}
+                  className="text-xs text-muted-foreground hover:text-foreground p-1"
+                  title="Настроить объём стакана"
+                >
+                  <Settings2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="px-4 pb-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-2xl font-bold text-blue-600">{waterLog?.glasses ?? 0}</span>
+              <span className="ml-1 text-sm text-muted-foreground">
+                / {Math.ceil(2000 / waterGlassMl)} стаканов
+              </span>
+            </div>
+            <span className="text-sm text-muted-foreground">
+              {((waterLog?.glasses ?? 0) * waterGlassMl)} / 2000 мл
+            </span>
+          </div>
+          <Progress value={Math.min(100, ((waterLog?.glasses ?? 0) * waterGlassMl / 2000) * 100)} className="h-2" />
+          <div className="flex items-center justify-center gap-4">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-10 w-10 rounded-full"
+              onClick={() => removeWaterGlass()}
+              disabled={!waterLog || waterLog.glasses <= 0}
+            >
+              <Minus className="h-4 w-4" />
+            </Button>
+            <div className="text-center">
+              <div className="text-3xl leading-none">{'💧'}</div>
+              <div className="text-[10px] text-muted-foreground mt-1">{waterGlassMl} мл</div>
+            </div>
+            <Button
+              variant="default"
+              size="icon"
+              className="h-10 w-10 rounded-full bg-blue-500 hover:bg-blue-600"
+              onClick={() => addWaterGlass()}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
           </div>
         </CardContent>
       </Card>
