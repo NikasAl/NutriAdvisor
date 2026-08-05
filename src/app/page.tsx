@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import BottomNav from '@/components/app/BottomNav';
 import DashboardPanel from '@/components/app/DashboardPanel';
@@ -10,6 +10,7 @@ import DiaryPanel from '@/components/app/DiaryPanel';
 import ChatAssistantPanel from '@/components/app/ChatAssistantPanel';
 import ProfilePanel from '@/components/app/ProfilePanel';
 import SettingsPanel from '@/components/app/SettingsPanel';
+import HelpPanel from '@/components/app/HelpPanel';
 
 export default function Home() {
   const activeTab = useAppStore((s) => s.activeTab);
@@ -21,6 +22,7 @@ export default function Home() {
   const loadDishes = useAppStore((s) => s.loadDishes);
   const loadWaterLog = useAppStore((s) => s.loadWaterLog);
   const loadSleepLog = useAppStore((s) => s.loadSleepLog);
+  const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
     loadProviders();
@@ -33,6 +35,17 @@ export default function Home() {
     loadSleepLog(new Date().toISOString().split('T')[0]);
   }, [loadProviders, loadProfile, loadFoodEntries, loadDiaryEntries, loadFoodProducts, loadDishes, loadWaterLog, loadSleepLog]);
 
+  if (showHelp) {
+    return (
+      <div className="h-[100dvh] bg-background flex flex-col">
+        <main className="flex-1 min-h-0 overflow-y-auto mx-auto w-full max-w-lg px-4 pt-4 pb-20">
+          <HelpPanel onBack={() => setShowHelp(false)} />
+        </main>
+        <BottomNav />
+      </div>
+    );
+  }
+
   return (
     <div className="h-[100dvh] bg-background flex flex-col">
       {activeTab === 'chat' ? (
@@ -41,7 +54,7 @@ export default function Home() {
         </main>
       ) : (
         <main className="flex-1 min-h-0 overflow-y-auto mx-auto w-full max-w-lg px-4 pt-4 pb-20">
-          {activeTab === 'dashboard' && <DashboardPanel />}
+          {activeTab === 'dashboard' && <DashboardPanel onOpenHelp={() => setShowHelp(true)} />}
           {activeTab === 'food' && <FoodJournalPanel />}
           {activeTab === 'catalog' && <FoodCatalogPanel />}
           {activeTab === 'diary' && <DiaryPanel />}

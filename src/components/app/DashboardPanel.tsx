@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
-  UtensilsCrossed, MessageSquare, Target, TrendingUp, Zap, Moon, Brain, Heart, Flame, Plus, Minus, Droplets, Settings2, BedDouble, Trash2,
+  UtensilsCrossed, MessageSquare, Target, TrendingUp, Zap, Moon, Brain, Heart, Flame, Plus, Minus, Droplets, Settings2, BedDouble, Trash2, CircleHelp,
 } from 'lucide-react';
 import { GOAL_LABELS } from '@/lib/types';
 import type { GoalType, SleepPeriod } from '@/lib/types';
@@ -33,7 +33,7 @@ const GOAL_ICONS: Record<GoalType, React.ElementType> = {
   wellbeing: Zap, mental_clarity: Brain, energy: Zap, maintenance: Target,
 };
 
-export default function DashboardPanel() {
+export default function DashboardPanel({ onOpenHelp }: { onOpenHelp?: () => void }) {
   const profile = useAppStore((s) => s.profile);
   const foodEntries = useAppStore((s) => s.foodEntries);
   const chatSessions = useAppStore((s) => s.chatSessions);
@@ -90,16 +90,29 @@ export default function DashboardPanel() {
       {/* Greeting */}
       <Card className="overflow-hidden border-emerald-200 dark:border-emerald-900">
         <div className="bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-3">
-          <h1 className="text-lg font-bold text-white">
-            {profile.name ? `Привет, ${profile.name}!` : 'Добро пожаловать!'}
-          </h1>
-          <p className="text-sm text-emerald-100">
-            {new Date().toLocaleDateString('ru-RU', {
-              weekday: 'long',
-              day: 'numeric',
-              month: 'long',
-            })}
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-lg font-bold text-white">
+                {profile.name ? `Привет, ${profile.name}!` : 'Добро пожаловать!'}
+              </h1>
+              <p className="text-sm text-emerald-100">
+                {new Date().toLocaleDateString('ru-RU', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                })}
+              </p>
+            </div>
+            {onOpenHelp && (
+              <button
+                onClick={onOpenHelp}
+                className="text-white/80 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                title="О приложении"
+              >
+                <CircleHelp className="h-5 w-5" />
+              </button>
+            )}
+          </div>
         </div>
         <CardContent className="p-4 space-y-3">
           {/* Provider status */}
