@@ -36,7 +36,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   Plus, Camera, ImageIcon, Loader2, Trash2, Utensils, ChevronDown, ChevronUp,
-  Send, Check, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, Bug, CalendarDays, Pencil, Search, X, Droplets, Minus,
+  Send, Check, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, Bug, CalendarDays, Pencil, Search, X, Droplets, Minus, BedDouble,
 } from 'lucide-react';
 import type { MealType, FoodEntry, FoodEntryItem } from '@/lib/types';
 import { MEAL_LABELS } from '@/lib/types';
@@ -99,6 +99,7 @@ export default function FoodJournalPanel() {
   const waterGlassMl = useAppStore((s) => s.waterGlassMl);
   const addWaterGlass = useAppStore((s) => s.addWaterGlass);
   const removeWaterGlass = useAppStore((s) => s.removeWaterGlass);
+  const sleepLog = useAppStore((s) => s.sleepLog);
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -401,6 +402,32 @@ export default function FoodJournalPanel() {
               <button onClick={() => addWaterGlass()} className="rounded-md p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600"><Plus className="h-3.5 w-3.5" /></button>
             </div>
           </div>
+          {/* Sleep in today summary */}
+          {sleepLog && sleepLog.periods.length > 0 && (
+            <div className="mt-2 flex items-center justify-between rounded-lg bg-indigo-50 px-3 py-2 dark:bg-indigo-950/20">
+              <div className="flex items-center gap-2">
+                <BedDouble className="h-4 w-4 text-indigo-500" />
+                <span className="text-xs text-muted-foreground">Сон:</span>
+                <span className="text-sm font-semibold text-indigo-600">
+                  {sleepLog.periods.map((p) => `${p.start}–${p.end}`).join(', ')}
+                </span>
+              </div>
+              <span className="text-[10px] text-muted-foreground">
+                {(() => {
+                  const totalMin = sleepLog.periods.reduce((s, p) => {
+                    const [sh, sm] = p.start.split(':').map(Number);
+                    const [eh, em] = p.end.split(':').map(Number);
+                    let st = sh * 60 + sm, en = eh * 60 + em;
+                    if (en <= st) en += 24 * 60;
+                    return s + (en - st);
+                  }, 0);
+                  const h = Math.floor(totalMin / 60);
+                  const m = totalMin % 60;
+                  return `${h}ч ${m > 0 ? m + 'мин' : ''}`.trim();
+                })()}
+              </span>
+            </div>
+          )}
         </CardContent>
       </Card>
 

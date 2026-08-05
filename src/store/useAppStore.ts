@@ -18,6 +18,8 @@ import type {
   DishIngredientData,
   FoodEntryItem,
   WaterLog,
+  SleepLog,
+  SleepPeriod,
 } from '@/lib/types';
 import { NutritionPrompts } from '@/lib/prompts';
 import { callLLM, callLLMStream, buildChatMessages, buildVisionMessages } from '@/lib/llm-client';
@@ -93,12 +95,22 @@ interface AppState {
   addWaterGlass: () => Promise<void>;
   removeWaterGlass: () => Promise<void>;
 
+  // Sleep tracking
+  sleepLog: SleepLog | null;
+  loadSleepLog: (date: string) => Promise<void>;
+  saveSleepPeriods: (date: string, periods: SleepPeriod[]) => Promise<void>;
+  addSleepPeriod: (date: string, period: SleepPeriod) => Promise<void>;
+  removeSleepPeriod: (date: string, index: number) => Promise<void>;
+
   // Food Products
   foodProducts: FoodProduct[];
   loadFoodProducts: () => Promise<void>;
   addFoodProduct: (name: string) => Promise<void>;
   updateFoodProduct: (id: string, updates: Partial<FoodProduct>) => Promise<void>;
   deleteFoodProduct: (id: string) => Promise<void>;
+
+  // Build sleep summary for chat context
+  buildSleepSummary: () => string;
 
   // Dishes
   dishes: Dish[];
@@ -161,6 +173,35 @@ function buildProfileInfoForAnalysis(profile: UserProfile, customGoals: CustomGo
   if (profile.restrictions) parts.push(`Ограничения: ${profile.restrictions}`);
   if (profile.healthNotes) parts.push(`Здоровье: ${profile.healthNotes}`);
   return parts.length > 0 ? `Информация о пациенте:\n${parts.join('\n')}` : undefined;
+}
+
+/** Build a sleep summary string for a given period */
+function buildSleepSummaryFromLog(sleepLog: SleepLog | null, period: 'today' | 'week' | 'month'): string {
+  if (!sleepLog || period !== 'today') return '';
+  if (sleepLog.periods.length === 0) return '';
+
+  const parts: string[] = [];
+  let totalMinutes = 0;
+  for (const p of sleepLog.periods) {
+    const duration = calcSleepDuration(p.start, p.end);
+    totalMinutes += duration;
+    const hours = Math.floor(duration / 60);
+    const mins = duration % 60;
+    parts.push(`${p.start} – ${p.end} (${hours}ч ${mins > 0 ? mins + 'мин' : ''})`.trim());
+  }
+  const totalH = Math.floor(totalMinutes / 60);
+  const totalM = totalMinutes % 60;
+  return `\n--- Сон за сегодня ---\nПериоды: ${parts.join('; ')}\nИтого: ${totalH}ч ${totalM > 0 ? totalM + 'мин' : ''}\n--- Конец данных о сне ---`.trim();
+}
+
+/** Calculate sleep duration in minutes, handling overnight (e.g. 22:05 -> 05:40) */
+function calcSleepDuration(start: string, end: string): number {
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  let startMin = sh * 60 + sm;
+  let endMin = eh * 60 + em;
+  if (endMin <= startMin) endMin += 24 * 60; // overnight
+  return endMin - startMin;
 }
 
 /** Build a water summary string for a given period */
@@ -575,6 +616,54 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  // Sleep tracking
+  sleepLog: null,
+
+  loadSleepLog: async (date: string) => {
+    const logs = await db.sleepLogs.where('date').equals(date).toArray();
+    if (logs.length > 0) {
+      set({ sleepLog: logs[0] });
+    } else {
+      set({ sleepLog: null });
+    }
+  },
+
+  saveSleepPeriods: async (date: string, periods: SleepPeriod[]) => {
+    const { sleepLog } = get();
+    const now = new Date();
+    if (sleepLog && sleepLog.date === date) {
+      const updated = { ...sleepLog, periods, updatedAt: now };
+      await db.sleepLogs.put(updated);
+      set({ sleepLog: updated });
+    } else {
+      const newLog: SleepLog = { id: uuid(), date, periods, updatedAt: now };
+      await db.sleepLogs.add(newLog);
+      set({ sleepLog: newLog });
+    }
+  },
+
+  addSleepPeriod: async (date: string, period: SleepPeriod) => {
+    const { sleepLog } = get();
+    const periods = sleepLog?.date === date ? [...sleepLog.periods, period] : [period];
+    await get().saveSleepPeriods(date, periods);
+  },
+
+  removeSleepPeriod: async (date: string, index: number) => {
+    const { sleepLog } = get();
+    if (!sleepLog || sleepLog.date !== date) return;
+    const periods = sleepLog.periods.filter((_, i) => i !== index);
+    if (periods.length === 0) {
+      await db.sleepLogs.delete(sleepLog.id!);
+      set({ sleepLog: null });
+    } else {
+      await get().saveSleepPeriods(date, periods);
+    }
+  },
+
+  buildSleepSummary: () => {
+    return buildSleepSummaryFromLog(get().sleepLog, 'today');
+  },
+
   // Food Products
   foodProducts: [],
 
@@ -795,7 +884,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       const nutritionSummary = buildNutritionSummary(foodEntries, period, get().expandEntryItemsToText);
       const diarySummary = buildDiarySummary(diaryEntries, period);
       const waterSummary = buildWaterSummary(get().waterLog, period);
-      systemPrompt += nutritionSummary + diarySummary + waterSummary;
+      const sleepSummary = buildSleepSummaryFromLog(get().sleepLog, period);
+      systemPrompt += nutritionSummary + diarySummary + waterSummary + sleepSummary;
 
       const llmMessages = buildChatMessages(systemPrompt, history, newContent);
 
@@ -891,7 +981,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       const nutritionSummary = buildNutritionSummary(foodEntries, period, get().expandEntryItemsToText);
       const diarySummary = buildDiarySummary(diaryEntries, period);
       const waterSummary = buildWaterSummary(get().waterLog, period);
-      systemPrompt += nutritionSummary + diarySummary + waterSummary;
+      const sleepSummary = buildSleepSummaryFromLog(get().sleepLog, period);
+      systemPrompt += nutritionSummary + diarySummary + waterSummary + sleepSummary;
 
       // Build history for LLM (limit to last 20 messages)
       const history: LLMMessage[] = chatMessages

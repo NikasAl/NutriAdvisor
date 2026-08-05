@@ -200,3 +200,15 @@ export interface WaterLog {
   glassMl: number;
   updatedAt: Date;
 }
+
+export interface SleepPeriod {
+  start: string; // HH:MM
+  end: string;   // HH:MM
+}
+
+export interface SleepLog {
+  id?: string;
+  date: string; // ISO date string
+  periods: SleepPeriod[];
+  updatedAt: Date;
+}

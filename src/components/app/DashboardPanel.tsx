@@ -7,10 +7,25 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
-  UtensilsCrossed, MessageSquare, Target, TrendingUp, Zap, Moon, Brain, Heart, Flame, Plus, Minus, Droplets, Settings2,
+  UtensilsCrossed, MessageSquare, Target, TrendingUp, Zap, Moon, Brain, Heart, Flame, Plus, Minus, Droplets, Settings2, BedDouble, Trash2,
 } from 'lucide-react';
 import { GOAL_LABELS } from '@/lib/types';
-import type { GoalType } from '@/lib/types';
+import type { GoalType, SleepPeriod } from '@/lib/types';
+
+/** Calculate sleep duration in minutes, handling overnight */
+function calcDuration(start: string, end: string): number {
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  let s = sh * 60 + sm, e = eh * 60 + em;
+  if (e <= s) e += 24 * 60;
+  return e - s;
+}
+
+function fmtDuration(mins: number): string {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return h > 0 ? `${h}ч ${m > 0 ? m + 'мин' : ''}`.trim() : `${m}мин`;
+}
 
 const GOAL_ICONS: Record<GoalType, React.ElementType> = {
   health: Heart, weight_loss: TrendingUp, weight_gain: TrendingUp,
@@ -32,7 +47,13 @@ export default function DashboardPanel() {
   const addWaterGlass = useAppStore((s) => s.addWaterGlass);
   const removeWaterGlass = useAppStore((s) => s.removeWaterGlass);
   const setWaterGlassMl = useAppStore((s) => s.setWaterGlassMl);
+  const sleepLog = useAppStore((s) => s.sleepLog);
+  const addSleepPeriod = useAppStore((s) => s.addSleepPeriod);
+  const removeSleepPeriod = useAppStore((s) => s.removeSleepPeriod);
   const [showGlassSettings, setShowGlassSettings] = useState(false);
+  const [newSleepStart, setNewSleepStart] = useState('22:00');
+  const [newSleepEnd, setNewSleepEnd] = useState('06:00');
+  const [showAddSleep, setShowAddSleep] = useState(false);
 
   useEffect(() => {
     loadProfile();
@@ -237,6 +258,123 @@ export default function DashboardPanel() {
               <Plus className="h-4 w-4" />
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Sleep tracker */}
+      <Card className="border-indigo-200 dark:border-indigo-900">
+        <CardHeader className="pb-2 pt-4 px-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <BedDouble className="h-4 w-4 text-indigo-500" />
+              Сон
+            </CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 text-xs text-indigo-600"
+              onClick={() => setShowAddSleep(!showAddSleep)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Добавить
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="px-4 pb-4 space-y-3">
+          {/* Existing sleep periods */}
+          {sleepLog && sleepLog.periods.length > 0 && (
+            <>
+              <div className="flex items-center justify-between">
+                <span className="text-lg font-bold text-indigo-600">
+                  {fmtDuration(sleepLog.periods.reduce((s, p) => s + calcDuration(p.start, p.end), 0))}
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  {sleepLog.periods.length} {sleepLog.periods.length === 1 ? 'период' : sleepLog.periods.length < 5 ? 'периода' : 'периодов'}
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {sleepLog.periods.map((p, idx) => (
+                  <div key={idx} className="flex items-center justify-between rounded-lg bg-indigo-50 dark:bg-indigo-950/20 px-3 py-2">
+                    <div className="text-sm">
+                      <span className="font-medium">{p.start}</span>
+                      <span className="text-muted-foreground mx-1.5">—</span>
+                      <span className="font-medium">{p.end}</span>
+                      <span className="ml-2 text-xs text-muted-foreground">({fmtDuration(calcDuration(p.start, p.end))})</span>
+                    </div>
+                    <button
+                      onClick={() => removeSleepPeriod(today, idx)}
+                      className="text-muted-foreground hover:text-red-500 p-1"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              {/* Target progress bar (8h = 480 min) */}
+              <Progress
+                value={Math.min(100, (sleepLog.periods.reduce((s, p) => s + calcDuration(p.start, p.end), 0) / 480) * 100)}
+                className="h-2"
+              />
+              <div className="text-[10px] text-muted-foreground text-right">
+                Цель: 8 часов
+              </div>
+            </>
+          )}
+
+          {!sleepLog && (
+            <div className="text-center py-3">
+              <div className="text-3xl leading-none">{'😴'}</div>
+              <div className="text-xs text-muted-foreground mt-2">Нет записей о сне</div>
+            </div>
+          )}
+
+          {/* Add new sleep period form */}
+          {showAddSleep && (
+            <div className="border-t pt-3 space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-muted-foreground">Начало</label>
+                  <input
+                    type="time"
+                    value={newSleepStart}
+                    onChange={(e) => setNewSleepStart(e.target.value)}
+                    className="w-full mt-0.5 rounded-md border px-2 py-1.5 text-sm bg-background"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground">Конец</label>
+                  <input
+                    type="time"
+                    value={newSleepEnd}
+                    onChange={(e) => setNewSleepEnd(e.target.value)}
+                    className="w-full mt-0.5 rounded-md border px-2 py-1.5 text-sm bg-background"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 h-8 text-xs"
+                  onClick={() => setShowAddSleep(false)}
+                >
+                  Отмена
+                </Button>
+                <Button
+                  size="sm"
+                  className="flex-1 h-8 text-xs bg-indigo-500 hover:bg-indigo-600"
+                  onClick={async () => {
+                    if (newSleepStart && newSleepEnd) {
+                      await addSleepPeriod(today, { start: newSleepStart, end: newSleepEnd });
+                      setShowAddSleep(false);
+                    }
+                  }}
+                >
+                  Сохранить
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
