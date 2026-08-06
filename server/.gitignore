@@ -1,0 +1,8 @@
+# Binary
+nuadvi-proxy
+
+# Database
+data/*.db
+
+# Environment
+.env

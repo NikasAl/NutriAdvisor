@@ -1,0 +1,93 @@
+# ==============================================================================
+# NutriAdvisor LLM Proxy — Configuration
+# ==============================================================================
+
+server:
+  listen: ":3001"
+
+auth:
+  free_tier_daily_limit: 3   # бесплатных запросов в день
+
+# ---------------------------------------------------------------------------
+# Провайдеры LLM
+# ---------------------------------------------------------------------------
+providers:
+  - name: llama-local
+    type: llamacpp
+    base_url: "http://localhost:8080"
+    max_concurrency: 1        # threads=1 → запросы в очередь
+    priority: 1               # самый высокий приоритет
+    timeout: 120s
+    models:
+      - name: "gemma3"
+        alias: "gemma3"
+        input_price: 0.0      # бесплатно (свой сервер)
+        output_price: 0.0
+        max_tokens: 8192
+
+  - name: openrouter
+    type: openai_compatible
+    base_url: "https://openrouter.ai/api/v1"
+    api_key: "${OPENROUTER_API_KEY}"
+    max_concurrency: 2
+    priority: 2
+    timeout: 60s
+    proxy_required: true
+    models:
+      - name: "google/gemini-2.5-flash-preview"
+        alias: "gemma3"
+        input_price: 6.75      # ₽ за 1M входящих токенов (с наценкой)
+        output_price: 27.0     # ₽ за 1M исходящих токенов
+        max_tokens: 8192
+
+  - name: gigachat
+    type: openai_compatible
+    base_url: "https://gigachat.devices.sber.ru/v1"
+    api_key: "${GIGACHAT_API_KEY}"
+    max_concurrency: 2
+    priority: 3
+    timeout: 30s
+    proxy_required: true
+    models:
+      - name: "GigaChat-2"
+        alias: "gigachat"
+        input_price: 50.0
+        output_price: 150.0
+        max_tokens: 8192
+
+# ---------------------------------------------------------------------------
+# Алиасы моделей (маршрутизация)
+# ---------------------------------------------------------------------------
+model_aliases:
+  - name: gemma3
+    fallback_chain: [llama-local, openrouter]
+    strategy: priority         # priority | round_robin | least_loaded
+  - name: gigachat
+    fallback_chain: [gigachat]
+    strategy: priority
+
+# ---------------------------------------------------------------------------
+# Внешние SOCKS5-прокси (SSH-туннели)
+# ---------------------------------------------------------------------------
+external_proxies:
+  # - id: proxy1
+  #   socks5: "socks5://127.0.0.1:1080"
+  #   ssh_login: "user-password@server1.example.com"
+  #   auto_restart: true
+  #   health_check_interval: 30s
+
+# ---------------------------------------------------------------------------
+# Биллинг
+# ---------------------------------------------------------------------------
+billing:
+  db_path: "./data/billing.db"
+  min_balance_to_serve: 0     # минимальный баланс в копейках (0 = всегда)
+  cm_server_url: "http://127.0.0.1:8002/cm"
+  cm_app: "nuadvi"
+
+# ---------------------------------------------------------------------------
+# Логирование
+# ---------------------------------------------------------------------------
+logging:
+  level: "info"               # debug | info | warn
+  format: "text"              # text | json
