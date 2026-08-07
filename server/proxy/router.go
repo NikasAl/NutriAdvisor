@@ -4,6 +4,7 @@ import (
         "fmt"
         "log/slog"
         "sync"
+        "time"
 
         "github.com/NikasAl/NutriAdvisor/server/config"
         "github.com/NikasAl/NutriAdvisor/server/providers"
@@ -37,6 +38,8 @@ func NewRouter(cfg *config.Config) *Router {
                 switch pcfg.Type {
                 case "llamacpp", "openai_compatible":
                         p = providers.NewOpenAIProvider(pcfg)
+                case "gigachat":
+                        p = providers.NewGigaChatProvider(pcfg)
                 default:
                         slog.Warn("unknown provider type, using openai_compatible", "name", pcfg.Name, "type", pcfg.Type)
                         p = providers.NewOpenAIProvider(pcfg)
@@ -96,7 +99,7 @@ func (r *Router) selectPriority(candidates []config.ProviderModel) (providers.Pr
                 if !ok {
                         continue
                 }
-                slot, release := pool.Acquire()
+                slot, release := pool.Acquire(30 * time.Second)
                 if slot {
                         slog.Debug("selected provider", "provider", cm.Provider.Name, "model", cm.Model.Name, "alias", cm.Model.Alias)
                         return p, cm.Model.Name, release, nil
@@ -129,7 +132,7 @@ func (r *Router) selectLeastLoaded(candidates []config.ProviderModel) (providers
 
         if best != nil {
                 pool := r.pools[best.cm.Provider.Name]
-                slot, release := pool.Acquire()
+                slot, release := pool.Acquire(30 * time.Second)
                 if slot {
                         return r.providers[best.cm.Provider.Name], best.cm.Model.Name, release, nil
                 }
@@ -166,7 +169,7 @@ func (r *Router) selectRoundRobin(aliasName string, candidates []config.Provider
         }
 
         pool := r.pools[cm.Provider.Name]
-        slot, release := pool.Acquire()
+        slot, release := pool.Acquire(30 * time.Second)
         if slot {
                 return p, cm.Model.Name, release, nil
         }
@@ -190,13 +193,19 @@ func NewPool(name string, maxSlots int) *Pool {
         }
 }
 
-// Acquire tries to get a concurrency slot.
-// Returns true if acquired (caller must call release), false if at capacity.
-func (p *Pool) Acquire() (acquired bool, release func()) {
+// Acquire tries to get a concurrency slot, waiting up to waitDuration.
+// Returns true if acquired (caller must call release), false if timed out.
+func (p *Pool) Acquire(waitDuration time.Duration) (acquired bool, release func()) {
+        if waitDuration <= 0 {
+                waitDuration = 30 * time.Second
+        }
+        timer := time.NewTimer(waitDuration)
+        defer timer.Stop()
+
         select {
         case p.sem <- struct{}{}:
                 return true, func() { <-p.sem }
-        default:
+        case <-timer.C:
                 return false, func() {}
         }
 }

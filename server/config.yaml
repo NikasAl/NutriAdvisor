@@ -41,15 +41,15 @@ providers:
         max_tokens: 8192
 
   - name: gigachat
-    type: openai_compatible
-    base_url: "https://gigachat.devices.sber.ru"
+    type: gigachat
+    base_url: "https://gigachat.devices.sberbank.ru/api/v1"
     api_key: "${GIGACHAT_API_KEY}"
     max_concurrency: 2
     priority: 3
     timeout: 120s
     proxy_required: true
     models:
-      - name: "GigaChat-2"
+      - name: "GigaChat-Plus"
         alias: "gigachat"
         input_price: 50.0
         output_price: 150.0
