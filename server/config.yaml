@@ -27,7 +27,7 @@ providers:
 
   - name: openrouter
     type: openai_compatible
-    base_url: "https://openrouter.ai/api/v1"
+    base_url: "https://openrouter.ai/api"
     api_key: "${OPENROUTER_API_KEY}"
     max_concurrency: 2
     priority: 2
@@ -42,7 +42,7 @@ providers:
 
   - name: gigachat
     type: openai_compatible
-    base_url: "https://gigachat.devices.sber.ru/v1"
+    base_url: "https://gigachat.devices.sber.ru"
     api_key: "${GIGACHAT_API_KEY}"
     max_concurrency: 2
     priority: 3
