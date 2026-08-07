@@ -17,10 +17,10 @@ providers:
     base_url: "http://localhost:8080"
     max_concurrency: 1        # threads=1 → запросы в очередь
     priority: 1               # самый высокий приоритет
-    timeout: 120s
+    timeout: 600s
     models:
-      - name: "gemma3"
-        alias: "gemma3"
+      - name: "gemma-4"
+        alias: "gemma-4"
         input_price: 0.0      # бесплатно (свой сервер)
         output_price: 0.0
         max_tokens: 8192
@@ -31,11 +31,11 @@ providers:
     api_key: "${OPENROUTER_API_KEY}"
     max_concurrency: 2
     priority: 2
-    timeout: 60s
+    timeout: 120s
     proxy_required: true
     models:
       - name: "google/gemini-2.5-flash-preview"
-        alias: "gemma3"
+        alias: "gemini-2.5-fp"
         input_price: 6.75      # ₽ за 1M входящих токенов (с наценкой)
         output_price: 27.0     # ₽ за 1M исходящих токенов
         max_tokens: 8192
@@ -46,7 +46,7 @@ providers:
     api_key: "${GIGACHAT_API_KEY}"
     max_concurrency: 2
     priority: 3
-    timeout: 30s
+    timeout: 120s
     proxy_required: true
     models:
       - name: "GigaChat-2"
@@ -59,7 +59,7 @@ providers:
 # Алиасы моделей (маршрутизация)
 # ---------------------------------------------------------------------------
 model_aliases:
-  - name: gemma3
+  - name: gemma-4
     fallback_chain: [llama-local, openrouter]
     strategy: priority         # priority | round_robin | least_loaded
   - name: gigachat

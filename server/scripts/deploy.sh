@@ -19,9 +19,9 @@ set -euo pipefail
 
 # ---- SSH и удалённый хост ----------------------------------------------------
 SSH_USER="${SSH_USER:-nikas}"
-SSH_HOST="${SSH_HOST:-kreagenium.ru}"
+SSH_HOST="${SSH_HOST:-turbo}"
 SSH_PORT="${SSH_PORT:-22}"
-REMOTE_BASE="${REMOTE_BASE:-/home/nikas/prjs/nuadvi-server}"
+REMOTE_BASE="${REMOTE_BASE:-/home/nikas/prjs/nuadvi}"
 SSH_OPTS="-o StrictHostKeyChecking=accept-new -o ConnectTimeout=10"
 
 # ---- Проект -------------------------------------------------------------------

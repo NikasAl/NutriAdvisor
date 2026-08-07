@@ -197,7 +197,7 @@ fi
 sep "4. Non-streaming chat completions"
 # ==============================================================================
 
-TEST_MODELS=("gemma3" "gigachat")
+TEST_MODELS=("gemma-4" "gigachat")
 
 for model in "${TEST_MODELS[@]}"; do
     echo -e "  ${CYAN}── Модель: ${model} (non-stream) ──${NC}"
@@ -327,14 +327,14 @@ fi
 sep "7. Concurrency test"
 # ==============================================================================
 
-info "Отправка 3 параллельных запросов к gemma3..."
+info "Отправка 3 параллельных запросов к gemma-4..."
 START_TIME=$(date +%s%N)
 
 for i in 1 2 3; do
     curl -s --max-time 60 \
         -X POST \
         -H "Content-Type: application/json" \
-        -d "{\"model\": \"gemma3\", \"messages\": [{\"role\": \"user\", \"content\": \"Считай от 1 до 3. Только числа.\"}], \"max_tokens\": 15}" \
+        -d "{\"model\": \"gemma-4\", \"messages\": [{\"role\": \"user\", \"content\": \"Считай от 1 до 3. Только числа.\"}], \"max_tokens\": 15}" \
         "${BASE_URL}/v1/chat/completions" \
         > /tmp/nuadvi_test_${i}.json 2>/dev/null &
 done
@@ -382,7 +382,7 @@ info "Измерение TTFB для streaming..."
 TTFB=$(curl -s --max-time 60 \
     -X POST \
     -H "Content-Type: application/json" \
-    -d "{\"model\": \"gemma3\", \"messages\": [{\"role\": \"user\", \"content\": \"Hi\"}], \"max_tokens\": 10, \"stream\": true}" \
+    -d "{\"model\": \"gemma-4\", \"messages\": [{\"role\": \"user\", \"content\": \"Hi\"}], \"max_tokens\": 10, \"stream\": true}" \
     -w '%{time_starttransfer}' \
     -o /dev/null \
     "${BASE_URL}/v1/chat/completions" 2>/dev/null) || TTFB="N/A"
@@ -399,7 +399,7 @@ fi
 TOTAL_T=$(curl -s --max-time 60 \
     -X POST \
     -H "Content-Type: application/json" \
-    -d "{\"model\": \"gemma3\", \"messages\": [{\"role\": \"user\", \"content\": \"2+2?\"}], \"max_tokens\": 10}" \
+    -d "{\"model\": \"gemma-4\", \"messages\": [{\"role\": \"user\", \"content\": \"2+2?\"}], \"max_tokens\": 10}" \
     -w '%{time_total}' \
     -o /dev/null \
     "${BASE_URL}/v1/chat/completions" 2>/dev/null) || TOTAL_T="N/A"
