@@ -127,7 +127,6 @@ http_get "${BASE_URL}/health"
 if [[ "${HTTP_CODE}" == "200" ]]; then
     ok "/health → 200"
     # Show providers status
-    local providers
     providers=$(echo "${HTTP_BODY}" | grep -o '"name":"[^"]*"' | sed 's/"name":"//; s/"//')
     if [[ -n "${providers}" ]]; then
         info "Провайдеры:"
@@ -136,9 +135,7 @@ if [[ "${HTTP_CODE}" == "200" ]]; then
         done
     fi
     # Check provider statuses
-    local active_count
     active_count=$(echo "${HTTP_BODY}" | grep -o '"active":true' | wc -l)
-    local total_count
     total_count=$(echo "${HTTP_BODY}" | grep -o '"active":' | wc -l)
     info "Активных провайдеров: ${active_count}/${total_count}"
 else
@@ -152,11 +149,9 @@ sep "2. Models list"
 http_get "${BASE_URL}/v1/models"
 if [[ "${HTTP_CODE}" == "200" ]]; then
     ok "/v1/models → 200"
-    local model_count
     model_count=$(echo "${HTTP_BODY}" | grep -o '"alias":"[^"]*"' | wc -l || echo "0")
     info "Моделей в списке: ${model_count}"
     # List aliases
-    local aliases
     aliases=$(echo "${HTTP_BODY}" | grep -o '"alias":"[^"]*"' | sed 's/"alias":"//; s/"//' || true)
     if [[ -n "${aliases}" ]]; then
         info "Алиасы моделей:"
@@ -176,12 +171,10 @@ sep "3. Admin endpoints"
 http_get "${BASE_URL}/api/admin/providers"
 if [[ "${HTTP_CODE}" == "200" ]]; then
     ok "/api/admin/providers → 200"
-    local provider_count
     provider_count=$(echo "${HTTP_BODY}" | grep -o '"name":"[^"]*"' | wc -l || echo "0")
     info "Провайдеров: ${provider_count}"
     # Show pool stats
     echo "${HTTP_BODY}" | grep -oE '"name":"[^"]*"[^}]*"active_slots":[0-9]*[^}]*"max_slots":[0-9]*[^}]*"load_pct":[0-9.]*' | while read -r line; do
-        local pname pactive pmax pload
         pname=$(echo "${line}" | grep -o '"name":"[^"]*"' | sed 's/"name":"//; s/"//')
         pactive=$(echo "${line}" | grep -o '"active_slots":[0-9]*' | sed 's/"active_slots"://')
         pmax=$(echo "${line}" | grep -o '"max_slots":[0-9]*' | sed 's/"max_slots"://')
@@ -218,7 +211,6 @@ for model in "${TEST_MODELS[@]}"; do
 
     if [[ "${HTTP_CODE}" == "200" ]]; then
         # Extract assistant content
-        local content
         content=$(echo "${HTTP_BODY}" | grep -o '"content":"[^"]*"' | tail -1 | sed 's/"content":"//; s/"$//')
         if [[ -n "${content}" ]]; then
             ok "${model}: 200 — ответ: ${content}"
@@ -251,14 +243,11 @@ for model in "${TEST_MODELS[@]}"; do
     }"
 
     if [[ "${HTTP_CODE}" == "200" ]]; then
-        local chunks
         chunks=$(count_sse_chunks "${HTTP_BODY}")
-        local content
         content=$(extract_sse_content "${HTTP_BODY}")
 
         if [[ "${chunks}" -gt 0 ]]; then
             # Check if stream has [DONE]
-            local has_done
             has_done=$(echo "${HTTP_BODY}" | grep -c '\[DONE\]' || true)
 
             if [[ "${has_done}" -gt 0 ]]; then
