@@ -101,6 +101,9 @@ sync_files() {
         --exclude=vendor \
         --exclude=.env \
         --exclude=.env.prod \
+        --exclude=certs/*.pem \
+        --exclude=certs/*.crt \
+        --exclude=certs/*.cer \
         -e "ssh -p ${SSH_PORT}" \
         "${SERVER_ROOT}/" \
         "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE}/"

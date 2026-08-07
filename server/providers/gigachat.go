@@ -174,6 +174,12 @@ func (p *GigaChatProvider) getAccessToken(ctx context.Context) (string, error) {
         req.Header.Set("RqUID", rqUID)
         req.Header.Set("Authorization", "Basic "+p.authKey)
 
+        slog.Debug("GigaChat OAuth request",
+                "url", oauthURL,
+                "rqUID", rqUID,
+                "authKey_prefix", p.authKey[:min(8, len(p.authKey))]+"...",
+        )
+
         resp, err := p.client.Do(req)
         if err != nil {
                 return "", fmt.Errorf("GigaChat OAuth request: %w", err)
@@ -186,6 +192,14 @@ func (p *GigaChatProvider) getAccessToken(ctx context.Context) (string, error) {
         }
 
         if resp.StatusCode != http.StatusOK {
+                slog.Warn("GigaChat OAuth failed",
+                        "status", resp.StatusCode,
+                        "content_type", resp.Header.Get("Content-Type"),
+                        "body_len", len(body),
+                        "body", string(body[:min(500, len(body))]),
+                        "authKey_len", len(p.authKey),
+                        "authKey_prefix", p.authKey[:min(12, len(p.authKey))]+"...",
+                )
                 return "", fmt.Errorf("GigaChat OAuth error (%d): %s", resp.StatusCode, string(body))
         }
 
