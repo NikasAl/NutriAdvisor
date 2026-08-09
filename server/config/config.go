@@ -78,7 +78,7 @@ type ProxyCfg struct {
         SSHPort             int           `yaml:"ssh_port"`           // default 22
         AutoRestart         bool          `yaml:"auto_restart"`       // restart dead tunnels
         HealthCheckURL      string        `yaml:"health_check_url"`   // URL to check through proxy (e.g. "https://httpbin.org/ip")
-        HealthCheckInterval time.Duration `yaml:"health_check_interval" // default 30s
+        HealthCheckInterval time.Duration `yaml:"health_check_interval"` // default 30s
         RestartDelay       time.Duration `yaml:"restart_delay"`      // delay before restart attempt, default 5s
         Tags                []string      `yaml:"tags"`               // e.g. ["usa", "europe"] for routing
 }
