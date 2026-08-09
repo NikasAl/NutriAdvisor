@@ -26,13 +26,13 @@ import { callLLM, callLLMStream, buildChatMessages, buildVisionMessages } from '
 import type { LLMMessage } from '@/lib/llm-client';
 
 const DEFAULT_PROVIDER: Omit<LLMProvider, 'id' | 'createdAt' | 'updatedAt'> = {
-  name: 'OpenAI',
-  type: 'openai',
-  baseUrl: 'https://api.openai.com/v1',
+  name: 'NuAdvi Proxy',
+  type: 'nuadvi',
+  baseUrl: 'https://kreagenium.ru/nuadvi/v1',
   apiKey: '',
-  model: 'gpt-4o-mini',
+  model: 'gemma-4',
   isActive: true,
-  supportsVision: true,
+  supportsVision: false,
 };
 
 const DEFAULT_PROFILE: Omit<UserProfile, 'id' | 'updatedAt'> = {

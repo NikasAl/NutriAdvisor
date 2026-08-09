@@ -1,4 +1,4 @@
-export type ProviderType = 'openai' | 'openrouter' | 'dashscope' | 'ollama' | 'llamacpp' | 'custom';
+export type ProviderType = 'openai' | 'openrouter' | 'dashscope' | 'ollama' | 'llamacpp' | 'nuadvi' | 'custom';
 
 export interface LLMProvider {
   id: string;
