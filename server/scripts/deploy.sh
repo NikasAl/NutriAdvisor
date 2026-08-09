@@ -29,6 +29,15 @@ BINARY_NAME="nuadvi-proxy"
 CONFIG_FILE="config.yaml"
 PROD_CONFIG=".env.prod"
 
+# ---- Секреты: переменные окружения для передачи на сервер ----------------------
+# Эти переменные с ноутбука будут записаны в .env на сервере.
+# Локальные env-переменные (из ~/.bashrc) НЕ доступны на сервере автоматически.
+# Если переменная пустая — она не перезапишет существующую на сервере.
+ENV_VARS_TO_PUSH=(
+    "OPENROUTER_API_KEY"
+    "GIGACHAT_API_KEY"
+)
+
 # ---- Локальные пути -----------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVER_ROOT="$(dirname "${SCRIPT_DIR}")"
@@ -164,6 +173,53 @@ REMOTE
     info "Сборка завершена."
 }
 
+# ==============================================================================
+# Синхронизация секретов (env vars с ноутбука → .env на сервере)
+# ==============================================================================
+sync_env() {
+    info "Синхронизация переменных окружения на сервер..."
+
+    REMOTE_ENV_FILE="${REMOTE_BASE}/server/.env"
+    TEMP_ENV=$(mktemp)
+
+    # Собираем переменные, которые заданы локально (не пустые)
+    PUSH_COUNT=0
+    for VAR_NAME in "${ENV_VARS_TO_PUSH[@]}"; do
+        VAL="${!VAR_NAME:-}"
+        if [[ -n "${VAL}" ]]; then
+            echo "${VAR_NAME}=${VAL}" >> "${TEMP_ENV}"
+            PUSH_COUNT=$((PUSH_COUNT + 1))
+        fi
+    done
+
+    if [[ ${PUSH_COUNT} -eq 0 ]]; then
+        warn "Нет переменных для передачи (все пустые)"
+        rm -f "${TEMP_ENV}"
+        return
+    fi
+
+    # Копируем на сервер (заменяем только переданные переменные)
+    # Сначала читаем текущий .env на сервере, обновляем переданные переменные,
+    # затем записываем обратно.
+    cat "${TEMP_ENV}" | ssh ${SSH_OPTS} -p "${SSH_PORT}" "${SSH_USER}@${SSH_HOST}" bash -s <<REMOTE
+        TARGET="${REMOTE_ENV_FILE}"
+        # Создаём/обновляем .env: добавляем новые переменные, сохраняя остальные
+        touch "$TARGET"
+        while IFS='=' read -r KEY VALUE; do
+            # Экранируем значение для sed
+            ESC_VALUE=$(echo "$VALUE" | sed 's/[&\/]/\\&/g')
+            if grep -q "^$KEY=" "$TARGET" 2>/dev/null; then
+                sed -i "s/^ *$KEY=.*/$KEY=$ESC_VALUE/" "$TARGET"
+            else
+                echo "$KEY=$VALUE" >> "$TARGET"
+            fi
+        done
+REMOTE
+
+    rm -f "${TEMP_ENV}"
+    info "Передано ${PUSH_COUNT} переменных в .env на сервере"
+}
+
 restart_server() {
     info "Перезапуск ${BINARY_NAME}..."
 
@@ -272,6 +328,8 @@ deploy_all() {
     info "Полный деплой..."
     echo ""
     sync_files
+    echo ""
+    sync_env
     echo ""
     build_remote
     echo ""
