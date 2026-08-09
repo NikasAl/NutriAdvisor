@@ -76,12 +76,11 @@ model_aliases:
 # ---------------------------------------------------------------------------
 external_proxies:
   - id: proxy-az1
-    enabled: false
+    enabled: true
     socks5_addr: "127.0.0.1:10801"
     ssh_login: "az1lellkkr1-vpnjantit.com@az1.vpnjantit.com"
     ssh_port: 22
     auto_restart: true
-    health_check_url: "https://httpbin.org/ip"
     health_check_interval: 30s
     restart_delay: 5s
     tags: ["general"]
@@ -92,7 +91,6 @@ external_proxies:
     ssh_login: "usa2yb2jfkd2-vpnjantit.com@premiusa2.vpnjantit.com"
     ssh_port: 22
     auto_restart: true
-    health_check_url: "https://httpbin.org/ip"
     health_check_interval: 30s
     restart_delay: 5s
     tags: ["usa"]
@@ -103,7 +101,6 @@ external_proxies:
     ssh_login: "usa3kdklsie3-vpnjantit.com@usa3.vpnjantit.com"
     ssh_port: 22
     auto_restart: true
-    health_check_url: "https://httpbin.org/ip"
     health_check_interval: 30s
     restart_delay: 5s
     tags: ["usa"]
@@ -114,7 +111,6 @@ external_proxies:
     ssh_login: "gr8kekkw8-vpnjantit.com@gr8.vpnjantit.com"
     ssh_port: 22
     auto_restart: true
-    health_check_url: "https://httpbin.org/ip"
     health_check_interval: 30s
     restart_delay: 5s
     tags: ["europe"]
@@ -125,7 +121,6 @@ external_proxies:
     ssh_login: "usa5fkel5r-vpnjantit.com@usa5.vpnjantit.com"
     ssh_port: 22
     auto_restart: true
-    health_check_url: "https://httpbin.org/ip"
     health_check_interval: 30s
     restart_delay: 5s
     tags: ["usa"]

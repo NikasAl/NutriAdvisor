@@ -143,17 +143,16 @@ STORED_HASH=\$(cat "\${HASH_FILE}" 2>/dev/null || true)
 
 if [[ "\${GO_MOD_HASH}" != "\${STORED_HASH}" ]]; then
     echo "[INFO] Загрузка зависимостей..."
+    go mod tidy
     go mod download
     echo "\${GO_MOD_HASH}" > "\${HASH_FILE}"
 else
     echo "[INFO] Зависимости актуальны"
 fi
 
-# Сборка статического бинарника
+# Сборка бинарника
 echo "[INFO] Сборка..."
-CGO_ENABLED=0 go build -ldflags="-s -w" -o "${BINARY_NAME}" .
-
-if [[ -f "${BINARY_NAME}" ]]; then
+if go build -ldflags="-s -w" -o "${BINARY_NAME}" .; then
     SIZE=\$(du -h "${BINARY_NAME}" | cut -f1)
     echo "[INFO] Сборка успешна: ${BINARY_NAME} (\${SIZE})"
 else
