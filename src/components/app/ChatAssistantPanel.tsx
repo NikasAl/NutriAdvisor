@@ -101,14 +101,6 @@ export default function ChatAssistantPanel() {
     loadChatSessions();
   }, [loadChatSessions]);
 
-  // Scroll to bottom on new messages and during streaming chunks
-  const streamingContent = useAppStore((s) => s.streamingContent);
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [chatMessages, streamingContent]);
-
   // Auto-focus edit input
   useEffect(() => {
     if (editingMsgId && editInputRef.current) {
