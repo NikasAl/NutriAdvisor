@@ -34,8 +34,26 @@ providers:
     timeout: 120s
     proxy_required: true
     models:
-      - name: "google/gemini-2.5-flash-preview"
-        alias: "gemini-2.5-fp"
+      - name: "google/gemma-4-26b-a4b-it:free"
+        alias: "gemma-4"
+        input_price: 6.75      # ₽ за 1M входящих токенов (с наценкой)
+        output_price: 27.0     # ₽ за 1M исходящих токенов
+        max_tokens: 8192
+
+      - name: "google/gemma-4-31b-it:free"
+        alias: "gemma-4"
+        input_price: 6.75      # ₽ за 1M входящих токенов (с наценкой)
+        output_price: 27.0     # ₽ за 1M исходящих токенов
+        max_tokens: 8192
+
+      - name: "google/gemma-4-26b-a4b-it"
+        alias: "gemma-4"
+        input_price: 6.75      # ₽ за 1M входящих токенов (с наценкой)
+        output_price: 27.0     # ₽ за 1M исходящих токенов
+        max_tokens: 8192
+
+      - name: "google/gemma-4-31b-it"
+        alias: "gemma-4"
         input_price: 6.75      # ₽ за 1M входящих токенов (с наценкой)
         output_price: 27.0     # ₽ за 1M исходящих токенов
         max_tokens: 8192
@@ -47,7 +65,7 @@ providers:
     max_concurrency: 2
     priority: 3
     timeout: 120s
-    proxy_required: true
+    proxy_required: false
     models:
       - name: "GigaChat-Plus"
         alias: "gigachat"
@@ -84,36 +102,6 @@ external_proxies:
     health_check_interval: 30s
     restart_delay: 5s
     tags: ["general"]
-
-  - id: proxy-usa2
-    enabled: false
-    socks5_addr: "127.0.0.1:10802"
-    ssh_login: "usa2yb2jfkd2-vpnjantit.com@premiusa2.vpnjantit.com"
-    ssh_port: 22
-    auto_restart: true
-    health_check_interval: 30s
-    restart_delay: 5s
-    tags: ["usa"]
-
-  - id: proxy-usa3
-    enabled: false
-    socks5_addr: "127.0.0.1:10803"
-    ssh_login: "usa3kdklsie3-vpnjantit.com@usa3.vpnjantit.com"
-    ssh_port: 22
-    auto_restart: true
-    health_check_interval: 30s
-    restart_delay: 5s
-    tags: ["usa"]
-
-  - id: proxy-gr8
-    enabled: false
-    socks5_addr: "127.0.0.1:10804"
-    ssh_login: "gr8kekkw8-vpnjantit.com@gr8.vpnjantit.com"
-    ssh_port: 22
-    auto_restart: true
-    health_check_interval: 30s
-    restart_delay: 5s
-    tags: ["europe"]
 
   - id: proxy-usa5
     enabled: false

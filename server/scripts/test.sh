@@ -218,7 +218,7 @@ if [[ -n "${model_ids:-}" ]]; then
     done <<< "${model_ids}"
 fi
 if [[ ${#TEST_MODELS[@]} -eq 0 ]]; then
-    TEST_MODELS=("gemma3" "gigachat")
+    TEST_MODELS=("gemma-4" "GigaChat-Plus")
 fi
 info "Тестируемые модели: ${TEST_MODELS[*]}"
 
@@ -359,7 +359,7 @@ fi
 sep "7. Concurrency test"
 # ==============================================================================
 
-CONC_MODEL="${TEST_MODELS[0]:-gemma3}"
+CONC_MODEL="${TEST_MODELS[0]:-gemma-4}"
 info "Отправка 3 параллельных запросов к ${CONC_MODEL}..."
 info "(при max_concurrency=1 запросы ставятся в очередь на 30с и выполняются последовательно)"
 START_TIME=$(date +%s%N)

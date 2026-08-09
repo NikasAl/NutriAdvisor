@@ -179,7 +179,7 @@ sync_env() {
     if [[ -f "${LOCAL_ENV}" ]]; then
         info "Копирование .env на сервер..."
         scp ${SSH_OPTS} -P "${SSH_PORT}" "${LOCAL_ENV}" \
-            "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE}/server/.env"
+            "${SSH_USER}@${SSH_HOST}:${REMOTE_BASE}/.env"
         info ".env скопирован на сервер"
     else
         warn "Нет локального .env — пропускаю (создайте server/.env с ключами)"
