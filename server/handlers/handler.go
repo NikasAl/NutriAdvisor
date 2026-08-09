@@ -88,7 +88,8 @@ func (h *Handler) handleChatCompletions(w http.ResponseWriter, r *http.Request) 
                 if req.Stream {
                         err := h.tryStreaming(w, r, cand.Provider, &req)
                         if err == nil {
-                                // Success — release remaining candidates
+                                // Success — release current candidate + remaining
+                                cand.Release()
                                 for _, c := range candidates[i+1:] {
                                         c.Release()
                                 }
@@ -114,7 +115,8 @@ func (h *Handler) handleChatCompletions(w http.ResponseWriter, r *http.Request) 
                                 "model", cand.Model,
                                 "usage", fmt.Sprintf("in=%d out=%d", usage.InputTokens, usage.OutputTokens),
                         )
-                        // Success — release remaining candidates
+                        // Success — release current candidate + remaining
+                        cand.Release()
                         for _, c := range candidates[i+1:] {
                                 c.Release()
                         }
