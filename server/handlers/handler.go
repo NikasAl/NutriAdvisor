@@ -94,19 +94,16 @@ func (h *Handler) handleChatCompletions(w http.ResponseWriter, r *http.Request) 
                                 }
                                 return
                         }
+                        // tryStreaming failed BEFORE sending headers (SendStream
+                        // returned error), so we CAN retry the next candidate.
                         lastErr = err.Error()
                         slog.Warn("candidate failed, trying next",
                                 "provider", cand.Provider.Name(),
                                 "model", cand.Model,
                                 "error", err,
                         )
-                        // Can't retry streaming — headers already sent.
-                        // Release remaining and return error.
-                        for _, c := range candidates[i+1:] {
-                                c.Release()
-                        }
-                        writeError(w, http.StatusBadGateway, "all providers failed: %v", err)
-                        return
+                        cand.Release()
+                        continue
                 }
 
                 // Non-streaming: can retry on error
@@ -142,7 +139,8 @@ func (h *Handler) handleChatCompletions(w http.ResponseWriter, r *http.Request) 
 }
 
 // tryStreaming attempts a streaming request. Returns nil on success.
-// NOTE: if this fails, we cannot retry because SSE headers may already be sent.
+// IMPORTANT: this function only writes headers AFTER SendStream succeeds.
+// If SendStream fails, no headers are sent and the caller can retry the next candidate.
 func (h *Handler) tryStreaming(w http.ResponseWriter, r *http.Request, provider providers.Provider, req *providers.ChatRequest) error {
         ctx, cancel := context.WithTimeout(r.Context(), 300*time.Second)
 
