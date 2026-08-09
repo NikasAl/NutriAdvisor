@@ -9,6 +9,7 @@ import (
         "os/signal"
         "strings"
         "syscall"
+        "time"
 
         "github.com/NikasAl/NutriAdvisor/server/config"
         "github.com/NikasAl/NutriAdvisor/server/handlers"
@@ -41,12 +42,22 @@ func main() {
         proxyMgr := proxy.NewProxyManager(cfg.Proxies)
         proxyMgr.Start()
 
+        // Give SSH tunnels a moment to establish before injecting
+        time.Sleep(3 * time.Second)
+
         // Create router with providers and pools
         router := proxy.NewRouter(cfg)
         router.SetProxyManager(proxyMgr)
 
         // Inject proxy transports into providers that need them
         router.InjectProxyTransports()
+
+        // Verify proxy connectivity (check external IP through proxy)
+        for _, pcfg := range cfg.Proxies {
+                if pcfg.IsEnabled() {
+                        proxyMgr.VerifyConnectivity(pcfg.ID)
+                }
+        }
 
         // Create HTTP handler
         h := handlers.NewHandler(cfg, router)
