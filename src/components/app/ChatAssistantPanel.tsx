@@ -79,7 +79,6 @@ export default function ChatAssistantPanel() {
   const renameChatSession = useAppStore((s) => s.renameChatSession);
   const resendFromMessage = useAppStore((s) => s.resendFromMessage);
   const sendChatMessage = useAppStore((s) => s.sendChatMessage);
-  const streamingContent = useAppStore((s) => s.streamingContent);
   const stopStreaming = useAppStore((s) => s.stopStreaming);
 
   const [input, setInput] = useState('');
@@ -102,11 +101,13 @@ export default function ChatAssistantPanel() {
     loadChatSessions();
   }, [loadChatSessions]);
 
+  // Scroll to bottom on new messages and during streaming chunks
+  const streamingContent = useAppStore((s) => s.streamingContent);
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [chatMessages, isSending]);
+  }, [chatMessages, streamingContent]);
 
   // Auto-focus edit input
   useEffect(() => {

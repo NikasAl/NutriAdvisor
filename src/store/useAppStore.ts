@@ -150,9 +150,11 @@ interface AppState {
   sendChatMessage: (content: string, nutritionPeriod?: string) => Promise<string>;
   analyzeFoodImage: (imageBase64: string, description?: string, weight?: number, mealType?: string) => Promise<string>;
   analyzeFoodText: (description: string, weight?: number, mealType?: string) => Promise<string>;
+  analyzeFoodTextStream: (description: string, weight?: number, mealType?: string) => Promise<string>;
   lastAnalysisDebug: { prompt: string; response: string } | null;
   isSending: boolean;
   streamingContent: string;
+  streamingAnalysis: string;
   stopStreaming: () => void;
 }
 
@@ -785,6 +787,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   chatMessages: [],
   isSending: false,
   streamingContent: '',
+  streamingAnalysis: '',
   lastAnalysisDebug: null,
   _abortController: null as AbortController | null,
 
@@ -1113,6 +1116,54 @@ export const useAppStore = create<AppState>((set, get) => ({
       return response.content;
     } catch (error) {
       set({ isSending: false });
+      throw error;
+    }
+  },
+
+  analyzeFoodTextStream: async (description: string, weight?: number, mealType?: string): Promise<string> => {
+    const { profile, customGoals } = get();
+    const provider = get().getActiveProvider();
+    if (!provider || !provider.baseUrl || !provider.model) {
+      throw new Error('Настройте провайдер LLM в настройках');
+    }
+
+    set({ isSending: true, streamingAnalysis: '', lastAnalysisDebug: null });
+
+    try {
+      const profileInfo = buildProfileInfoForAnalysis(profile, customGoals);
+      const systemPrompt = NutritionPrompts.getFoodAnalysisPrompt(mealType, profileInfo);
+      const userContent = weight
+        ? `Проанализируй эту еду: ${description}. Вес порции: ${weight}г.`
+        : `Проанализируй эту еду: ${description}`;
+      const messages: LLMMessage[] = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userContent },
+      ];
+
+      let finalContent = '';
+      try {
+        await callLLMStream(provider, messages, 0.6, undefined, (text) => {
+          finalContent = text;
+          set({ streamingAnalysis: text });
+        });
+      } catch {
+        // Streaming not supported — fallback to non-streaming
+        const response = await callLLM(provider, messages, 0.6);
+        finalContent = response.content;
+        set({ streamingAnalysis: finalContent });
+      }
+
+      set({
+        isSending: false,
+        streamingAnalysis: '',
+        lastAnalysisDebug: {
+          prompt: `--- Системный промпт ---\n${systemPrompt}\n\n--- Запрос пользователя ---\n${userContent}`,
+          response: finalContent,
+        },
+      });
+      return finalContent;
+    } catch (error) {
+      set({ isSending: false, streamingAnalysis: '' });
       throw error;
     }
   },

@@ -36,7 +36,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   Plus, Camera, ImageIcon, Loader2, Trash2, Utensils, ChevronDown, ChevronUp,
-  Send, Check, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, Bug, CalendarDays, Pencil, Search, X, Droplets, Minus, BedDouble,
+  Send, Check, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, Bug, CalendarDays, Pencil, Search, X, Droplets, Minus, BedDouble, Copy,
 } from 'lucide-react';
 import type { MealType, FoodEntry, FoodEntryItem } from '@/lib/types';
 import { MEAL_LABELS } from '@/lib/types';
@@ -90,9 +90,11 @@ export default function FoodJournalPanel() {
   const updateFoodEntry = useAppStore((s) => s.updateFoodEntry);
   const deleteFoodEntry = useAppStore((s) => s.deleteFoodEntry);
   const analyzeFoodText = useAppStore((s) => s.analyzeFoodText);
+  const analyzeFoodTextStream = useAppStore((s) => s.analyzeFoodTextStream);
   const analyzeFoodImage = useAppStore((s) => s.analyzeFoodImage);
   const isSending = useAppStore((s) => s.isSending);
   const lastAnalysisDebug = useAppStore((s) => s.lastAnalysisDebug);
+  const streamingAnalysis = useAppStore((s) => s.streamingAnalysis);
   const foodProducts = useAppStore((s) => s.foodProducts);
   const dishes = useAppStore((s) => s.dishes);
   const waterLog = useAppStore((s) => s.waterLog);
@@ -236,7 +238,7 @@ export default function FoodJournalPanel() {
       if (photoBase64) {
         analysis = await analyzeFoodImage(photoBase64, analysisDescription || undefined, undefined, mealType);
       } else {
-        analysis = await analyzeFoodText(analysisDescription, undefined, mealType);
+        analysis = await analyzeFoodTextStream(analysisDescription, undefined, mealType);
       }
       setAnalysisResult(analysis);
       const parsed = parseNutritionFromText(analysis);
@@ -304,6 +306,23 @@ export default function FoodJournalPanel() {
     setIsAddOpen(true);
   };
 
+  const handleTemplate = (entry: FoodEntry) => {
+    // Open as new entry, copying composition but not KBJU/analysis
+    setEditingEntryId(null);
+    setSelectedDate(new Date().toISOString().split('T')[0]);
+    setMealType(entry.mealType);
+    setPhotoBase64(null);
+    setAnalysisResult('');
+    setParsedCal('');
+    setParsedProt('');
+    setParsedFat('');
+    setParsedCarbs('');
+    setShowNutrEdit(false);
+    setItems(entry.items ? [...entry.items] : []);
+    setDescription(entry.description);
+    setIsAddOpen(true);
+  };
+
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   };
@@ -353,6 +372,7 @@ export default function FoodJournalPanel() {
             </div>
             <div className="flex flex-col items-center gap-1 shrink-0">
               <button onClick={() => handleEditEntry(entry)} className="rounded-md p-1 hover:bg-muted text-muted-foreground" title="Редактировать"><Pencil className="h-3.5 w-3.5" /></button>
+              <button onClick={() => handleTemplate(entry)} className="rounded-md p-1 hover:bg-muted text-muted-foreground" title="Создать из шаблона"><Copy className="h-3.5 w-3.5" /></button>
               <button onClick={() => toggleExpand(eid)} className="rounded-md p-1 hover:bg-muted text-muted-foreground" title={isExpanded ? 'Свернуть' : 'Подробнее'}>{isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</button>
               <AlertDialog>
                 <AlertDialogTrigger asChild><button className="rounded-md p-1 hover:bg-destructive/10 text-destructive" title="Удалить"><Trash2 className="h-3.5 w-3.5" /></button></AlertDialogTrigger>
@@ -567,12 +587,12 @@ export default function FoodJournalPanel() {
 
             {/* Analyze */}
             <Button onClick={handleAnalyze} disabled={isSending || (!description && !photoBase64)} variant="outline" className="w-full gap-2">
-              {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Анализ AI
+              {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} {isSending ? 'Анализирую...' : 'Анализ AI'}
             </Button>
-            {analysisResult && (
+            {(streamingAnalysis || analysisResult) && (
               <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 p-3 text-xs">
-                <p className="mb-1 font-semibold text-emerald-700 dark:text-emerald-400">Результат анализа:</p>
-                <MarkdownRenderer content={analysisResult} className="text-foreground" />
+                <p className="mb-1 font-semibold text-emerald-700 dark:text-emerald-400">{isSending ? 'Анализ AI (стриминг):' : 'Результат анализа:'}</p>
+                <MarkdownRenderer content={streamingAnalysis || analysisResult} className="text-foreground" />
               </div>
             )}
             {showNutrEdit && (
