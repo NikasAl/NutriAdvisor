@@ -16,11 +16,12 @@ providers:
     type: llamacpp
     base_url: "http://localhost:8080"
     max_concurrency: 1        # threads=1 → запросы в очередь
-    priority: 1               # самый высокий приоритет
+    priority: 10              # низкий приоритет (запасной)
     timeout: 600s
     models:
       - name: "gemma-4"
         alias: "gemma-4"
+        priority: 3             # после бесплатных, но до платных
         input_price: 0.0      # бесплатно (свой сервер)
         output_price: 0.0
         max_tokens: 8192
@@ -30,32 +31,46 @@ providers:
     base_url: "https://openrouter.ai/api"
     api_key: "${OPENROUTER_API_KEY}"
     max_concurrency: 2
-    priority: 2
+    priority: 5
     timeout: 120s
     proxy_required: true
     models:
-      - name: "google/gemma-4-26b-a4b-it:free"
-        alias: "gemma-4"
-        input_price: 6.75      # ₽ за 1M входящих токенов (с наценкой)
-        output_price: 27.0     # ₽ за 1M исходящих токенов
-        max_tokens: 8192
-
+      # --- gemma-4 alias (все варианты одной модели) ---
+      # Порядок: бесплатные сначала, потом локальный, потом платные
       - name: "google/gemma-4-31b-it:free"
         alias: "gemma-4"
-        input_price: 6.75      # ₽ за 1M входящих токенов (с наценкой)
-        output_price: 27.0     # ₽ за 1M исходящих токенов
+        priority: 1             # самый высокий — бесплатная 31b
+        input_price: 0.0
+        output_price: 0.0
+        max_tokens: 8192
+
+      - name: "google/gemma-4-26b-a4b-it:free"
+        alias: "gemma-4"
+        priority: 2             # второй — бесплатная 26b
+        input_price: 0.0
+        output_price: 0.0
         max_tokens: 8192
 
       - name: "google/gemma-4-26b-a4b-it"
         alias: "gemma-4"
-        input_price: 6.75      # ₽ за 1M входящих токенов (с наценкой)
-        output_price: 27.0     # ₽ за 1M исходящих токенов
+        priority: 4             # четвёртый — платная 26b
+        input_price: 6.75
+        output_price: 27.0
         max_tokens: 8192
 
       - name: "google/gemma-4-31b-it"
         alias: "gemma-4"
-        input_price: 6.75      # ₽ за 1M входящих токенов (с наценкой)
-        output_price: 27.0     # ₽ за 1M исходящих токенов
+        priority: 5             # пятый — платная 31b
+        input_price: 6.75
+        output_price: 27.0
+        max_tokens: 8192
+
+      # --- отдельный алиас для flash-preview ---
+      - name: "google/gemini-2.5-flash-preview"
+        alias: "gemini-2.5-fp"
+        priority: 1
+        input_price: 6.75
+        output_price: 27.0
         max_tokens: 8192
 
   - name: gigachat
@@ -63,12 +78,13 @@ providers:
     base_url: "https://gigachat.devices.sberbank.ru/api/v1"
     api_key: "${GIGACHAT_API_KEY}"
     max_concurrency: 2
-    priority: 3
+    priority: 10
     timeout: 120s
     proxy_required: false
     models:
       - name: "GigaChat-Plus"
         alias: "gigachat"
+        priority: 1
         input_price: 50.0
         output_price: 150.0
         max_tokens: 8192
@@ -78,8 +94,11 @@ providers:
 # ---------------------------------------------------------------------------
 model_aliases:
   - name: gemma-4
-    fallback_chain: [llama-local, openrouter]
-    strategy: priority         # priority | round_robin | least_loaded
+    fallback_chain: [openrouter, llama-local]   # free → local → paid
+    strategy: priority
+  - name: gemini-2.5-fp
+    fallback_chain: [openrouter]
+    strategy: priority
   - name: gigachat
     fallback_chain: [gigachat]
     strategy: priority
@@ -89,7 +108,7 @@ model_aliases:
 # ---------------------------------------------------------------------------
 # Пароль авто-вычисляется: часть логина до первого дефиса (user-pass → user)
 # Каждый прокси поднимается на своём локальном порту (socks5_addr)
-#.health_check_url проверяется через SOCKS5 каждые health_check_interval
+# health_check_interval: TCP-проверка каждые N секунд
 # При падении туннеля — автоперезапуск (auto_restart: true)
 # ---------------------------------------------------------------------------
 external_proxies:

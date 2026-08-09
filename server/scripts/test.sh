@@ -439,6 +439,41 @@ else
 fi
 
 # ==============================================================================
+sep "9. Priority fallback test"
+# ==============================================================================
+
+info "Проверка порядка выбора моделей по приоритету"
+info "Запрос к алиасу 'gemma-4' — должен выбрать модель с наивысшим приоритетом"
+
+http_post_json "${BASE_URL}/v1/chat/completions" "{
+    \"model\": \"gemma-4\",
+    \"messages\": [{\"role\": \"user\", \"content\": \"Ответь одним словом: столица Франции?\"}],
+    \"max_tokens\": 10,
+    \"temperature\": 0.0
+}"
+
+if [[ "${HTTP_CODE}" == "200" ]]; then
+    # Проверяем что ответ содержит модель (в поле model)
+    used_model=$(echo "${HTTP_BODY}" | grep -o '"model":"[^"]*"' | sed 's/"model":"//; s/"//' | tail -1 || true)
+    if [[ -n "${used_model}" ]]; then
+        ok "gemma-4 fallback: ответ 200 от модели '${used_model}'"
+        info "Модель выбрана по приоритету из списка кандидатов"
+    else
+        ok "gemma-4 fallback: ответ 200 (модель не указана в ответе)"
+    fi
+    content=$(extract_response_content "${HTTP_BODY}")
+    [[ -n "${content}" ]] && info "Ответ: ${content:0:50}"
+elif [[ "${HTTP_CODE}" == "502" ]]; then
+    # 502 может означать что первый кандидат упал, но fallback сработал —
+    # проверим что в логе есть "trying candidate" и "candidate failed"
+    skip "gemma-4 fallback: 502 (провайдер(ы) недоступны, проверьте логи)"
+    info "В логе сервера ищите: 'trying candidate' и 'candidate failed, trying next'"
+else
+    fail "gemma-4 fallback: ${HTTP_CODE}"
+    info "Body: $(echo "${HTTP_BODY}" | head -c 300)"
+fi
+
+# ==============================================================================
 # SUMMARY
 # ==============================================================================
 

@@ -3,6 +3,7 @@ package config
 import (
         "fmt"
         "os"
+        "sort"
         "strings"
         "time"
 
@@ -55,6 +56,7 @@ func (p *ProviderCfg) IsEnabled() bool {
 type ModelCfg struct {
         Name        string  `yaml:"name"`
         Alias       string  `yaml:"alias"`        // groups models across providers
+        Priority    int     `yaml:"priority"`     // lower = higher priority (default 0)
         InputPrice  float64 `yaml:"input_price"`  // price per 1M input tokens (user-facing, with margin)
         OutputPrice float64 `yaml:"output_price"` // price per 1M output tokens (user-facing, with margin)
         MaxTokens   int     `yaml:"max_tokens"`
@@ -230,12 +232,17 @@ func (c *Config) FindProvider(name string) *ProviderCfg {
         return nil
 }
 
-// FindModelsByAlias returns all (provider, model) pairs for a given alias.
+// FindModelsByAlias returns all (provider, model) pairs for a given alias,
+// sorted by model priority (lower = higher priority).
+// When models share the same alias, they are ordered by their priority field.
+// The fallback_chain from the alias is still respected as a secondary order
+// (providers listed earlier in the chain come first for equal priorities).
 func (c *Config) FindModelsByAlias(aliasName string) []ProviderModel {
+        var results []ProviderModel
+
         alias := c.FindAlias(aliasName)
         if alias == nil {
-                // Try direct model name match
-                var results []ProviderModel
+                // No alias defined — try direct model name/alias match across all providers
                 for i := range c.Providers {
                         p := &c.Providers[i]
                         if !p.IsEnabled() {
@@ -250,26 +257,44 @@ func (c *Config) FindModelsByAlias(aliasName string) []ProviderModel {
                                 }
                         }
                 }
-                return results
-        }
-
-        // Use fallback chain from alias
-        var results []ProviderModel
-        for _, pName := range alias.FallbackChain {
-                p := c.FindProvider(pName)
-                if p == nil {
-                        continue
+        } else {
+                // Alias exists — collect models from fallback chain providers
+                chainOrder := make(map[string]int) // provider name → position in chain
+                for idx, pName := range alias.FallbackChain {
+                        chainOrder[pName] = idx
                 }
-                for j := range p.Models {
-                        if p.Models[j].Alias == aliasName {
-                                results = append(results, ProviderModel{
-                                        Provider: p,
-                                        Model:    &p.Models[j],
-                                })
-                                break
+
+                for i := range c.Providers {
+                        p := &c.Providers[i]
+                        if !p.IsEnabled() {
+                                continue
+                        }
+                        // Only include providers that are in the fallback chain
+                        _, inChain := chainOrder[p.Name]
+                        if !inChain {
+                                continue
+                        }
+                        for j := range p.Models {
+                                if p.Models[j].Alias == aliasName {
+                                        results = append(results, ProviderModel{
+                                                Provider: p,
+                                                Model:    &p.Models[j],
+                                        })
+                                }
                         }
                 }
         }
+
+        // Sort by model priority first, then by provider chain order
+        sort.SliceStable(results, func(i, j int) bool {
+                pi, pj := results[i].Model.Priority, results[j].Model.Priority
+                if pi != pj {
+                        return pi < pj
+                }
+                // Equal priority — use provider priority as tiebreaker
+                return results[i].Provider.Priority < results[j].Provider.Priority
+        })
+
         return results
 }
 

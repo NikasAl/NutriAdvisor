@@ -64,87 +64,108 @@ func (h *Handler) handleChatCompletions(w http.ResponseWriter, r *http.Request) 
                 "messages", len(req.Messages),
         )
 
-        // Find a provider for this model
-        provider, realModel, release, err := h.router.SelectProvider(modelName)
+        // Get all candidate providers for this model, sorted by priority
+        candidates, err := h.router.SelectProviderCandidates(modelName)
         if err != nil {
                 slog.Warn("no provider available", "model", modelName, "error", err)
                 writeError(w, http.StatusServiceUnavailable, "no available provider: %v", err)
                 return
         }
-        defer release()
 
-        // Override model name with the real model name on this provider
-        req.Model = realModel
+        // Try candidates in priority order with fallback on error
+        lastErr := ""
+        for i, cand := range candidates {
+                req.Model = cand.Model // set real model name
 
-        if req.Stream {
-                h.handleStreaming(w, r, provider, &req)
-        } else {
-                h.handleNonStreaming(w, r, provider, &req)
-        }
-}
+                slog.Info("trying candidate",
+                        "attempt", i+1,
+                        "total", len(candidates),
+                        "provider", cand.Provider.Name(),
+                        "model", cand.Model,
+                        "priority", cand.Priority,
+                )
 
-// handleNonStreaming proxies a non-streaming request.
-func (h *Handler) handleNonStreaming(w http.ResponseWriter, r *http.Request, provider providers.Provider, req *providers.ChatRequest) {
-        ctx, cancel := context.WithTimeout(r.Context(), 120*time.Second)
-        defer cancel()
+                if req.Stream {
+                        err := h.tryStreaming(w, r, cand.Provider, &req)
+                        if err == nil {
+                                // Success — release remaining candidates
+                                for _, c := range candidates[i+1:] {
+                                        c.Release()
+                                }
+                                return
+                        }
+                        lastErr = err.Error()
+                        slog.Warn("candidate failed, trying next",
+                                "provider", cand.Provider.Name(),
+                                "model", cand.Model,
+                                "error", err,
+                        )
+                        // Can't retry streaming — headers already sent.
+                        // Release remaining and return error.
+                        for _, c := range candidates[i+1:] {
+                                c.Release()
+                        }
+                        writeError(w, http.StatusBadGateway, "all providers failed: %v", err)
+                        return
+                }
 
-        start := time.Now()
-        respBody, usage, err := provider.SendRequest(ctx, req)
-        duration := time.Since(start)
+                // Non-streaming: can retry on error
+                respBody, usage, err := cand.Provider.SendRequest(r.Context(), &req)
+                if err == nil {
+                        slog.Info("chat completion response",
+                                "provider", cand.Provider.Name(),
+                                "model", cand.Model,
+                                "usage", fmt.Sprintf("in=%d out=%d", usage.InputTokens, usage.OutputTokens),
+                        )
+                        // Success — release remaining candidates
+                        for _, c := range candidates[i+1:] {
+                                c.Release()
+                        }
+                        w.Header().Set("Content-Type", "application/json")
+                        w.WriteHeader(http.StatusOK)
+                        w.Write(respBody)
+                        return
+                }
 
-        if err != nil {
-                slog.Error("provider error",
-                        "provider", provider.Name(),
-                        "model", req.Model,
-                        "duration", duration,
+                lastErr = err.Error()
+                slog.Warn("candidate failed, trying next",
+                        "provider", cand.Provider.Name(),
+                        "model", cand.Model,
                         "error", err,
                 )
-                writeError(w, http.StatusBadGateway, "provider error: %v", err)
-                return
+                cand.Release()
         }
 
-        slog.Info("chat completion response",
-                "provider", provider.Name(),
-                "model", req.Model,
-                "duration", duration,
-                "usage", fmt.Sprintf("in=%d out=%d", usage.InputTokens, usage.OutputTokens),
-        )
-
-        // TODO: billing deduction here
-
-        w.Header().Set("Content-Type", "application/json")
-        w.WriteHeader(http.StatusOK)
-        w.Write(respBody)
+        // All candidates exhausted
+        slog.Error("all candidates failed", "model", modelName, "last_error", lastErr)
+        writeError(w, http.StatusBadGateway, "all providers failed for model '%s': %s", modelName, lastErr)
 }
 
-// handleStreaming proxies a streaming request with SSE.
-func (h *Handler) handleStreaming(w http.ResponseWriter, r *http.Request, provider providers.Provider, req *providers.ChatRequest) {
+// tryStreaming attempts a streaming request. Returns nil on success.
+// NOTE: if this fails, we cannot retry because SSE headers may already be sent.
+func (h *Handler) tryStreaming(w http.ResponseWriter, r *http.Request, provider providers.Provider, req *providers.ChatRequest) error {
         ctx, cancel := context.WithTimeout(r.Context(), 300*time.Second)
 
         stream, err := provider.SendStream(ctx, req)
         if err != nil {
                 cancel()
-                slog.Error("stream error", "provider", provider.Name(), "error", err)
-                writeError(w, http.StatusBadGateway, "stream error: %v", err)
-                return
+                return fmt.Errorf("provider %s: %v", provider.Name(), err)
         }
+
+        // Success path — set up SSE
         defer stream.Close()
         defer cancel()
 
-        // Set SSE headers
         w.Header().Set("Content-Type", "text/event-stream")
         w.Header().Set("Cache-Control", "no-cache")
         w.Header().Set("Connection", "keep-alive")
-        w.Header().Set("X-Accel-Buffering", "no") // Disable nginx buffering
+        w.Header().Set("X-Accel-Buffering", "no")
 
         flusher, canFlush := w.(http.Flusher)
 
         start := time.Now()
         totalOutput := 0
 
-        // Read line by line to detect [DONE] and stop — many providers
-        // (llama.cpp, OpenRouter) keep the connection open after sending
-        // "data: [DONE]", which would cause blocking Read() on the buffer.
         scanner := bufio.NewScanner(stream)
         for scanner.Scan() {
                 line := scanner.Text()
@@ -154,7 +175,6 @@ func (h *Handler) handleStreaming(w http.ResponseWriter, r *http.Request, provid
                 }
                 totalOutput += len(line) + 1
 
-                // Detect SSE stream termination
                 if strings.Contains(line, "[DONE]") {
                         slog.Debug("stream [DONE] received", "provider", provider.Name())
                         break
@@ -171,6 +191,7 @@ func (h *Handler) handleStreaming(w http.ResponseWriter, r *http.Request, provid
                 "duration", duration,
                 "bytes", totalOutput,
         )
+        return nil
 }
 
 // handleModels returns available models.

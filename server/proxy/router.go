@@ -154,6 +154,66 @@ func (r *Router) SelectProvider(aliasName string) (providers.Provider, string, f
         }
 }
 
+// CandidateProvider pairs a provider instance with the real model name.
+// Used by handler for fallback retry on error.
+type CandidateProvider struct {
+        Provider providers.Provider
+        Model    string // real model name on this provider
+        Priority int    // model priority (for logging)
+        release  func() // releases the concurrency slot
+}
+
+// Release returns the concurrency slot. Must be called for every candidate
+// that will NOT be used (i.e. all candidates after the successful one,
+// or all candidates if all fail).
+func (cp *CandidateProvider) Release() {
+        if cp.release != nil {
+                cp.release()
+        }
+}
+
+// SelectProviderCandidates returns all available provider-model candidates
+// for a given alias, sorted by priority. Each candidate has already acquired
+// a concurrency slot. The handler can try them in order and release unused ones.
+// IMPORTANT: caller must call Release() on each candidate that won't be used.
+func (r *Router) SelectProviderCandidates(aliasName string) ([]CandidateProvider, error) {
+        r.mu.RLock()
+        defer r.mu.RUnlock()
+
+        candidates := r.cfg.FindModelsByAlias(aliasName)
+        if len(candidates) == 0 {
+                return nil, fmt.Errorf("no provider found for model '%s'", aliasName)
+        }
+
+        var result []CandidateProvider
+        for _, cm := range candidates {
+                p := r.providers[cm.Provider.Name]
+                if p == nil || !p.IsActive() {
+                        continue
+                }
+                pool, ok := r.pools[cm.Provider.Name]
+                if !ok {
+                        continue
+                }
+                slot, release := pool.Acquire(5 * time.Second)
+                if !slot {
+                        slog.Debug("candidate at capacity, skipping", "provider", cm.Provider.Name, "model", cm.Model.Name)
+                        continue
+                }
+                result = append(result, CandidateProvider{
+                        Provider: p,
+                        Model:    cm.Model.Name,
+                        Priority: cm.Model.Priority,
+                        release:  release,
+                })
+        }
+
+        if len(result) == 0 {
+                return nil, fmt.Errorf("all providers for model '%s' are busy or inactive", aliasName)
+        }
+        return result, nil
+}
+
 func (r *Router) selectPriority(candidates []config.ProviderModel) (providers.Provider, string, func(), error) {
         // Sort by provider priority (already ordered by fallback chain, but verify)
         for _, cm := range candidates {
