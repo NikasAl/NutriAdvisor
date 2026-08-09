@@ -48,7 +48,6 @@ func NewGigaChatProvider(cfg *config.ProviderCfg) *GigaChatProvider {
         // signed by Russian Trusted CA which may not be in the system trust store.
         // We load additional root CAs from certs/ directory and system store.
         transport.TLSClientConfig = buildTLSConfig()
-        // TODO: add SOCKS5 proxy support
 
         timeout := cfg.Timeout
         if timeout == 0 {
@@ -61,6 +60,17 @@ func NewGigaChatProvider(cfg *config.ProviderCfg) *GigaChatProvider {
                 active:  true,
                 authKey: cfg.APIKey,
         }
+}
+
+// SetTransport replaces the HTTP transport (used to inject SOCKS5 proxy).
+// Preserves TLS config for GigaChat certificate support.
+func (p *GigaChatProvider) SetTransport(t *http.Transport) {
+        if p.client.Transport != nil {
+                if old, ok := p.client.Transport.(*http.Transport); ok && old.TLSClientConfig != nil {
+                        t.TLSClientConfig = old.TLSClientConfig
+                }
+        }
+        p.client.Transport = t
 }
 
 // buildTLSConfig creates a TLS config that includes the system CA pool

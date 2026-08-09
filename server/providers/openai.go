@@ -23,10 +23,14 @@ type OpenAIProvider struct {
         activeMux sync.RWMutex
 }
 
+// SetTransport replaces the HTTP transport (used to inject SOCKS5 proxy).
+func (p *OpenAIProvider) SetTransport(t *http.Transport) {
+        p.client.Transport = t
+}
+
 // NewOpenAIProvider creates a new provider from config.
 func NewOpenAIProvider(cfg *config.ProviderCfg) *OpenAIProvider {
         transport := http.DefaultTransport.(*http.Transport).Clone()
-        // TODO: add SOCKS5 proxy support from proxyctl
 
         timeout := cfg.Timeout
         if timeout == 0 {

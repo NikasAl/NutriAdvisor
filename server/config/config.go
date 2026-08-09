@@ -68,12 +68,79 @@ type AliasCfg struct {
 }
 
 // ProxyCfg defines an external SOCKS5 proxy (SSH tunnel).
+// The proxy is created via: ssh -D <local_port> -C -N -p 22 <ssh_login>
+// Password is derived from ssh_login: everything before the first '-' in the user part.
 type ProxyCfg struct {
-        ID                   string        `yaml:"id"`
-        SOCKS5               string        `yaml:"socks5"`
-        SSHLogin             string        `yaml:"ssh_login"`
-        AutoRestart          bool          `yaml:"auto_restart"`
-        HealthCheckInterval  time.Duration `yaml:"health_check_interval"`
+        ID                  string        `yaml:"id"`
+        Enabled             *bool         `yaml:"enabled"`            // nil = true
+        SOCKS5Addr          string        `yaml:"socks5_addr"`        // e.g. "127.0.0.1:10801" (unique per proxy)
+        SSHLogin            string        `yaml:"ssh_login"`          // e.g. "user-pass@host.example.com"
+        SSHPort             int           `yaml:"ssh_port"`           // default 22
+        AutoRestart         bool          `yaml:"auto_restart"`       // restart dead tunnels
+        HealthCheckURL      string        `yaml:"health_check_url"`   // URL to check through proxy (e.g. "https://httpbin.org/ip")
+        HealthCheckInterval time.Duration `yaml:"health_check_interval" // default 30s
+        RestartDelay       time.Duration `yaml:"restart_delay"`      // delay before restart attempt, default 5s
+        Tags                []string      `yaml:"tags"`               // e.g. ["usa", "europe"] for routing
+}
+
+// IsEnabled returns true if the proxy is enabled (default true).
+func (p *ProxyCfg) IsEnabled() bool {
+        if p.Enabled != nil {
+                return *p.Enabled
+        }
+        return true
+}
+
+// SSHUser extracts the user part from ssh_login (before @).
+func (p *ProxyCfg) SSHUser() string {
+        at := strings.Index(p.SSHLogin, "@")
+        if at < 0 {
+                return p.SSHLogin
+        }
+        return p.SSHLogin[:at]
+}
+
+// SSHHost extracts the host part from ssh_login (after @).
+func (p *ProxyCfg) SSHHost() string {
+        at := strings.Index(p.SSHLogin, "@")
+        if at < 0 {
+                return p.SSHLogin
+        }
+        return p.SSHLogin[at+1:]
+}
+
+// SSHPassword derives the password: everything before first '-' in user part.
+func (p *ProxyCfg) SSHPassword() string {
+        user := p.SSHUser()
+        dash := strings.Index(user, "-")
+        if dash < 0 {
+                return user
+        }
+        return user[:dash]
+}
+
+// SSHPortOrDefault returns the SSH port, defaulting to 22.
+func (p *ProxyCfg) SSHPortOrDefault() int {
+        if p.SSHPort > 0 {
+                return p.SSHPort
+        }
+        return 22
+}
+
+// HealthCheckIntervalOrDefault returns the health check interval, defaulting to 30s.
+func (p *ProxyCfg) HealthCheckIntervalOrDefault() time.Duration {
+        if p.HealthCheckInterval > 0 {
+                return p.HealthCheckInterval
+        }
+        return 30 * time.Second
+}
+
+// RestartDelayOrDefault returns the restart delay, defaulting to 5s.
+func (p *ProxyCfg) RestartDelayOrDefault() time.Duration {
+        if p.RestartDelay > 0 {
+                return p.RestartDelay
+        }
+        return 5 * time.Second
 }
 
 // BillingConfig holds billing-related settings.

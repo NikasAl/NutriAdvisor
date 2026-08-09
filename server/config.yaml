@@ -67,14 +67,68 @@ model_aliases:
     strategy: priority
 
 # ---------------------------------------------------------------------------
-# Внешние SOCKS5-прокси (SSH-туннели)
+# Внешние SOCKS5-прокси (SSH-туннели через vpnjantit)
+# ---------------------------------------------------------------------------
+# Пароль авто-вычисляется: часть логина до первого дефиса (user-pass → user)
+# Каждый прокси поднимается на своём локальном порту (socks5_addr)
+#.health_check_url проверяется через SOCKS5 каждые health_check_interval
+# При падении туннеля — автоперезапуск (auto_restart: true)
 # ---------------------------------------------------------------------------
 external_proxies:
-  # - id: proxy1
-  #   socks5: "socks5://127.0.0.1:1080"
-  #   ssh_login: "user-password@server1.example.com"
-  #   auto_restart: true
-  #   health_check_interval: 30s
+  - id: proxy-az1
+    enabled: false
+    socks5_addr: "127.0.0.1:10801"
+    ssh_login: "az1lellkkr1-vpnjantit.com@az1.vpnjantit.com"
+    ssh_port: 22
+    auto_restart: true
+    health_check_url: "https://httpbin.org/ip"
+    health_check_interval: 30s
+    restart_delay: 5s
+    tags: ["general"]
+
+  - id: proxy-usa2
+    enabled: false
+    socks5_addr: "127.0.0.1:10802"
+    ssh_login: "usa2yb2jfkd2-vpnjantit.com@premiusa2.vpnjantit.com"
+    ssh_port: 22
+    auto_restart: true
+    health_check_url: "https://httpbin.org/ip"
+    health_check_interval: 30s
+    restart_delay: 5s
+    tags: ["usa"]
+
+  - id: proxy-usa3
+    enabled: false
+    socks5_addr: "127.0.0.1:10803"
+    ssh_login: "usa3kdklsie3-vpnjantit.com@usa3.vpnjantit.com"
+    ssh_port: 22
+    auto_restart: true
+    health_check_url: "https://httpbin.org/ip"
+    health_check_interval: 30s
+    restart_delay: 5s
+    tags: ["usa"]
+
+  - id: proxy-gr8
+    enabled: false
+    socks5_addr: "127.0.0.1:10804"
+    ssh_login: "gr8kekkw8-vpnjantit.com@gr8.vpnjantit.com"
+    ssh_port: 22
+    auto_restart: true
+    health_check_url: "https://httpbin.org/ip"
+    health_check_interval: 30s
+    restart_delay: 5s
+    tags: ["europe"]
+
+  - id: proxy-usa5
+    enabled: false
+    socks5_addr: "127.0.0.1:10805"
+    ssh_login: "usa5fkel5r-vpnjantit.com@usa5.vpnjantit.com"
+    ssh_port: 22
+    auto_restart: true
+    health_check_url: "https://httpbin.org/ip"
+    health_check_interval: 30s
+    restart_delay: 5s
+    tags: ["usa"]
 
 # ---------------------------------------------------------------------------
 # Биллинг

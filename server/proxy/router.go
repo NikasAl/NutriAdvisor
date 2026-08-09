@@ -3,6 +3,7 @@ package proxy
 import (
         "fmt"
         "log/slog"
+        "net/http"
         "sync"
         "time"
 
@@ -16,6 +17,72 @@ type Router struct {
         pools     map[string]*Pool   // provider name → concurrency pool
         providers map[string]providers.Provider
         mu        sync.RWMutex
+        proxyMgr  *ProxyManager // optional, may be nil
+}
+
+// SetProxyManager sets the proxy manager for transport injection.
+func (r *Router) SetProxyManager(pm *ProxyManager) {
+        r.proxyMgr = pm
+}
+
+// InjectProxyTransports configures providers that need a proxy with
+// SOCKS5 transport from the ProxyManager.
+func (r *Router) InjectProxyTransports() {
+        if r.proxyMgr == nil {
+                slog.Info("no proxy manager configured, skipping transport injection")
+                return
+        }
+
+        injected := 0
+        for name, pcfg := range r.providerConfigs() {
+                if !pcfg.ProxyRequired {
+                        continue
+                }
+                p := r.providers[name]
+                if p == nil {
+                        continue
+                }
+
+                ts, ok := p.(providers.TransportSetter)
+                if !ok {
+                        slog.Warn("provider needs proxy but does not support TransportSetter", "name", name)
+                        continue
+                }
+
+                transport := r.proxyMgr.GetHTTPTransport(
+                        http.DefaultTransport.(*http.Transport).Clone(), nil,
+                )
+                if transport == nil {
+                        slog.Warn("no healthy proxy available for provider",
+                                "name", name,
+                        )
+                        // Provider stays active but will use direct connection (may fail)
+                        continue
+                }
+
+                ts.SetTransport(transport)
+                injected++
+                slog.Info("injected SOCKS5 proxy transport",
+                        "provider", name,
+                        "proxy", "auto-selected",
+                )
+        }
+
+        if injected > 0 {
+                slog.Info("proxy transport injection complete", "injected", injected)
+        }
+}
+
+// providerConfigs returns enabled provider configs as a map.
+func (r *Router) providerConfigs() map[string]*config.ProviderCfg {
+        result := make(map[string]*config.ProviderCfg)
+        for i := range r.cfg.Providers {
+                p := &r.cfg.Providers[i]
+                if p.IsEnabled() {
+                        result[p.Name] = p
+                }
+        }
+        return result
 }
 
 // NewRouter creates a new router from config, initialising all providers and pools.

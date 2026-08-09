@@ -18,13 +18,19 @@ import (
 
 // Handler holds dependencies for all HTTP handlers.
 type Handler struct {
-        cfg    *config.Config
-        router *proxy.Router
+        cfg      *config.Config
+        router   *proxy.Router
+        proxyMgr *proxy.ProxyManager // optional, may be nil
 }
 
 // NewHandler creates a new handler group.
 func NewHandler(cfg *config.Config, router *proxy.Router) *Handler {
         return &Handler{cfg: cfg, router: router}
+}
+
+// SetProxyManager sets the proxy manager (called after NewHandler).
+func (h *Handler) SetProxyManager(pm *proxy.ProxyManager) {
+        h.proxyMgr = pm
 }
 
 // RegisterRoutes registers all HTTP routes on the given mux.
@@ -34,6 +40,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
         mux.HandleFunc("/health", h.handleHealth)
         mux.HandleFunc("/api/admin/providers", h.handleAdminProviders)
         mux.HandleFunc("/api/admin/proxies", h.handleAdminProxies)
+        mux.HandleFunc("/api/admin/proxies/", h.handleAdminProxyAction)
 }
 
 // handleChatCompletions is the main proxy endpoint for LLM requests.
@@ -210,15 +217,61 @@ func (h *Handler) handleAdminProviders(w http.ResponseWriter, r *http.Request) {
         json.NewEncoder(w).Encode(statuses)
 }
 
-// handleAdminProxies returns proxy statuses (placeholder for now).
+// handleAdminProxies returns proxy statuses.
+// GET /api/admin/proxies — list all proxies
 func (h *Handler) handleAdminProxies(w http.ResponseWriter, r *http.Request) {
         if r.Method != http.MethodGet {
                 http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
                 return
         }
-        // TODO: integrate with proxyctl
+
+        if h.proxyMgr == nil {
+                w.Header().Set("Content-Type", "application/json")
+                json.NewEncoder(w).Encode([]interface{}{})
+                return
+        }
+
+        statuses := h.proxyMgr.Statuses()
         w.Header().Set("Content-Type", "application/json")
-        json.NewEncoder(w).Encode([]interface{}{})
+        json.NewEncoder(w).Encode(statuses)
+}
+
+// handleAdminProxyAction handles actions on specific proxies.
+// POST /api/admin/proxies/<id>/restart — restart a proxy
+func (h *Handler) handleAdminProxyAction(w http.ResponseWriter, r *http.Request) {
+        // Extract action and proxy ID from path: /api/admin/proxies/{id}/{action}
+        path := strings.TrimPrefix(r.URL.Path, "/api/admin/proxies/")
+        parts := strings.SplitN(path, "/", 2)
+        if len(parts) < 2 {
+                http.Error(w, "usage: /api/admin/proxies/{id}/restart", http.StatusBadRequest)
+                return
+        }
+
+        proxyID := parts[0]
+        action := parts[1]
+
+        switch action {
+        case "restart":
+                if r.Method != http.MethodPost {
+                        http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+                        return
+                }
+                if h.proxyMgr == nil {
+                        writeError(w, http.StatusServiceUnavailable, "proxy manager not configured")
+                        return
+                }
+                if err := h.proxyMgr.RestartProxy(proxyID); err != nil {
+                        writeError(w, http.StatusNotFound, "%v", err)
+                        return
+                }
+                w.Header().Set("Content-Type", "application/json")
+                json.NewEncoder(w).Encode(map[string]string{
+                        "status":  "ok",
+                        "message": fmt.Sprintf("proxy %s restart initiated", proxyID),
+                })
+        default:
+                http.Error(w, fmt.Sprintf("unknown action: %s", action), http.StatusBadRequest)
+        }
 }
 
 // writeError writes a JSON error response.
