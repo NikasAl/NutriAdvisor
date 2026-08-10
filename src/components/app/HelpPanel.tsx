@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import {
-  ArrowLeft, Heart, Brain, Shield, Settings2, Zap, CreditCard,
+  ArrowLeft, Heart, Brain, Shield, Settings2, Zap,
   BookOpen, Moon, Droplets, UtensilsCrossed, Activity,
   AlertTriangle, ExternalLink, ChevronDown, ChevronUp,
 } from 'lucide-react';
@@ -206,34 +206,28 @@ export default function HelpPanel({ onBack }: { onBack: () => void }) {
         icon={Zap}
         title="Провайдер по умолчанию"
         illustration={{
-          prompt: "Illustration of a smartphone with a glowing green checkmark, indicating ready-to-use service. A small gift box icon floats nearby, symbolizing a free trial. Clean minimalist style, emerald green accent color, white background, no text.",
+          prompt: "Illustration of a smartphone with a glowing green checkmark, indicating ready-to-use service. A small gift box icon floats nearby, symbolizing free access. Clean minimalist style, emerald green accent color, white background, no text.",
           alt: 'Приложение готово к работе сразу после установки',
         }}
       >
         <p>
           Чтобы приложение было функциональным сразу после установки, предустановлен провайдер
-          по умолчанию — <strong>kreagenium.ru</strong>. Вы можете начать пользоваться анализом
-          без настройки собственного API-ключа.
+          по умолчанию — <strong>NuAdvi Proxy</strong> (kreagenium.ru). Вы можете начать пользоваться
+          AI-анализом, чатом и отслеживанием питания без настройки собственного API-ключа.
         </p>
         <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/30 p-3 space-y-1">
           <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
-            Бесплатно: 3 запроса к нейросети в день
+            Полностью бесплатно
           </p>
           <p className="text-xs text-emerald-600 dark:text-emerald-500">
-            Достаточно чтобы попробовать приложение и понять его возможности.
+            Никаких ограничений на количество запросов. Используйте все функции приложения
+            без регистрации и оплаты.
           </p>
         </div>
         <p>
-          При необходимости можно докупить дополнительные запросы. Платные запросы
-          обрабатываются быстрее и без дневных лимитов. Оплата происходит через сервис
-          <strong> ЮMoney</strong>.
+          При желании вы можете подключить собственный провайдер — OpenAI, OpenRouter,
+          Google AI Studio или локальную модель (Ollama, llama.cpp) для полной конфиденциальности.
         </p>
-        <div className="rounded-lg bg-muted p-2">
-          <p className="text-xs text-muted-foreground">
-            ⚠️ В версии приложения для Google Play оплата через ЮMoney недоступна.
-            Используйте PWA-версию (из браузера) для оплаты.
-          </p>
-        </div>
       </Section>
 
       {/* Section 4: Provider Setup Guide */}
