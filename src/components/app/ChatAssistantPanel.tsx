@@ -80,6 +80,7 @@ export default function ChatAssistantPanel() {
   const resendFromMessage = useAppStore((s) => s.resendFromMessage);
   const sendChatMessage = useAppStore((s) => s.sendChatMessage);
   const stopStreaming = useAppStore((s) => s.stopStreaming);
+  const streamingContent = useAppStore((s) => s.streamingContent);
 
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
