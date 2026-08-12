@@ -105,7 +105,13 @@ export default function FoodJournalPanel() {
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [mealType, setMealType] = useState<MealType>('lunch');
+  const [mealType, setMealType] = useState<MealType>(() => {
+    const h = new Date().getHours();
+    if (h >= 5 && h < 11) return 'breakfast';
+    if (h >= 11 && h < 16) return 'lunch';
+    if (h >= 16 && h < 21) return 'dinner';
+    return 'snack';
+  });
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState('');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -483,7 +489,7 @@ export default function FoodJournalPanel() {
       {/* FAB + Dialog */}
       <Dialog open={isAddOpen} onOpenChange={(open) => { setIsAddOpen(open); if (!open) resetForm(); }}>
         <Button className="fixed bottom-20 right-4 z-40 h-14 w-14 rounded-full shadow-lg" size="icon" onClick={() => setIsAddOpen(true)}><Plus className="h-6 w-6" /></Button>
-        <DialogContent className="max-h-[90vh] overflow-y-auto overflow-x-hidden">
+        <DialogContent className="max-h-[90vh] overflow-y-auto overflow-x-hidden" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>{editingEntryId ? 'Редактировать приём пищи' : 'Добавить приём пищи'}</DialogTitle>
           </DialogHeader>
