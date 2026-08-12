@@ -102,7 +102,6 @@ export default function ChatAssistantPanel() {
     loadChatSessions();
   }, [loadChatSessions]);
 
-  const streamingContent = useAppStore((s) => s.streamingContent);
   // Auto-focus edit input
   useEffect(() => {
     if (editingMsgId && editInputRef.current) {
