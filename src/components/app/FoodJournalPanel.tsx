@@ -101,6 +101,7 @@ export default function FoodJournalPanel() {
   const waterGlassMl = useAppStore((s) => s.waterGlassMl);
   const addWaterGlass = useAppStore((s) => s.addWaterGlass);
   const removeWaterGlass = useAppStore((s) => s.removeWaterGlass);
+  const sleepLog = useAppStore((s) => s.sleepLog);
   const activeProvider = useAppStore((s) => {
     const providers = s.providers;
     return providers.find(p => p.isActive) ?? null;
