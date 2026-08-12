@@ -91,7 +91,7 @@ export default function FoodJournalPanel() {
   const deleteFoodEntry = useAppStore((s) => s.deleteFoodEntry);
   const analyzeFoodText = useAppStore((s) => s.analyzeFoodText);
   const analyzeFoodTextStream = useAppStore((s) => s.analyzeFoodTextStream);
-  const analyzeFoodImage = useAppStore((s) => s.analyzeFoodImage);
+  const analyzeFoodStream = useAppStore((s) => s.analyzeFoodStream);
   const isSending = useAppStore((s) => s.isSending);
   const lastAnalysisDebug = useAppStore((s) => s.lastAnalysisDebug);
   const streamingAnalysis = useAppStore((s) => s.streamingAnalysis);
@@ -101,7 +101,11 @@ export default function FoodJournalPanel() {
   const waterGlassMl = useAppStore((s) => s.waterGlassMl);
   const addWaterGlass = useAppStore((s) => s.addWaterGlass);
   const removeWaterGlass = useAppStore((s) => s.removeWaterGlass);
-  const sleepLog = useAppStore((s) => s.sleepLog);
+  const activeProvider = useAppStore((s) => {
+    const providers = s.providers;
+    return providers.find(p => p.isActive) ?? null;
+  });
+  const supportsVision = activeProvider?.supportsVision ?? false;
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -241,11 +245,7 @@ export default function FoodJournalPanel() {
     if (!analysisDescription && !photoBase64) return;
     try {
       let analysis = '';
-      if (photoBase64) {
-        analysis = await analyzeFoodImage(photoBase64, analysisDescription || undefined, undefined, mealType);
-      } else {
-        analysis = await analyzeFoodTextStream(analysisDescription, undefined, mealType);
-      }
+      analysis = await analyzeFoodStream(analysisDescription || undefined, photoBase64 ?? undefined, undefined, mealType);
       setAnalysisResult(analysis);
       const parsed = parseNutritionFromText(analysis);
       setParsedCal(parsed.calories !== null ? String(parsed.calories) : '');
@@ -496,13 +496,19 @@ export default function FoodJournalPanel() {
           <div className="space-y-4 py-2">
             {/* Photo */}
             <div className="space-y-2">
-              <Label className="text-xs">Фото (опционально)</Label>
-              <div className="flex gap-2">
-                <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
-                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => cameraInputRef.current?.click()}><Camera className="h-3.5 w-3.5" /> Камера</Button>
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => fileInputRef.current?.click()}><ImageIcon className="h-3.5 w-3.5" /> Галерея</Button>
-              </div>
+              {supportsVision && (
+                <Label className="text-xs">Фото (опционально)</Label>
+              )}
+              {supportsVision ? (
+                <div className="flex gap-2">
+                  <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
+                  <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+                  <Button variant="outline" size="sm" className="gap-1.5" onClick={() => cameraInputRef.current?.click()}><Camera className="h-3.5 w-3.5" /> Камера</Button>
+                  <Button variant="outline" size="sm" className="gap-1.5" onClick={() => fileInputRef.current?.click()}><ImageIcon className="h-3.5 w-3.5" /> Галерея</Button>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">Фото недоступно — текущая модель не поддерживает анализ изображений.</p>
+              )}
               {photoBase64 && (
                 <div className="relative inline-block">
                   <img src={photoBase64} alt="Preview" className="h-20 w-20 rounded-md object-cover" />

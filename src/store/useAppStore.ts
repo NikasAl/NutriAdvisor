@@ -22,8 +22,8 @@ import type {
   SleepPeriod,
 } from '@/lib/types';
 import { NutritionPrompts } from '@/lib/prompts';
-import { callLLM, callLLMStream, buildChatMessages, buildVisionMessages } from '@/lib/llm-client';
-import type { LLMMessage } from '@/lib/llm-client';
+import { callLLM, callLLMStream, buildChatMessages } from '@/lib/llm-client';
+import type { LLMMessage, ContentPart } from '@/lib/llm-client';
 
 const DEFAULT_PROVIDER: Omit<LLMProvider, 'id' | 'createdAt' | 'updatedAt'> = {
   name: 'NuAdvi Proxy',
@@ -148,7 +148,7 @@ interface AppState {
 
   // LLM interaction
   sendChatMessage: (content: string, nutritionPeriod?: string) => Promise<string>;
-  analyzeFoodImage: (imageBase64: string, description?: string, weight?: number, mealType?: string) => Promise<string>;
+  analyzeFoodStream: (description?: string, imageBase64?: string, weight?: number, mealType?: string) => Promise<string>;
   analyzeFoodText: (description: string, weight?: number, mealType?: string) => Promise<string>;
   analyzeFoodTextStream: (description: string, weight?: number, mealType?: string) => Promise<string>;
   lastAnalysisDebug: { prompt: string; response: string } | null;
@@ -1043,44 +1043,69 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  analyzeFoodImage: async (imageBase64: string, description?: string, weight?: number, mealType?: string): Promise<string> => {
+  analyzeFoodStream: async (description?: string, imageBase64?: string, weight?: number, mealType?: string): Promise<string> => {
     const { profile, customGoals } = get();
     const provider = get().getActiveProvider();
     if (!provider || !provider.baseUrl || !provider.model) {
-      throw new Error('Настройте провайдер LLM с поддержкой Vision в настройках');
+      throw new Error('Настройте провайдер LLM в настройках');
     }
 
-    set({ isSending: true, lastAnalysisDebug: null });
+    set({ isSending: true, streamingAnalysis: '', lastAnalysisDebug: null });
 
     try {
-      // Step 1: Get image description using vision
-      const visionMessages = buildVisionMessages(imageBase64);
-      const imgDescription = await callLLM(provider, visionMessages, 0.6);
-
-      // Step 2: Build combined food description (image + user text + weight)
-      let combinedDesc = `Описание с фото: ${imgDescription.content}`;
-      if (description) combinedDesc += `\nДополнительное описание от пользователя: ${description}`;
-      if (weight) combinedDesc += `\nУказанный вес порции: ${weight}г`;
-
-      // Step 3: Analyze with nutrition prompt (with mealType and profile context)
       const profileInfo = buildProfileInfoForAnalysis(profile, customGoals);
       const systemPrompt = NutritionPrompts.getFoodAnalysisPrompt(mealType, profileInfo);
-      const analysisMessages: LLMMessage[] = [
+
+      // Build user message content — with optional image inline
+      let userContent: string | ContentPart[];
+      const textParts: string[] = [];
+      if (imageBase64) textParts.push('На фотографии изображена еда.');
+      if (description) textParts.push(description);
+      if (weight) textParts.push(`Вес порции: ${weight}г.`);
+      const userText = `Проанализируй эту еду: ${textParts.join(' ')}`;
+
+      if (imageBase64) {
+        userContent = [
+          { type: 'text', text: userText },
+          { type: 'image_url', image_url: { url: imageBase64.startsWith('data:') ? imageBase64 : `data:image/jpeg;base64,${imageBase64}` } },
+        ];
+      } else {
+        userContent = userText;
+      }
+
+      const messages: LLMMessage[] = [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Проанализируй эту еду: ${combinedDesc}` },
+        { role: 'user', content: userContent },
       ];
-      const analysis = await callLLM(provider, analysisMessages, 0.6);
+
+      const debugPrompt = typeof userContent === 'string'
+        ? userContent
+        : `${(userContent as ContentPart[]).map(p => p.type === 'text' ? (p as { text: string }).text : '[изображение]').join(' ')}`;
+
+      let finalContent = '';
+      try {
+        await callLLMStream(provider, messages, 0.6, undefined, (text) => {
+          finalContent = text;
+          set({ streamingAnalysis: text });
+        });
+      } catch {
+        // Streaming not supported — fallback to non-streaming
+        const response = await callLLM(provider, messages, 0.6);
+        finalContent = response.content;
+        set({ streamingAnalysis: finalContent });
+      }
 
       set({
         isSending: false,
+        streamingAnalysis: '',
         lastAnalysisDebug: {
-          prompt: `--- Системный промпт ---\n${systemPrompt}\n\n--- Запрос пользователя ---\nПроанализируй эту еду: ${combinedDesc}`,
-          response: analysis.content,
+          prompt: `--- Системный промпт ---\n${systemPrompt}\n\n--- Запрос пользователя ---\n${debugPrompt}`,
+          response: finalContent,
         },
       });
-      return analysis.content;
+      return finalContent;
     } catch (error) {
-      set({ isSending: false });
+      set({ isSending: false, streamingAnalysis: '' });
       throw error;
     }
   },
