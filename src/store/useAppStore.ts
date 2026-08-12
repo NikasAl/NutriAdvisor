@@ -24,6 +24,7 @@ import type {
 import { NutritionPrompts } from '@/lib/prompts';
 import { callLLM, callLLMStream, buildChatMessages } from '@/lib/llm-client';
 import type { LLMMessage, ContentPart } from '@/lib/llm-client';
+import { SEED_PRODUCTS, SEED_DISHES } from '@/data/seed-data';
 
 const DEFAULT_PROVIDER: Omit<LLMProvider, 'id' | 'createdAt' | 'updatedAt'> = {
   name: 'NuAdvi Proxy',
@@ -108,8 +109,7 @@ interface AppState {
   addFoodProduct: (name: string) => Promise<void>;
   updateFoodProduct: (id: string, updates: Partial<FoodProduct>) => Promise<void>;
   deleteFoodProduct: (id: string) => Promise<void>;
-
-  // Build sleep summary for chat context
+  seedFoodCatalog: () => Promise<void>;
   buildSleepSummary: () => string;
 
   // Dishes
@@ -716,6 +716,33 @@ export const useAppStore = create<AppState>((set, get) => ({
   deleteDish: async (id) => {
     await db.dishes.delete(id);
     set((s) => ({ dishes: s.dishes.filter((d) => d.id !== id) }));
+  },
+
+  seedFoodCatalog: async () => {
+    // Only seed if both tables are empty (first launch)
+    const existingProducts = await db.foodProducts.count();
+    if (existingProducts > 0) return;
+
+    const now = new Date();
+    const products: FoodProduct[] = SEED_PRODUCTS.map((p) => ({
+      id: p.id,
+      name: p.name,
+      createdAt: now,
+    }));
+    const dishes: Dish[] = SEED_DISHES.map((d) => ({
+      id: d.id,
+      name: d.name,
+      ingredients: d.ingredients,
+      createdAt: now,
+    }));
+
+    await db.foodProducts.bulkAdd(products);
+    await db.dishes.bulkAdd(dishes);
+
+    set({
+      foodProducts: products.sort((a, b) => a.name.localeCompare(b.name)),
+      dishes: dishes.sort((a, b) => a.name.localeCompare(b.name)),
+    });
   },
 
   // Expand food entry items to text description for LLM prompts

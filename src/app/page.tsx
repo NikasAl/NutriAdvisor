@@ -20,6 +20,7 @@ export default function Home() {
   const loadDiaryEntries = useAppStore((s) => s.loadDiaryEntries);
   const loadFoodProducts = useAppStore((s) => s.loadFoodProducts);
   const loadDishes = useAppStore((s) => s.loadDishes);
+  const seedFoodCatalog = useAppStore((s) => s.seedFoodCatalog);
   const loadWaterLog = useAppStore((s) => s.loadWaterLog);
   const loadSleepLog = useAppStore((s) => s.loadSleepLog);
   const [showHelp, setShowHelp] = useState(false);
@@ -31,9 +32,10 @@ export default function Home() {
     loadDiaryEntries();
     loadFoodProducts();
     loadDishes();
+    seedFoodCatalog();
     loadWaterLog(new Date().toISOString().split('T')[0]);
     loadSleepLog(new Date().toISOString().split('T')[0]);
-  }, [loadProviders, loadProfile, loadFoodEntries, loadDiaryEntries, loadFoodProducts, loadDishes, loadWaterLog, loadSleepLog]);
+  }, [loadProviders, loadProfile, loadFoodEntries, loadDiaryEntries, loadFoodProducts, loadDishes, seedFoodCatalog, loadWaterLog, loadSleepLog]);
 
   if (showHelp) {
     return (
