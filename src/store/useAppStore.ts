@@ -53,6 +53,10 @@ interface AppState {
   activeTab: TabId;
   setActiveTab: (tab: TabId) => void;
 
+  // Theme
+  theme: 'light' | 'dark' | 'system';
+  setTheme: (theme: 'light' | 'dark' | 'system') => void;
+
   // Providers
   providers: LLMProvider[];
   activeProviderId: string | null;
@@ -370,6 +374,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Navigation
   activeTab: 'dashboard',
   setActiveTab: (tab) => set({ activeTab: tab }),
+
+  // Theme — read from localStorage, apply on init
+  theme: (typeof window !== 'undefined' ? (localStorage.getItem('nutri-theme') as 'light' | 'dark' | 'system') || 'system' : 'system'),
+  setTheme: (theme) => {
+    set({ theme });
+    localStorage.setItem('nutri-theme', theme);
+    const root = document.documentElement;
+    if (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+  },
 
   // Providers
   providers: [],

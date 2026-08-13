@@ -21,6 +21,8 @@ export default function Home() {
   const loadFoodProducts = useAppStore((s) => s.loadFoodProducts);
   const loadDishes = useAppStore((s) => s.loadDishes);
   const seedFoodCatalog = useAppStore((s) => s.seedFoodCatalog);
+  const theme = useAppStore((s) => s.theme);
+  const setTheme = useAppStore((s) => s.setTheme);
   const loadWaterLog = useAppStore((s) => s.loadWaterLog);
   const loadSleepLog = useAppStore((s) => s.loadSleepLog);
   const [showHelp, setShowHelp] = useState(false);
@@ -36,6 +38,11 @@ export default function Home() {
     loadWaterLog(new Date().toISOString().split('T')[0]);
     loadSleepLog(new Date().toISOString().split('T')[0]);
   }, [loadProviders, loadProfile, loadFoodEntries, loadDiaryEntries, loadFoodProducts, loadDishes, seedFoodCatalog, loadWaterLog, loadSleepLog]);
+
+  // Apply theme on mount and when it changes
+  useEffect(() => {
+    setTheme(theme);
+  }, [theme, setTheme]);
 
   if (showHelp) {
     return (

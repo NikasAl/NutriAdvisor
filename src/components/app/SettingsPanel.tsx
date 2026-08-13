@@ -40,7 +40,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Pencil, Key, Zap, Eye, Loader2, CheckCircle2, XCircle, Wifi, Download, Upload, X, ListChecks, Share2 } from 'lucide-react';
+import { Plus, Trash2, Pencil, Key, Zap, Eye, Loader2, CheckCircle2, XCircle, Wifi, Download, Upload, X, ListChecks, Share2, Sun, Moon, Monitor } from 'lucide-react';
 import type { LLMProvider, ProviderType } from '@/lib/types';
 import { testProvider } from '@/lib/llm-client';
 import { db } from '@/lib/db';
@@ -66,6 +66,8 @@ export default function SettingsPanel() {
   const loadFoodProducts = useAppStore((s) => s.loadFoodProducts);
   const loadDishes = useAppStore((s) => s.loadDishes);
   const loadCustomGoals = useAppStore((s) => s.loadCustomGoals);
+  const theme = useAppStore((s) => s.theme);
+  const setTheme = useAppStore((s) => s.setTheme);
   const loadWaterLog = useAppStore((s) => s.loadWaterLog);
   const addProvider = useAppStore((s) => s.addProvider);
   const updateProvider = useAppStore((s) => s.updateProvider);
@@ -712,6 +714,31 @@ export default function SettingsPanel() {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      {/* Theme */}
+      <div className="border-t pt-4 mt-6">
+        <h2 className="text-lg font-semibold">Внешний вид</h2>
+        <div className="mt-3 flex items-center gap-3">
+          {([
+            { value: 'light' as const, icon: Sun, label: 'Светлая' },
+            { value: 'dark' as const, icon: Moon, label: 'Тёмная' },
+            { value: 'system' as const, icon: Monitor, label: 'Авто' },
+          ]).map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setTheme(opt.value)}
+              className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                theme === opt.value
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border hover:bg-muted'
+              }`}
+            >
+              <opt.icon className="h-4 w-4" />
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Data Export / Import */}
