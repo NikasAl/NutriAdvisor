@@ -44,6 +44,18 @@ export default function Home() {
     setTheme(theme);
   }, [theme, setTheme]);
 
+  // Listen for OS theme changes when in "system" mode
+  useEffect(() => {
+    const mql = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = () => {
+      if (useAppStore.getState().theme === 'system') {
+        setTheme('system');
+      }
+    };
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, [setTheme]);
+
   if (showHelp) {
     return (
       <div className="h-[100dvh] bg-background flex flex-col">

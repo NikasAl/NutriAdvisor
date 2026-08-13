@@ -43,7 +43,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#059669",
+ themeColor: "#059669",
+  colorScheme: "light dark",
 };
 
 export default function RootLayout({
@@ -53,6 +54,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('nutri-theme')||'system',d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme:dark)').matches),r=document.documentElement;if(d)r.classList.add('dark');var m=document.querySelector('meta[name=theme-color]');if(m)m.setAttribute('content',d?'#171717':'#059669')}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
