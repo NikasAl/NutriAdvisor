@@ -118,8 +118,18 @@ external_proxies:
     ssh_login: "az1lellkkr1-vpnjantit.com@az1.vpnjantit.com"
     ssh_port: 22
     auto_restart: true
-    health_check_interval: 30s
-    restart_delay: 5s
+    health_check_interval: 180s
+    restart_delay: 30s
+    tags: ["general"]
+
+  - id: proxy-az2
+    enabled: true
+    socks5_addr: "127.0.0.1:10801"
+    ssh_login: "az1krkrlew1-vpnjantit.com@az1.vpnjantit.com"
+    ssh_port: 22
+    auto_restart: true
+    health_check_interval: 180s
+    restart_delay: 30s
     tags: ["general"]
 
   - id: proxy-usa5
