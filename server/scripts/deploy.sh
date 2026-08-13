@@ -255,7 +255,7 @@ REMOTE
 
 show_logs() {
     info "Просмотр логов..."
-    remote_run "cd '${REMOTE_BASE}' && tail -f ${BINARY_NAME}.log"
+    remote_run "cd '${REMOTE_BASE}' && tail -n100 -f ${BINARY_NAME}.log"
 }
 
 show_status() {
