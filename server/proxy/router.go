@@ -23,6 +23,41 @@ type Router struct {
 // SetProxyManager sets the proxy manager for transport injection.
 func (r *Router) SetProxyManager(pm *ProxyManager) {
         r.proxyMgr = pm
+        // Register callback for dynamic transport re-injection when proxy state changes
+        pm.SetOnStateChange(func(id string, mp *ManagedProxy) {
+                r.reinjectTransports()
+        })
+}
+
+// reinjectTransports re-injects proxy transports into all providers that need them.
+// Called on every proxy state change to ensure providers always use a healthy proxy.
+func (r *Router) reinjectTransports() {
+        if r.proxyMgr == nil {
+                return
+        }
+
+        for name, pcfg := range r.providerConfigs() {
+                if !pcfg.ProxyRequired {
+                        continue
+                }
+                p := r.providers[name]
+                if p == nil {
+                        continue
+                }
+
+                ts, ok := p.(providers.TransportSetter)
+                if !ok {
+                        continue
+                }
+
+                transport := r.proxyMgr.GetHTTPTransport(
+                        http.DefaultTransport.(*http.Transport).Clone(), nil,
+                )
+                if transport != nil {
+                        ts.SetTransport(transport)
+                }
+                // If transport == nil, keep the old one — it may still work for direct access
+        }
 }
 
 // InjectProxyTransports configures providers that need a proxy with
