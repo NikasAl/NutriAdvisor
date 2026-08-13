@@ -4,6 +4,11 @@ import android.os.Bundle;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 
+import androidx.activity.enableEdgeToEdge;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
+
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -11,6 +16,7 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         // Register local plugins BEFORE super.onCreate() creates the Bridge
         registerPlugin(NativeHttpPlugin.class);
+        enableEdgeToEdge();
         super.onCreate(savedInstanceState);
     }
 
