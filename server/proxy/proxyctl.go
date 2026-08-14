@@ -100,6 +100,26 @@ func NewProxyManager(cfgs []config.ProxyCfg) *ProxyManager {
                         slog.Warn("proxy misconfigured (missing ssh_login or socks5_addr), skipping", "id", c.ID)
                         continue
                 }
+                // Validate unique SOCKS5 address
+                if _, dup := pm.proxies[c.ID]; dup {
+                        slog.Warn("proxy duplicate id, skipping", "id", c.ID)
+                        continue
+                }
+                addrConflict := false
+                for _, existing := range pm.proxies {
+                        if existing.Cfg.SOCKS5Addr == c.SOCKS5Addr {
+                                slog.Error("proxy socks5_addr conflict — two proxies cannot share the same address",
+                                        "new_id", c.ID,
+                                        "existing_id", existing.Cfg.ID,
+                                        "socks5_addr", c.SOCKS5Addr,
+                                )
+                                addrConflict = true
+                                break
+                        }
+                }
+                if addrConflict {
+                        continue
+                }
                 pm.proxies[c.ID] = &ManagedProxy{
                         Cfg:   c,
                         State: StateStopped,
