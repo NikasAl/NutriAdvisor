@@ -176,8 +176,7 @@ export default function HelpPanel({ onBack }: { onBack: () => void }) {
 
         <p>
           Чем современнее и мощнее выбранная вами модель, тем точнее и полезнее будет анализ.
-          Рекомендуется использовать модели последнего поколения (GPT-4o, Claude 3.5, Gemini 2.5,
-          Llama 3.1 и т.д.).
+          Рекомендуется использовать модели последнего поколения (GPT, Claude, Gemini и т.д.).
         </p>
 
         <Separator className="my-3" />
@@ -194,9 +193,9 @@ export default function HelpPanel({ onBack }: { onBack: () => void }) {
           </p>
           <p className="text-xs text-muted-foreground">
             Для полной конфиденциальности используйте <strong>локально развернутые модели</strong>
-            через такие инструменты как{' '}
+             через такие инструменты как{' '}
             <span className="font-medium">Ollama</span> или <span className="font-medium">llama.cpp</span>.
-            В этом случае данные вообще не покидают ваше устройство.
+            В этом случае данные вообще не покидают вашу локальную сеть.
           </p>
         </div>
       </Section>
@@ -220,8 +219,8 @@ export default function HelpPanel({ onBack }: { onBack: () => void }) {
             Полностью бесплатно
           </p>
           <p className="text-xs text-emerald-600 dark:text-emerald-500">
-            Никаких ограничений на количество запросов. Используйте все функции приложения
-            без регистрации и оплаты.
+            В данный момент нет ограничений на количество запросов. Используйте все функции приложения
+            без регистрации и оплаты. Но учитывайте, что сеть может быть загружена.
           </p>
         </div>
         <p>
@@ -240,13 +239,13 @@ export default function HelpPanel({ onBack }: { onBack: () => void }) {
         }}
       >
         <p>
-          NutriAdvisor поддерживает различные провайдеры нейросетей. Перейдите в раздел
+          NutriAdvisor позволяет задать любого провайдера нейросетей, который поддерживает протокол OpenAI API. Перейдите в раздел
           «Настройки» → «Провайдеры LLM» для добавления и управления подключениями.
         </p>
 
         <div className="space-y-3">
           <div>
-            <h4 className="text-sm font-semibold mb-1">Поддерживаемые типы провайдеров:</h4>
+            <h4 className="text-sm font-semibold mb-1">Типы провайдеров:</h4>
             <ul className="text-xs space-y-1.5 text-muted-foreground">
               <li className="flex items-start gap-1.5">
                 <span className="text-emerald-500 mt-0.5">•</span>
@@ -254,7 +253,7 @@ export default function HelpPanel({ onBack }: { onBack: () => void }) {
               </li>
               <li className="flex items-start gap-1.5">
                 <span className="text-emerald-500 mt-0.5">•</span>
-                <span><strong>Google (DashScope)</strong> — Gemini 2.5 Pro, Flash</span>
+                <span><strong>Google</strong> — Gemini 2.5 Pro, Flash</span>
               </li>
               <li className="flex items-start gap-1.5">
                 <span className="text-emerald-500 mt-0.5">•</span>
@@ -289,7 +288,7 @@ export default function HelpPanel({ onBack }: { onBack: () => void }) {
               <p>
                 <strong>Google AI Studio:</strong> Перейдите на{' '}
                 <span className="text-blue-500">aistudio.google.com</span> — API-ключ
-                предоставляется бесплатно с лимитами. Доступно из РФ без VPN.
+                предоставляется бесплатно с лимитами. Доступно из РФ также с VPN.
               </p>
               <p>
                 <strong>OpenRouter:</strong> Зарегистрируйтесь на{' '}
@@ -299,7 +298,7 @@ export default function HelpPanel({ onBack }: { onBack: () => void }) {
               <p>
                 <strong>Ollama:</strong> Скачайте с{' '}
                 <span className="text-blue-500">ollama.ai</span>, установите и запустите
-                модель командой <code className="rounded bg-muted px-1">ollama run gemma3</code>.
+                модель командой <code className="rounded bg-muted px-1">ollama run gemma4</code>.
                 Ключ не нужен — работает полностью локально!
               </p>
             </div>
@@ -312,7 +311,7 @@ export default function HelpPanel({ onBack }: { onBack: () => void }) {
             <p className="text-xs text-muted-foreground">
               Для полной конфиденциальности и бесплатной работы рекомендуем локальные модели.
               Установите <strong>Ollama</strong> или <strong>llama.cpp</strong>, скачайте модель
-              (например, <strong>Gemma 3</strong>, <strong>Llama 3.1</strong>, <strong>Qwen 2.5</strong>),
+              (например, <strong>Gemma 4</strong>, <strong>Qwen 3.8</strong>),
               и укажите адрес сервера в настройках провайдера.
             </p>
             <p className="text-xs text-muted-foreground mt-1">
