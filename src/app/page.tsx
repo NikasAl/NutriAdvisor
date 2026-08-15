@@ -56,6 +56,11 @@ export default function Home() {
     return () => mql.removeEventListener('change', handler);
   }, [setTheme]);
 
+  // Close help/privacy overlay when switching tabs
+  useEffect(() => {
+    if (showHelp) setShowHelp(false);
+  }, [activeTab]);
+
   if (showHelp) {
     return (
       <div className="h-[100dvh] bg-background flex flex-col">
