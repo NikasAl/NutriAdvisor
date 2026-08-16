@@ -8,6 +8,7 @@ import {
   ArrowLeft, Heart, Brain, Shield, Settings2, Zap,
   BookOpen, Moon, Droplets, UtensilsCrossed, Activity,
   AlertTriangle, ExternalLink, ChevronDown, ChevronUp,
+  Flame, GlassWater, BedDouble,
 } from 'lucide-react';
 import PrivacyPolicyPanel from './PrivacyPolicyPanel';
 
@@ -379,7 +380,162 @@ export default function HelpPanel({ onBack }: { onBack: () => void }) {
         </div>
       </Section>
 
-      {/* Section 6: Tips */}
+      {/* Section 6: Calories Widget */}
+      <Section
+        icon={Flame}
+        title="Виджет «Калории за сегодня»"
+        illustration={{
+          prompt: "Illustration of a calorie tracking widget on smartphone: a circular progress ring showing 65% filled in emerald green, numbers displaying 1450/2200 kcal, and below three small bars for proteins (blue), fats (amber), carbs (orange). Clean flat design, white background, no text.",
+          alt: 'Виджет калорий на главной экране',
+        }}
+      >
+        <p>
+          Виджет «Калории за сегодня» — основной инструмент контроля рациона на главной странице.
+          Он показывает, сколько калорий вы уже употребили за день и сколько осталось до вашей цели.
+        </p>
+
+        <div className="space-y-2">
+          <div className="flex items-start gap-2">
+            <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Прогресс-бар</strong> — зелёная полоса показывает долю от дневной нормы.
+              Когда вы приближаетесь к цели, полоса заполняется. Превышение отображается оранжевым цветом.
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>КБЖУ</strong> — под калориями отображается количество белков, жиров и углеводов
+              в граммах. Нажмите на виджет, чтобы перейти к разделу «Питание» с подробным журналом.
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Как считается цель</strong> — норма калорий рассчитывается по формуле Mifflin-St Jeor
+              с учётом вашей активности и цели (похудение, поддержание, набор). Заполните профиль
+              в разделе «Профиль» для точного расчёта.
+            </p>
+          </div>
+        </div>
+
+        <p>
+          Каждый раз когда вы записываете приём пищи (текстом или по фото через AI-анализ),
+          калории и КБЖУ автоматически добавляются к дневному итогу. Чем точнее вы описываете
+          порцию, тем точнее подсчёт.
+        </p>
+      </Section>
+
+      {/* Section 7: Water Widget */}
+      <Section
+        icon={GlassWater}
+        title="Виджет «Вода»"
+        illustration={{
+          prompt: "Illustration of a water tracking widget: a row of water glass icons, some filled blue, some empty outlines. A large water droplet in the center shows progress. A settings gear icon for configuring glass volume. Clean blue and white palette, minimal flat style, no text.",
+          alt: 'Трекинг употребления воды',
+        }}
+      >
+        <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 p-3 space-y-1 mb-3">
+          <p className="text-sm font-medium text-blue-700 dark:text-blue-400">
+            Почему важно пить достаточно воды?
+          </p>
+          <p className="text-xs text-blue-600 dark:text-blue-500">
+            Вода участвует во всех обменных процессах: регулирует температуру тела, транспортирует
+            питательные вещества, поддерживает работу пищеварения и почек. Недостаток воды снижает
+            концентрацию, вызывает усталость и может провоцировать переедание, поскольку жажда
+            часто маскируется под голод. Рекомендуемая норма — около 2000 мл в день, но потребность
+            возрастает при физической активности и в жаркую погоду.
+          </p>
+        </div>
+
+        <p>
+          Виджет «Вода» на главной странице помогает легко отслеживать употребление воды
+          в течение дня с помощью счётчика стаканов.
+        </p>
+
+        <div className="space-y-2">
+          <div className="flex items-start gap-2">
+            <span className="text-blue-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Объём стакана</strong> — нажмите на значок шестерёнки рядом с виджетом,
+              чтобы настроить объём одного стакана (от 100 до 500 мл). По умолчанию — 200 мл.
+              Укажите объём вашей привычной кружки или стакана.
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-blue-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Как отмечать</strong> — удобнее всего отмечать стакан в приложении сразу после
+              того, как в реальности вы допили очередной стакан воды. Нажмите кнопку «+», и счётчик
+              увеличится на один стакан. Если случайно добавили лишний — нажмите «−» для отмены.
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-blue-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Дневная цель</strong> — по умолчанию 2000 мл (10 стаканов по 200 мл).
+              Прогресс отображается полосой и числом выпитых стаканов. Данные воды учитываются
+              AI при анализе вашего рациона и самочувствия.
+            </p>
+          </div>
+        </div>
+      </Section>
+
+      {/* Section 8: Sleep Widget */}
+      <Section
+        icon={BedDouble}
+        title="Виджет «Сон»"
+        illustration={{
+          prompt: "Illustration of a sleep tracking widget: a moon and stars icon above a timeline bar showing sleep period from 23:00 to 7:00 in indigo color. A small form with two time pickers (start and end). Cozy dark blue and indigo palette, peaceful atmosphere, no text.",
+          alt: 'Отслеживание режима сна',
+        }}
+      >
+        <div className="rounded-lg bg-indigo-50 dark:bg-indigo-950/30 p-3 space-y-1 mb-3">
+          <p className="text-sm font-medium text-indigo-700 dark:text-indigo-400">
+            Почему важно высыпаться?
+          </p>
+          <p className="text-xs text-indigo-600 dark:text-indigo-500">
+            Качественный сон — фундамент здоровья. Во сне организм восстанавливается,
+            синтезирует гормоны роста и регулирует аппетит (грелин и лептин). Недостаток сна
+            повышает уровень кортизола, стимулирует накопление жира и снижает чувствительность
+            к инсулину. Исследования показывают, что люди, спящие менее 7 часов, набирают вес
+            в среднем на 30% быстрее. Оптимальная продолжительность — 7–9 часов для взрослых.
+          </p>
+        </div>
+
+        <p>
+          Виджет «Сон» на главной странице помогает отслеживать продолжительность сна.
+          Записывайте время засыпания и пробуждения, и приложение рассчитает общий период сна.
+        </p>
+
+        <div className="space-y-2">
+          <div className="flex items-start gap-2">
+            <span className="text-indigo-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Как отмечать сон</strong> — перед сном, когда тушите свет и ложитесь спать,
+              откройте приложение и запишите время отхода ко сну. Утром, сразу после пробуждения,
+              отметьте время пробуждения. Приложение рассчитает продолжительность автоматически.
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-indigo-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Дневной сон</strong> — если вы спите днём, добавьте отдельный период через
+              кнопку «Добавить». Все периоды суммируются для отображения общего времени сна за день.
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-indigo-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Целевой показатель</strong> — ориентир составляет 8 часов (480 минут).
+              Прогресс-бар показывает, насколько ваш сон приближается к норме. Данные сна
+              передаются в AI-контекст и учитываются при рекомендациях по питанию и режиму.
+            </p>
+          </div>
+        </div>
+      </Section>
+
+      {/* Section 9: Tips */}
       <Section
         icon={BookOpen}
         title="Советы по использованию"

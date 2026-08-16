@@ -25,7 +25,10 @@ export default function Home() {
   const setTheme = useAppStore((s) => s.setTheme);
   const loadWaterLog = useAppStore((s) => s.loadWaterLog);
   const loadSleepLog = useAppStore((s) => s.loadSleepLog);
-  const [showHelp, setShowHelp] = useState(false);
+  const [showHelp, setShowHelp] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return !localStorage.getItem('nutri-help-shown');
+  });
 
   useEffect(() => {
     loadProviders();
@@ -65,7 +68,7 @@ export default function Home() {
     return (
       <div className="h-[100dvh] bg-background flex flex-col">
         <main className="flex-1 min-h-0 overflow-y-auto mx-auto w-full max-w-lg px-4 pt-4 pb-20">
-          <HelpPanel onBack={() => setShowHelp(false)} />
+          <HelpPanel onBack={() => { localStorage.setItem('nutri-help-shown', '1'); setShowHelp(false); }} />
         </main>
         <BottomNav />
       </div>
