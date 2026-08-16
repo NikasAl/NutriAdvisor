@@ -113,7 +113,7 @@ model_aliases:
 # ---------------------------------------------------------------------------
 external_proxies:
   - id: proxy-az1
-    enabled: true
+    enabled: false
     socks5_addr: "127.0.0.1:10801"
     ssh_login: "az1lellkkr1-vpnjantit.com@az1.vpnjantit.com"
     ssh_port: 22
@@ -133,13 +133,13 @@ external_proxies:
     tags: ["general"]
 
   - id: proxy-usa5
-    enabled: false
-    socks5_addr: "127.0.0.1:10805"
-    ssh_login: "usa5fkel5r-vpnjantit.com@usa5.vpnjantit.com"
+    enabled: true
+    socks5_addr: "127.0.0.1:10803"
+    ssh_login: "usa5sdfkel5-vpnjantit.com@usa5.vpnjantit.com"
     ssh_port: 22
     auto_restart: true
-    health_check_interval: 30s
-    restart_delay: 5s
+    health_check_interval: 180s
+    restart_delay: 30s
     tags: ["usa"]
 
 # ---------------------------------------------------------------------------
