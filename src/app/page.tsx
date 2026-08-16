@@ -11,6 +11,7 @@ import ChatAssistantPanel from '@/components/app/ChatAssistantPanel';
 import ProfilePanel from '@/components/app/ProfilePanel';
 import SettingsPanel from '@/components/app/SettingsPanel';
 import HelpPanel from '@/components/app/HelpPanel';
+import type { HelpSection } from '@/components/app/HelpPanel';
 
 export default function Home() {
   const activeTab = useAppStore((s) => s.activeTab);
@@ -25,9 +26,9 @@ export default function Home() {
   const setTheme = useAppStore((s) => s.setTheme);
   const loadWaterLog = useAppStore((s) => s.loadWaterLog);
   const loadSleepLog = useAppStore((s) => s.loadSleepLog);
-  const [showHelp, setShowHelp] = useState(() => {
+  const [showHelp, setShowHelp] = useState<HelpSection | false>(() => {
     if (typeof window === 'undefined') return false;
-    return !localStorage.getItem('nutri-help-shown');
+    return !localStorage.getItem('nutri-help-shown') ? 'about' : false;
   });
 
   useEffect(() => {
@@ -64,11 +65,18 @@ export default function Home() {
     if (showHelp) setShowHelp(false);
   }, [activeTab]);
 
+  const openHelp = (section: HelpSection = 'about') => {
+    setShowHelp(section);
+  };
+
   if (showHelp) {
     return (
       <div className="h-[100dvh] bg-background flex flex-col">
         <main className="flex-1 min-h-0 overflow-y-auto mx-auto w-full max-w-lg px-4 pt-4 pb-20">
-          <HelpPanel onBack={() => { localStorage.setItem('nutri-help-shown', '1'); setShowHelp(false); }} />
+          <HelpPanel
+            initialSection={showHelp}
+            onBack={() => { localStorage.setItem('nutri-help-shown', '1'); setShowHelp(false); }}
+          />
         </main>
         <BottomNav />
       </div>
@@ -83,7 +91,7 @@ export default function Home() {
         </main>
       ) : (
         <main className="flex-1 min-h-0 overflow-y-auto mx-auto w-full max-w-lg px-4 pt-4 pb-20">
-          {activeTab === 'dashboard' && <DashboardPanel onOpenHelp={() => setShowHelp(true)} />}
+          {activeTab === 'dashboard' && <DashboardPanel onOpenHelp={() => openHelp('about')} onOpenWidgetHelp={openHelp} />}
           {activeTab === 'food' && <FoodJournalPanel />}
           {activeTab === 'catalog' && <FoodCatalogPanel />}
           {activeTab === 'diary' && <DiaryPanel />}

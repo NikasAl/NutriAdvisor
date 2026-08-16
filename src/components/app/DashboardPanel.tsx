@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { GOAL_LABELS } from '@/lib/types';
 import type { GoalType, SleepPeriod } from '@/lib/types';
+import type { HelpSection } from './HelpPanel';
 
 /** Calculate sleep duration in minutes, handling overnight */
 function calcDuration(start: string, end: string): number {
@@ -33,7 +34,7 @@ const GOAL_ICONS: Record<GoalType, React.ElementType> = {
   wellbeing: Zap, mental_clarity: Brain, energy: Zap, maintenance: Target,
 };
 
-export default function DashboardPanel({ onOpenHelp }: { onOpenHelp?: () => void }) {
+export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpenHelp?: () => void; onOpenWidgetHelp?: (section: HelpSection) => void }) {
   const profile = useAppStore((s) => s.profile);
   const foodEntries = useAppStore((s) => s.foodEntries);
   const chatSessions = useAppStore((s) => s.chatSessions);
@@ -169,10 +170,21 @@ export default function DashboardPanel({ onOpenHelp }: { onOpenHelp?: () => void
       {/* Calorie tracker */}
       <Card>
         <CardHeader className="pb-2 pt-4 px-4">
-          <CardTitle className="flex items-center gap-2 text-sm">
-            <UtensilsCrossed className="h-4 w-4 text-emerald-600" />
-            Калории за сегодня
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <UtensilsCrossed className="h-4 w-4 text-emerald-600" />
+              Калории за сегодня
+            </CardTitle>
+            {onOpenWidgetHelp && (
+              <button
+                onClick={() => onOpenWidgetHelp('calories')}
+                className="text-muted-foreground/50 hover:text-muted-foreground p-1 rounded-md hover:bg-muted/30 transition-colors"
+                title="Помощь"
+              >
+                <CircleHelp className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="px-4 pb-4 space-y-3">
           <div className="flex items-end justify-between">
@@ -209,6 +221,15 @@ export default function DashboardPanel({ onOpenHelp }: { onOpenHelp?: () => void
               Вода
             </CardTitle>
             <div className="flex items-center gap-1">
+              {onOpenWidgetHelp && (
+                <button
+                  onClick={() => onOpenWidgetHelp('water')}
+                  className="text-muted-foreground/50 hover:text-muted-foreground p-1 rounded-md hover:bg-muted/30 transition-colors"
+                  title="Помощь"
+                >
+                  <CircleHelp className="h-3.5 w-3.5" />
+                </button>
+              )}
               {showGlassSettings ? (
                 <div className="flex items-center gap-1">
                   <select
@@ -282,6 +303,16 @@ export default function DashboardPanel({ onOpenHelp }: { onOpenHelp?: () => void
               <BedDouble className="h-4 w-4 text-indigo-500" />
               Сон
             </CardTitle>
+          <div className="flex items-center gap-1">
+            {onOpenWidgetHelp && (
+              <button
+                onClick={() => onOpenWidgetHelp('sleep')}
+                className="text-muted-foreground/50 hover:text-muted-foreground p-1 rounded-md hover:bg-muted/30 transition-colors"
+                title="Помощь"
+              >
+                <CircleHelp className="h-3.5 w-3.5" />
+              </button>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -291,6 +322,7 @@ export default function DashboardPanel({ onOpenHelp }: { onOpenHelp?: () => void
               <Plus className="h-3.5 w-3.5" />
               Добавить
             </Button>
+          </div>
           </div>
         </CardHeader>
         <CardContent className="px-4 pb-4 space-y-3">

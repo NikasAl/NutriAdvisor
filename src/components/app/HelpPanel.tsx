@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -52,17 +52,19 @@ function Section({
   children,
   illustration,
   defaultOpen = false,
+  sectionId,
 }: {
   icon: React.ElementType;
   title: string;
   children: React.ReactNode;
   illustration?: { prompt: string; alt: string };
   defaultOpen?: boolean;
+  sectionId?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden help-section-card" data-section={sectionId}>
       <button
         onClick={() => setOpen(!open)}
         className="w-full flex items-center gap-3 p-4 text-left hover:bg-muted/30 transition-colors"
@@ -95,8 +97,24 @@ function Section({
   );
 }
 
-export default function HelpPanel({ onBack }: { onBack: () => void }) {
+export type HelpSection = 'about' | 'calories' | 'water' | 'sleep';
+
+export default function HelpPanel({ onBack, initialSection }: { onBack: () => void; initialSection?: HelpSection }) {
   const [showPrivacy, setShowPrivacy] = useState(false);
+
+  // Scroll to specified section on mount
+  useEffect(() => {
+    if (!initialSection || initialSection === 'about') return;
+    const timer = setTimeout(() => {
+      const card = document.querySelector(`.help-section-card[data-section="${initialSection}"]`) as HTMLElement;
+      if (card) {
+        const btn = card.querySelector('button') as HTMLElement;
+        if (btn) btn.click();
+        setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [initialSection]);
 
   if (showPrivacy) {
     return <PrivacyPolicyPanel onBack={() => setShowPrivacy(false)} />;
@@ -384,6 +402,7 @@ export default function HelpPanel({ onBack }: { onBack: () => void }) {
       <Section
         icon={Flame}
         title="Виджет «Калории за сегодня»"
+        sectionId="calories"
         illustration={{
           prompt: "Illustration of a calorie tracking widget on smartphone: a circular progress ring showing 65% filled in emerald green, numbers displaying 1450/2200 kcal, and below three small bars for proteins (blue), fats (amber), carbs (orange). Clean flat design, white background, no text.",
           alt: 'Виджет калорий на главной экране',
@@ -430,6 +449,7 @@ export default function HelpPanel({ onBack }: { onBack: () => void }) {
       <Section
         icon={GlassWater}
         title="Виджет «Вода»"
+        sectionId="water"
         illustration={{
           prompt: "Illustration of a water tracking widget: a row of water glass icons, some filled blue, some empty outlines. A large water droplet in the center shows progress. A settings gear icon for configuring glass volume. Clean blue and white palette, minimal flat style, no text.",
           alt: 'Трекинг употребления воды',
@@ -485,6 +505,7 @@ export default function HelpPanel({ onBack }: { onBack: () => void }) {
       <Section
         icon={BedDouble}
         title="Виджет «Сон»"
+        sectionId="sleep"
         illustration={{
           prompt: "Illustration of a sleep tracking widget: a moon and stars icon above a timeline bar showing sleep period from 23:00 to 7:00 in indigo color. A small form with two time pickers (start and end). Cozy dark blue and indigo palette, peaceful atmosphere, no text.",
           alt: 'Отслеживание режима сна',
