@@ -26,10 +26,14 @@ export default function Home() {
   const setTheme = useAppStore((s) => s.setTheme);
   const loadWaterLog = useAppStore((s) => s.loadWaterLog);
   const loadSleepLog = useAppStore((s) => s.loadSleepLog);
-  const [showHelp, setShowHelp] = useState<HelpSection | false>(() => {
-    if (typeof window === 'undefined') return false;
-    return !localStorage.getItem('nutri-help-shown') ? 'about' : false;
-  });
+  const [showHelp, setShowHelp] = useState<HelpSection | false>(false);
+
+  // Show help on first launch (after hydration)
+  useEffect(() => {
+    if (!localStorage.getItem('nutri-help-shown')) {
+      setShowHelp('about');
+    }
+  }, []);
 
   useEffect(() => {
     loadProviders();
