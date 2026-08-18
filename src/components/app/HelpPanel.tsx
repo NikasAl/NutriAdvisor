@@ -75,7 +75,6 @@ function Section({
             <Illustration
               src={illustration.src}
               alt={illustration.alt}
-              className="h-40"
             />
           )}
           <div className="text-sm leading-relaxed text-foreground/90 space-y-3">
