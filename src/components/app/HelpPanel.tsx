@@ -10,7 +10,6 @@ import {
   AlertTriangle, ExternalLink, ChevronDown, ChevronUp,
   Flame, GlassWater, BedDouble,
 } from 'lucide-react';
-import NextImage from 'next/image';
 import PrivacyPolicyPanel from './PrivacyPolicyPanel';
 
 /** Illustration — displays an optimized image from /help/ */
@@ -25,13 +24,12 @@ function Illustration({
 }) {
   return (
     <div className={`relative w-full rounded-xl overflow-hidden ${className}`}>
-      <NextImage
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
         src={src}
         alt={alt}
-        width={832}
-        height={464}
         className="w-full h-auto"
-        priority={false}
+        loading="lazy"
       />
     </div>
   );
