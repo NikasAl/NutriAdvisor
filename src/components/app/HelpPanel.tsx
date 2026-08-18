@@ -10,37 +10,29 @@ import {
   AlertTriangle, ExternalLink, ChevronDown, ChevronUp,
   Flame, GlassWater, BedDouble,
 } from 'lucide-react';
+import NextImage from 'next/image';
 import PrivacyPolicyPanel from './PrivacyPolicyPanel';
 
-/**
- * Illustration placeholder — shows prompt text for future image generation.
- * Replace the <div> content with <img src="/help/xxx.png" /> when ready.
- */
+/** Illustration — displays an optimized image from /help/ */
 function Illustration({
-  prompt,
+  src,
   alt,
   className = '',
 }: {
-  prompt: string;
+  src: string;
   alt: string;
   className?: string;
 }) {
   return (
-    <div
-      className={`relative w-full rounded-xl overflow-hidden bg-gradient-to-br from-emerald-100 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/20 flex items-center justify-center ${className}`}
-    >
-      {/* Placeholder — replace with <img> when illustrations are ready */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
-        <div className="text-4xl mb-2 opacity-60">🖼️</div>
-        <p className="text-[10px] text-muted-foreground leading-tight max-w-[200px] italic">
-          {alt}
-        </p>
-      </div>
-      {/* Hidden prompt for developer reference */}
-      <span className="sr-only">{prompt}</span>
-      {/* Uncomment when image ready:
-      <img src={src} alt={alt} className="w-full h-full object-cover" />
-      */}
+    <div className={`relative w-full rounded-xl overflow-hidden ${className}`}>
+      <NextImage
+        src={src}
+        alt={alt}
+        width={832}
+        height={464}
+        className="w-full h-auto"
+        priority={false}
+      />
     </div>
   );
 }
@@ -57,7 +49,7 @@ function Section({
   icon: React.ElementType;
   title: string;
   children: React.ReactNode;
-  illustration?: { prompt: string; alt: string };
+  illustration?: { src: string; alt: string };
   defaultOpen?: boolean;
   sectionId?: string;
 }) {
@@ -132,9 +124,8 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
 
       {/* Hero illustration */}
       <Illustration
-        prompt="Flat illustration of a healthy lifestyle concept: a person standing on a balance beam between wholesome food (fruits, vegetables, grains), a glowing moon symbolizing good sleep, a water droplet, and a dumbbell representing activity. Warm green and teal color palette, minimalist vector style, no text."
+        src="/help/hero.png"
         alt="Здоровый образ жизни: питание, сон, вода, активность"
-        className="h-48"
       />
 
       {/* Section 1: Purpose */}
@@ -143,7 +134,7 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
         title="Цель NutriAdvisor"
         defaultOpen={true}
         illustration={{
-          prompt: "Warm motivational illustration: a sunrise over a green landscape with silhouettes of people jogging, preparing healthy food in a kitchen, sleeping peacefully in a cozy bed. Soft watercolor style, green and gold tones, uplifting mood, no text.",
+          src: '/help/purpose.png',
           alt: 'Мотивация к здоровому образу жизни',
         }}
       >
@@ -169,7 +160,7 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
         icon={Brain}
         title="Как работает анализ"
         illustration={{
-          prompt: "Illustration of AI food analysis: a smartphone screen showing a bowl of salad, with animated data lines flowing from the phone to a glowing brain icon, which outputs nutritional data (calories, proteins, fats, carbs) as floating holographic labels. Modern flat design, emerald and teal palette, no text.",
+          src: '/help/analysis.png',
           alt: 'Нейросеть анализирует питание',
         }}
       >
@@ -224,7 +215,7 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
         icon={Zap}
         title="Провайдер по умолчанию"
         illustration={{
-          prompt: "Illustration of a smartphone with a glowing green checkmark, indicating ready-to-use service. A small gift box icon floats nearby, symbolizing free access. Clean minimalist style, emerald green accent color, white background, no text.",
+          src: '/help/provider.png',
           alt: 'Приложение готово к работе сразу после установки',
         }}
       >
@@ -253,7 +244,7 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
         icon={Settings2}
         title="Настройка провайдеров"
         illustration={{
-          prompt: "Illustration of settings gear icon connected to cloud icons representing different AI providers (OpenAI, Google, Anthropic, local server). Connection lines show data flow. Clean isometric style, blue and green palette, no text.",
+          src: '/help/settings.png',
           alt: 'Настройка подключений к AI-провайдерам',
         }}
       >
@@ -345,7 +336,7 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
         icon={UtensilsCrossed}
         title="Возможности приложения"
         illustration={{
-          prompt: "Flat illustration showing 4 app features as cards: 1) A fork and knife with a camera icon (food tracking), 2) A water droplet with + and - buttons (hydration), 3) A moon and bed icon (sleep tracking), 4) A running figure with a heart rate icon (activity diary). Modern, clean, rounded corners, green and teal color scheme, no text.",
+          src: '/help/features.png',
           alt: 'Основные функции приложения',
         }}
       >
@@ -404,7 +395,7 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
         title="Виджет «Калории за сегодня»"
         sectionId="calories"
         illustration={{
-          prompt: "Illustration of a calorie tracking widget on smartphone: a circular progress ring showing 65% filled in emerald green, numbers displaying 1450/2200 kcal, and below three small bars for proteins (blue), fats (amber), carbs (orange). Clean flat design, white background, no text.",
+          src: '/help/calories.png',
           alt: 'Виджет калорий на главной экране',
         }}
       >
@@ -451,7 +442,7 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
         title="Виджет «Вода»"
         sectionId="water"
         illustration={{
-          prompt: "Illustration of a water tracking widget: a row of water glass icons, some filled blue, some empty outlines. A large water droplet in the center shows progress. A settings gear icon for configuring glass volume. Clean blue and white palette, minimal flat style, no text.",
+          src: '/help/water.png',
           alt: 'Трекинг употребления воды',
         }}
       >
@@ -507,7 +498,7 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
         title="Виджет «Сон»"
         sectionId="sleep"
         illustration={{
-          prompt: "Illustration of a sleep tracking widget: a moon and stars icon above a timeline bar showing sleep period from 23:00 to 7:00 in indigo color. A small form with two time pickers (start and end). Cozy dark blue and indigo palette, peaceful atmosphere, no text.",
+          src: '/help/sleep.png',
           alt: 'Отслеживание режима сна',
         }}
       >
@@ -561,7 +552,7 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
         icon={BookOpen}
         title="Советы по использованию"
         illustration={{
-          prompt: "Illustration of a person holding a smartphone with a friendly AI assistant on screen giving a thumbs up. Soft pastel colors, encouraging and warm atmosphere, flat illustration style, no text.",
+          src: '/help/tips.png',
           alt: 'AI-ассистент помогает разобраться',
         }}
       >
