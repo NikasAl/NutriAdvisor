@@ -73,7 +73,7 @@ function Section({
         <div className="px-4 pb-4 space-y-4">
           {illustration && (
             <Illustration
-              prompt={illustration.prompt}
+              src={illustration.src}
               alt={illustration.alt}
               className="h-40"
             />
