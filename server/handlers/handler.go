@@ -72,7 +72,8 @@ func (h *Handler) handleChatCompletions(w http.ResponseWriter, r *http.Request) 
                 return
         }
 
-        // Try candidates in priority order with fallback on error
+        // Try candidates in priority order with fallback on error.
+        // Concurrency slots are acquired lazily — one at a time per candidate.
         lastErr := ""
         for i, cand := range candidates {
                 req.Model = cand.Model // set real model name
@@ -85,18 +86,23 @@ func (h *Handler) handleChatCompletions(w http.ResponseWriter, r *http.Request) 
                         "priority", cand.Priority,
                 )
 
+                // Lazily acquire concurrency slot for this candidate only
+                pool := h.router.GetPool(cand.Provider.Name())
+                if pool == nil || !cand.AcquireSlot(pool, 5*time.Second) {
+                        slog.Debug("candidate at capacity, skipping",
+                                "provider", cand.Provider.Name(),
+                                "model", cand.Model,
+                        )
+                        continue
+                }
+
                 if req.Stream {
                         err := h.tryStreaming(w, r, cand.Provider, &req)
                         if err == nil {
-                                // Success — release current candidate + remaining
                                 cand.Release()
-                                for _, c := range candidates[i+1:] {
-                                        c.Release()
-                                }
                                 return
                         }
-                        // tryStreaming failed BEFORE sending headers (SendStream
-                        // returned error), so we CAN retry the next candidate.
+                        // tryStreaming failed BEFORE sending headers, safe to retry
                         lastErr = err.Error()
                         slog.Warn("candidate failed, trying next",
                                 "provider", cand.Provider.Name(),
@@ -115,11 +121,7 @@ func (h *Handler) handleChatCompletions(w http.ResponseWriter, r *http.Request) 
                                 "model", cand.Model,
                                 "usage", fmt.Sprintf("in=%d out=%d", usage.InputTokens, usage.OutputTokens),
                         )
-                        // Success — release current candidate + remaining
                         cand.Release()
-                        for _, c := range candidates[i+1:] {
-                                c.Release()
-                        }
                         w.Header().Set("Content-Type", "application/json")
                         w.WriteHeader(http.StatusOK)
                         w.Write(respBody)

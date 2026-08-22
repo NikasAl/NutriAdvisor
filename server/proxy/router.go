@@ -191,26 +191,38 @@ func (r *Router) SelectProvider(aliasName string) (providers.Provider, string, f
 
 // CandidateProvider pairs a provider instance with the real model name.
 // Used by handler for fallback retry on error.
+// Concurrency slots are acquired lazily via AcquireSlot().
 type CandidateProvider struct {
         Provider providers.Provider
         Model    string // real model name on this provider
         Priority int    // model priority (for logging)
-        release  func() // releases the concurrency slot
+        release  func() // releases the concurrency slot (set after AcquireSlot)
+}
+
+// AcquireSlot tries to get a concurrency slot for this candidate.
+// Returns false if the provider is at capacity. Must be called before use.
+func (cp *CandidateProvider) AcquireSlot(pool *Pool, wait time.Duration) bool {
+        acquired, release := pool.Acquire(wait)
+        if !acquired {
+                return false
+        }
+        cp.release = release
+        return true
 }
 
 // Release returns the concurrency slot. Must be called for every candidate
-// that will NOT be used (i.e. all candidates after the successful one,
-// or all candidates if all fail).
+// that was acquired via AcquireSlot and is no longer needed.
 func (cp *CandidateProvider) Release() {
         if cp.release != nil {
                 cp.release()
+                cp.release = nil
         }
 }
 
 // SelectProviderCandidates returns all available provider-model candidates
-// for a given alias, sorted by priority. Each candidate has already acquired
-// a concurrency slot. The handler can try them in order and release unused ones.
-// IMPORTANT: caller must call Release() on each candidate that won't be used.
+// for a given alias, sorted by priority. Concurrency slots are NOT acquired
+// upfront — the handler must call AcquireSlot() before trying each candidate
+// and Release() after (whether success or failure).
 func (r *Router) SelectProviderCandidates(aliasName string) ([]CandidateProvider, error) {
         r.mu.RLock()
         defer r.mu.RUnlock()
@@ -226,20 +238,14 @@ func (r *Router) SelectProviderCandidates(aliasName string) ([]CandidateProvider
                 if p == nil || !p.IsActive() {
                         continue
                 }
-                pool, ok := r.pools[cm.Provider.Name]
+                _, ok := r.pools[cm.Provider.Name]
                 if !ok {
-                        continue
-                }
-                slot, release := pool.Acquire(5 * time.Second)
-                if !slot {
-                        slog.Debug("candidate at capacity, skipping", "provider", cm.Provider.Name, "model", cm.Model.Name)
                         continue
                 }
                 result = append(result, CandidateProvider{
                         Provider: p,
                         Model:    cm.Model.Name,
                         Priority: cm.Model.Priority,
-                        release:  release,
                 })
         }
 
@@ -380,6 +386,13 @@ func (p *Pool) Load() float64 {
 // Stats returns pool statistics.
 func (p *Pool) Stats() (active int, capacity int) {
         return len(p.sem), p.maxSlots
+}
+
+// GetPool returns the concurrency pool for a provider name.
+func (r *Router) GetPool(providerName string) *Pool {
+        r.mu.RLock()
+        defer r.mu.RUnlock()
+        return r.pools[providerName]
 }
 
 // GetProvider returns a provider by name (for admin API).
