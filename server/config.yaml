@@ -72,6 +72,15 @@ providers:
         input_price: 6.75
         output_price: 27.0
         max_tokens: 8192
+      
+      # --- отдельный алиас для glm-5.2 ---
+      - name: "z-ai/glm-5.2:free"
+        alias: "glm-5.2-free"
+        priority: 1
+        input_price: 0.0
+        output_price: 0.0
+        max_tokens: 8192
+
 
   - name: gigachat
     type: gigachat
@@ -95,6 +104,9 @@ providers:
 model_aliases:
   - name: gemma-4
     fallback_chain: [openrouter, llama-local]   # free → local → paid
+    strategy: priority
+  - name: glm-5.2-free
+    fallback_chain: [openrouter]
     strategy: priority
   - name: gemini-2.5-fp
     fallback_chain: [openrouter]
@@ -125,7 +137,7 @@ external_proxies:
   - id: proxy-az2
     enabled: true
     socks5_addr: "127.0.0.1:10802"
-    ssh_login: "az1krkrlew1-vpnjantit.com@az1.vpnjantit.com"
+    ssh_login: "az1krksdsew1-vpnjantit.com@az1.vpnjantit.com"
     ssh_port: 22
     auto_restart: true
     health_check_interval: 180s
@@ -133,7 +145,7 @@ external_proxies:
     tags: ["general"]
 
   - id: proxy-usa5
-    enabled: true
+    enabled: false
     socks5_addr: "127.0.0.1:10803"
     ssh_login: "usa5sdfkel5-vpnjantit.com@usa5.vpnjantit.com"
     ssh_port: 22
