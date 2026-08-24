@@ -16,7 +16,7 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         // Register local plugins BEFORE super.onCreate() creates the Bridge
         registerPlugin(NativeHttpPlugin.class);
-        super.onCreate();
+        super.onCreate(savedInstanceState);
         // Edge-to-edge: transparent system bars, content draws behind them
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
     }
