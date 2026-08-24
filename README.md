@@ -218,40 +218,61 @@ npm run build
 npm run apk:debug
 ```
 
-**Релизный APK** (без подписи — для тестирования на устройстве):
+**Подписанный релизный APK**:
 ```bash
-npm run apk:release
+npm run build:android
+cd android && ./gradlew assembleRelease
 ```
 
-Готовый APK будет в:
-- Debug: `android/app/build/outputs/apk/debug/app-debug.apk`
-- Release: `android/app/build/outputs/apk/release/app-release-unsigned.apk`
+**Релизный AAB** (для Google Play):
+```bash
+npm run build:android
+cd android && ./gradlew bundleRelease
+```
 
-Эти команды выполняют всё за один шаг: сборку Next.js → синхронизацию с Android → сборку APK через `./gradlew`.
+Готовые артефакты:
+- Debug APK: `android/app/build/outputs/apk/debug/app-debug.apk`
+- Release APK: `android/app/build/outputs/apk/release/app-release.apk`
+- Release AAB: `android/app/build/outputs/bundle/release/app-release.aab`
+
+Эти команды выполняют всё за один шаг: сборка Next.js → синхронизацию с Android → сборка через `./gradlew`.
 
 Для установки APK на устройство:
 ```bash
 adb install android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-### Подпись релизного APK
+### Подпись релизной сборки (APK / AAB)
 
-Для публикации в Google Play или распространения подписанного APK:
+Подпись настроена в `android/app/build.gradle` → `signingConfigs.release`. Для сборки подписанных артефактов необходимо задать учётные данные — через переменные окружения или `android/gradle.properties`:
 
-```bash
-# 1. Создайте keystore (один раз)
-keytool -genkey -v -keystore nutriadvisor.keystore -alias nutriadvisor -keyalg RSA -keysize 2048 -validity 10000
-
-# 2. Соберите подписанный APK
-cd android
-./gradlew assembleRelease \
-  -PMYAPP_UPLOAD_STORE_PASSWORD=пароль_от_keystore \
-  -PMYAPP_UPLOAD_KEY_PASSWORD=пароль_от_ключа \
-  -PMYAPP_UPLOAD_KEY_ALIAS=nutriadvisor \
-  -PMYAPP_UPLOAD_STORE_FILE=../nutriadvisor.keystore
+```properties
+# android/gradle.properties (не коммитится в git)
+KEYSTORE_PASSWORD=пароль_от_keystore
+KEY_ALIAS=nuadvi
+KEY_PASSWORD=пароль_от_ключа
+KEYSTORE_PATH=../keystore.jks
 ```
 
-Или настройте подпись в `android/app/build.gradle` → `signingConfigs`.
+Или через переменные окружения:
+
+```bash
+KEYSTORE_PASSWORD=... KEY_ALIAS=nuadvi KEY_PASSWORD=... KEYSTORE_PATH=../keystore.jks \
+  ./gradlew assembleRelease
+```
+
+#### Добавление ключа в существующий keystore
+
+```bash
+keytool -genkeypair \
+  -keystore /путь/к/keystore.jks \
+  -alias nuadvi \
+  -keyalg RSA \
+  -keysize 2048 \
+  -validity 9125
+```
+
+Параметр `-validity 9125` — 25 лет (требование Google Play).
 
 ### Сборка через Android Studio
 
@@ -270,20 +291,22 @@ npm run open:android
 |---|---|
 | `npm run build:android` | Собрать Next.js + синхронизировать с Android |
 | `npm run apk:debug` | Полный цикл: сборка + отладочный APK |
-| `npm run apk:release` | Полный цикл: сборка + релизный APK (unsigned) |
+| `npm run apk:release` | Полный цикл: сборка + релизный подписанный APK |
+| `cd android && ./gradlew bundleRelease` | Сборка AAB для Google Play |
 | `npm run open:android` | Открыть проект в Android Studio |
 
 ### Настройка Android-проекта
 
 Файл `capacitor.config.ts` содержит настройки:
-- `appId: 'com.nutriadvisor.app'` — идентификатор приложения (меняйте при необходимости).
+- `appId: 'ru.kreagenium.nuadvi'` — идентификатор пакета.
 - `webDir: 'out'` — директория со статическим экспортом Next.js.
+- `androidScheme: 'https'` — HTTPS-схема для WebView (требуется для camera и других APIs).
 - Цвета сплеш-скрина и фона — `#059669` (emerald-600).
 
 #### NativeHttpPlugin
 Для корректной работы LLM-запросов из Android APK (обход WebView CORS и mixed content ограничений) используется собственный Java-плагин:
-- `android/app/src/main/java/com/nutriadvisor/app/NativeHttpPlugin.java` — HTTP-клиент на `HttpURLConnection` с SSE-стримингом.
-- Таймаут чтения: 5 минут (поддерживает длительную генерацию).
+- `android/app/src/main/java/ru/kreagenium/nuadvi/NativeHttpPlugin.java` — HTTP-клиент на `HttpURLConnection` с SSE-стримингом.
+- Таймаут соединения: 30 секунд, чтения: 5 минут (поддерживает длительную генерацию).
 - Регистрируется в `MainActivity.onCreate()`.
 - Веб-версия использует стандартный `fetch()` — плагин активируется только в нативном Android.
 
@@ -313,11 +336,14 @@ NutriAdvisor/
 │   ├── scripts/deploy.sh          # Скрипт деплоя
 │   └── config.yaml                 # Конфигурация провайдеров, моделей, цен
 ├── android/                       # Capacitor Android-проект
-│   ├── app/src/main/
-│   │   ├── assets/                # Скопированные веб-ресурсы
-│   │   ├── java/.../NativeHttpPlugin.java  # Нативный HTTP-плагин (SSE streaming)
-│   │   ├── java/.../MainActivity.java      # Регистрация плагина
-│   │   └── res/                   # Иконки, ресурсы
+│   ├── app/
+│   │   ├── build.gradle                # Конфигурация сборки, подписи, ProGuard
+│   │   └── src/main/
+│   │       ├── java/ru/kreagenium/nuadvi/
+│   │       │   ├── NativeHttpPlugin.java  # Нативный HTTP-плагин (SSE streaming)
+│   │       │   └── MainActivity.java      # Регистрация плагина
+│   │       ├── res/                     # Иконки, ресурсы
+│   │       └── assets/                  # Скопированные веб-ресурсы
 │   └── ...
 ├── public/                        # Статические файлы
 │   ├── manifest.json              # PWA манифест

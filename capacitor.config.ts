@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.nutriadvisor.app',
+  appId: 'ru.kreagenium.nuadvi',
   appName: 'NutriAdvisor',
   webDir: 'out',
   server: {
