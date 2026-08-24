@@ -1,4 +1,4 @@
-package com.getcapacitor.myapp;
+package ru.kreagenium.nuadvi;
 
 import static org.junit.Assert.*;
 

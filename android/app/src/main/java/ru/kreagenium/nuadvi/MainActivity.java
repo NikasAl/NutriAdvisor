@@ -1,4 +1,4 @@
-package com.nutriadvisor.app;
+package ru.kreagenium.nuadvi;
 
 import android.os.Bundle;
 import android.webkit.WebSettings;

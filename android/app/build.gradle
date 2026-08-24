@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.nutriadvisor.app"
+    namespace = "ru.kreagenium.nuadvi"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.nutriadvisor.app"
+        applicationId "ru.kreagenium.nuadvi"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -16,10 +16,28 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+
+    signingConfigs {
+        release {
+            // Путь к keystore — укажите актуальный путь к вашему файлу
+            storeFile file(System.getenv("KEYSTORE_PATH") ?: "../keystore.jks")
+            // Эти значения можно задать через переменные окружения или gradle.properties
+            storePassword System.getenv("KEYSTORE_PASSWORD") ?: (project.hasProperty("KEYSTORE_PASSWORD") ? project.property("KEYSTORE_PASSWORD") : "")
+            keyAlias System.getenv("KEY_ALIAS") ?: (project.hasProperty("KEY_ALIAS") ? project.property("KEY_ALIAS") : "")
+            keyPassword System.getenv("KEY_PASSWORD") ?: (project.hasProperty("KEY_PASSWORD") ? project.property("KEY_PASSWORD") : "")
+        }
+    }
+
     buildTypes {
         release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+        debug {
+            // Debug не подписываем релизным ключом
+            signingConfig signingConfigs.debug
         }
     }
 }
