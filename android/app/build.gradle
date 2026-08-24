@@ -17,14 +17,22 @@ android {
         }
     }
 
+    // Загружаем секреты подписи из local.properties (не в git)
+    def localProps = new Properties()
+    def localPropsFile = rootProject.file('local.properties')
+    if (localPropsFile.exists()) {
+        localProps.load(new FileInputStream(localPropsFile))
+    }
+
     signingConfigs {
-        release {
-            // Путь к keystore — укажите актуальный путь к вашему файлу
-            storeFile file(System.getenv("KEYSTORE_PATH") ?: "../keystore.jks")
-            // Эти значения можно задать через переменные окружения или gradle.properties
-            storePassword System.getenv("KEYSTORE_PASSWORD") ?: (project.hasProperty("KEYSTORE_PASSWORD") ? project.property("KEYSTORE_PASSWORD") : "")
-            keyAlias System.getenv("KEY_ALIAS") ?: (project.hasProperty("KEY_ALIAS") ? project.property("KEY_ALIAS") : "")
-            keyPassword System.getenv("KEY_PASSWORD") ?: (project.hasProperty("KEY_PASSWORD") ? project.property("KEY_PASSWORD") : "")
+        def ksPath = System.getenv("KEYSTORE_PATH") ?: localProps.getProperty('KEYSTORE_PATH', '')
+        if (ksPath) {
+            release {
+                storeFile file(ksPath)
+                storePassword System.getenv("KEYSTORE_PASSWORD") ?: localProps.getProperty('KEYSTORE_PASSWORD', '')
+                keyAlias System.getenv("KEY_ALIAS") ?: localProps.getProperty('KEY_ALIAS', '')
+                keyPassword System.getenv("KEY_PASSWORD") ?: localProps.getProperty('KEY_PASSWORD', '')
+            }
         }
     }
 
@@ -33,10 +41,11 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
+            if (ksPath) {
+                signingConfig signingConfigs.release
+            }
         }
         debug {
-            // Debug не подписываем релизным ключом
             signingConfig signingConfigs.debug
         }
     }

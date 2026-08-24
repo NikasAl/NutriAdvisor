@@ -32,6 +32,7 @@ Thumbs.db
 android/app/build/
 android/.gradle/
 android/build/
+android/local.properties
 
 # Misc
 bun.lock
