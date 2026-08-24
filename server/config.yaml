@@ -21,7 +21,7 @@ providers:
     models:
       - name: "gemma-4"
         alias: "gemma-4"
-        priority: 3             # после бесплатных, но до платных
+        priority: 4             # после бесплатных, но до платных
         input_price: 0.0      # бесплатно (свой сервер)
         output_price: 0.0
         max_tokens: 8192
@@ -51,16 +51,24 @@ providers:
         output_price: 0.0
         max_tokens: 8192
 
+      - name: "z-ai/glm-5.2:free"
+        alias: "gemma-4"
+        priority: 3             
+        input_price: 0.0
+        output_price: 0.0
+        max_tokens: 8192
+
+
       - name: "google/gemma-4-26b-a4b-it"
         alias: "gemma-4"
-        priority: 4             # четвёртый — платная 26b
+        priority: 5             
         input_price: 6.75
         output_price: 27.0
         max_tokens: 8192
 
       - name: "google/gemma-4-31b-it"
         alias: "gemma-4"
-        priority: 5             # пятый — платная 31b
+        priority: 6             
         input_price: 6.75
         output_price: 27.0
         max_tokens: 8192
