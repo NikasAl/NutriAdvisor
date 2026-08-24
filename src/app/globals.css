@@ -123,6 +123,11 @@
   }
 }
 
+/* Safe area bottom — env() for iOS, --safe-bottom injected by native Android */
+.safe-area-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px));
+}
+
 /* Hide scrollbar but allow scrolling */
 .scrollbar-hide {
   -ms-overflow-style: none;

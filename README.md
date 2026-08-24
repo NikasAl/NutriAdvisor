@@ -244,20 +244,20 @@ adb install android/app/build/outputs/apk/debug/app-debug.apk
 
 ### Подпись релизной сборки (APK / AAB)
 
-Подпись настроена в `android/app/build.gradle` → `signingConfigs.release`. Для сборки подписанных артефактов необходимо задать учётные данные — через переменные окружения или `android/gradle.properties`:
+Подпись настроена в `android/app/build.gradle` → `signingConfigs.release`. Секреты читаются из `android/local.properties` (файл не в git, шаблон ниже) или из переменных окружения. Если ни того ни другого нет — релизная сборка пройдёт без подписи (unsigned).
 
 ```properties
-# android/gradle.properties (не коммитится в git)
+# android/local.properties (не коммитится в git)
+KEYSTORE_PATH=../../keystore
 KEYSTORE_PASSWORD=пароль_от_keystore
 KEY_ALIAS=nuadvi
 KEY_PASSWORD=пароль_от_ключа
-KEYSTORE_PATH=../keystore.jks
 ```
 
 Или через переменные окружения:
 
 ```bash
-KEYSTORE_PASSWORD=... KEY_ALIAS=nuadvi KEY_PASSWORD=... KEYSTORE_PATH=../keystore.jks \
+KEYSTORE_PASSWORD=... KEY_ALIAS=nuadvi KEY_PASSWORD=... KEYSTORE_PATH=../../keystore \
   ./gradlew assembleRelease
 ```
 
