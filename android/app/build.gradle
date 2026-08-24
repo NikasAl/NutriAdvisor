@@ -23,9 +23,9 @@ android {
     if (localPropsFile.exists()) {
         localProps.load(new FileInputStream(localPropsFile))
     }
+    def ksPath = System.getenv("KEYSTORE_PATH") ?: localProps.getProperty('KEYSTORE_PATH', '')
 
     signingConfigs {
-        def ksPath = System.getenv("KEYSTORE_PATH") ?: localProps.getProperty('KEYSTORE_PATH', '')
         if (ksPath) {
             release {
                 storeFile file(ksPath)
