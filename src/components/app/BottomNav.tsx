@@ -101,7 +101,7 @@ export default function BottomNav() {
 
       <div
         ref={scrollRef}
-        className="mx-auto flex h-16 items-center gap-1 overflow-x-auto px-2 scrollbar-hide"
+        className="mx-auto flex min-h-16 items-center gap-1 overflow-x-auto px-2 scrollbar-hide"
       >
         {tabs.map(({ id, label, icon: Icon }) => (
           <button

@@ -75,7 +75,7 @@ export default function Home() {
 
   if (showHelp) {
     return (
-      <div className="h-[100dvh] bg-background flex flex-col">
+      <div className="h-[100dvh] bg-background flex flex-col safe-area-top">
         <main className="flex-1 min-h-0 overflow-y-auto mx-auto w-full max-w-lg px-4 pt-4 pb-20">
           <HelpPanel
             initialSection={showHelp}
@@ -88,7 +88,7 @@ export default function Home() {
   }
 
   return (
-    <div className="h-[100dvh] bg-background flex flex-col">
+    <div className="h-[100dvh] bg-background flex flex-col safe-area-top">
       {activeTab === 'chat' ? (
         <main className="flex-1 min-h-0 flex flex-col">
           <ChatAssistantPanel />

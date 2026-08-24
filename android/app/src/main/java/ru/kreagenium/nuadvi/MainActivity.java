@@ -1,7 +1,6 @@
 package ru.kreagenium.nuadvi;
 
 import android.os.Bundle;
-import android.view.View;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 
@@ -19,6 +18,21 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         // Edge-to-edge: transparent system bars, content draws behind them
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+
+        // Listen for inset changes and inject safe areas into WebView
+        ViewCompat.setOnApplyWindowInsetsListener(getWindow().getDecorView(), (v, windowInsets) -> {
+            int top = windowInsets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
+            int bottom = windowInsets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
+
+            WebView webView = getBridge().getWebView();
+            if (webView != null) {
+                String js = "document.documentElement.style.setProperty('--safe-top','" + top + "px');"
+                        + "document.documentElement.style.setProperty('--safe-bottom','" + bottom + "px');";
+                webView.evaluateJavascript(js, null);
+            }
+
+            return windowInsets;
+        });
     }
 
     @Override
@@ -28,35 +42,6 @@ public class MainActivity extends BridgeActivity {
         if (webView != null) {
             WebSettings settings = webView.getSettings();
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-        }
-        // Re-inject on every start (covers resume from background)
-        injectNavBarHeight();
-    }
-
-    private void injectNavBarHeight() {
-        WebView webView = getBridge().getWebView();
-        if (webView == null) return;
-
-        int navBarHeight = 0;
-
-        // Use WindowInsetsCompat for accurate bar height (accounts for gesture nav)
-        View decorView = getWindow().getDecorView();
-        WindowInsetsCompat insets = ViewCompat.getRootWindowInsets(decorView);
-        if (insets != null) {
-            navBarHeight = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
-        }
-
-        // Fallback: dimension resource (works on all API levels)
-        if (navBarHeight == 0) {
-            int resId = getResources().getIdentifier("navigation_bar_height", "dimen", "android");
-            if (resId > 0) {
-                navBarHeight = getResources().getDimensionPixelSize(resId);
-            }
-        }
-
-        if (navBarHeight > 0) {
-            String js = "document.documentElement.style.setProperty('--safe-bottom','" + navBarHeight + "px')";
-            webView.evaluateJavascript(js, null);
         }
     }
 }
