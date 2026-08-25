@@ -69,6 +69,7 @@ export default function SettingsPanel() {
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
   const loadWaterLog = useAppStore((s) => s.loadWaterLog);
+  const loadSleepLog = useAppStore((s) => s.loadSleepLog);
   const addProvider = useAppStore((s) => s.addProvider);
   const updateProvider = useAppStore((s) => s.updateProvider);
   const deleteProvider = useAppStore((s) => s.deleteProvider);
@@ -166,7 +167,7 @@ export default function SettingsPanel() {
     setExportStatus('Экспорт...');
     try {
       const data = {
-        version: 2,
+        version: 3,
         exportedAt: new Date().toISOString(),
         app: 'NutriAdvisor',
         providers: await db.providers.toArray(),
@@ -180,6 +181,7 @@ export default function SettingsPanel() {
         foodProducts: await db.foodProducts.toArray(),
         dishes: await db.dishes.toArray(),
         waterLogs: await db.waterLogs.toArray(),
+        sleepLogs: await db.sleepLogs.toArray(),
       };
 
       const json = JSON.stringify(data, null, 2);
@@ -190,6 +192,7 @@ export default function SettingsPanel() {
         `${data.dishes.length} блюд`,
         `${data.diaryEntries.length} записей дневника`,
         `${data.waterLogs.length} записей воды`,
+        `${data.sleepLogs.length} записей сна`,
         `${data.chatSessions.length} разговоров`,
         `${data.chatMessages.length} сообщений`,
         `${data.customGoals.length} целей`,
@@ -341,6 +344,14 @@ export default function SettingsPanel() {
         }
       }
 
+      // Import sleep logs
+      if (Array.isArray(data.sleepLogs)) {
+        await db.sleepLogs.clear();
+        for (const s of data.sleepLogs) {
+          await db.sleepLogs.put({ ...s, updatedAt: new Date(s.updatedAt) });
+        }
+      }
+
       const parts = [];
       if (data.providers) parts.push(`${data.providers.length} провайдер`);
       if (data.foodEntries) parts.push(`${data.foodEntries.length} записей еды`);
@@ -348,12 +359,14 @@ export default function SettingsPanel() {
       if (data.dishes) parts.push(`${data.dishes.length} блюд`);
       if (data.diaryEntries) parts.push(`${data.diaryEntries.length} записей дневника`);
       if (data.waterLogs) parts.push(`${data.waterLogs.length} записей воды`);
+      if (data.sleepLogs) parts.push(`${data.sleepLogs.length} записей сна`);
       if (data.chatSessions) parts.push(`${data.chatSessions.length} разговоров`);
       if (data.chatMessages) parts.push(`${data.chatMessages.length} сообщений`);
       if (data.customGoals) parts.push(`${data.customGoals.length} целей`);
       setImportStatus(`Импортировано! ${parts.join(', ')}`);
 
       // Reload all data in store
+      const today = new Date().toISOString().split('T')[0];
       await Promise.all([
         loadProviders(),
         loadProfile(),
@@ -362,9 +375,9 @@ export default function SettingsPanel() {
         loadFoodProducts(),
         loadDishes(),
         loadCustomGoals(),
+        loadWaterLog(today),
+        loadSleepLog(today),
       ]);
-      const today = new Date().toISOString().split('T')[0];
-      await loadWaterLog(today);
 
       setTimeout(() => setImportStatus(''), 5000);
     } catch (err) {
