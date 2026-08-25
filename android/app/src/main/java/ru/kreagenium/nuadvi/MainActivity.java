@@ -11,26 +11,32 @@ import androidx.core.view.WindowInsetsCompat;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
+    // 3-button nav bars are typically 48dp+; gesture indicator is ~20dp or 0.
+    // Only add bottom padding for actual button bars, not gesture indicators.
+    private static final int NAV_BAR_THRESHOLD_PX = 48;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        // Register local plugins BEFORE super.onCreate() creates the Bridge
         registerPlugin(NativeHttpPlugin.class);
         super.onCreate(savedInstanceState);
-        // Edge-to-edge: transparent system bars, content draws behind them
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 
-        // Listen for inset changes and inject safe areas into WebView
         ViewCompat.setOnApplyWindowInsetsListener(getWindow().getDecorView(), (v, windowInsets) -> {
-            int top = windowInsets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
             int bottom = windowInsets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
 
             WebView webView = getBridge().getWebView();
             if (webView != null) {
-                String js = "document.documentElement.style.setProperty('--safe-top','" + top + "px');"
-                        + "document.documentElement.style.setProperty('--safe-bottom','" + bottom + "px');";
-                webView.evaluateJavascript(js, null);
+                // Only inject bottom padding for 3-button navigation bars,
+                // not for gesture navigation indicators.
+                if (bottom > NAV_BAR_THRESHOLD_PX) {
+                    String js = "document.documentElement.style.setProperty('--safe-bottom','" + bottom + "px')";
+                    webView.evaluateJavascript(js, null);
+                } else {
+                    // Clear any previously set value (e.g. rotation changed)
+                    String js = "document.documentElement.style.setProperty('--safe-bottom','0px')";
+                    webView.evaluateJavascript(js, null);
+                }
             }
-
             return windowInsets;
         });
     }

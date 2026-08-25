@@ -123,13 +123,9 @@
   }
 }
 
-/* Safe area — --safe-top and --safe-bottom injected by native Android;
-   env() fallback for iOS / browsers that support it */
+/* Safe area bottom — --safe-bottom injected by native Android only for 3-button nav bars (> 48px). env() fallback for iOS. */
 .safe-area-bottom {
   padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--safe-bottom, 0px));
-}
-.safe-area-top {
-  padding-top: max(env(safe-area-inset-top, 0px), var(--safe-top, 0px));
 }
 
 /* Hide scrollbar but allow scrolling */

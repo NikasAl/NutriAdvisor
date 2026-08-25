@@ -207,7 +207,7 @@ export default function ChatAssistantPanel() {
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       } fixed left-0 top-0 bottom-0 z-50 w-72 flex flex-col border-r border-border bg-background md:relative md:translate-x-0 md:shrink-0 md:z-0 transition-transform duration-200`}>
         {/* Sidebar header */}
-        <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0 safe-area-top">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
           <h3 className="text-sm font-semibold truncate">Разговоры</h3>
           <div className="flex items-center gap-1">
             <Button
