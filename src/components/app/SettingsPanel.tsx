@@ -423,10 +423,12 @@ export default function SettingsPanel() {
                 <Label>Название</Label>
                 <Input value={newName} onChange={(e) => setNewName(e.target.value)} />
               </div>
+              {newType !== 'nuadvi' && (
               <div className="space-y-2">
                 <Label>Base URL</Label>
                 <Input value={newBaseUrl} onChange={(e) => setNewBaseUrl(e.target.value)} placeholder="http://localhost:8080/v1" />
               </div>
+              )}
               {needsKey && (
                 <div className="space-y-2">
                   <Label>API Ключ</Label>
@@ -500,7 +502,7 @@ export default function SettingsPanel() {
               <DialogClose asChild>
                 <Button variant="outline">Отмена</Button>
               </DialogClose>
-              <Button onClick={handleAdd} disabled={!newBaseUrl || !newModel}>
+              <Button onClick={handleAdd} disabled={(newType !== 'nuadvi' && !newBaseUrl) || !newModel}>
                 Добавить
               </Button>
             </DialogFooter>
@@ -551,6 +553,7 @@ export default function SettingsPanel() {
                     )}
                   </Button>
 
+                  {provider.type !== 'nuadvi' && (<>
                   <Dialog open={isEditOpen && editingProvider?.id === provider.id} onOpenChange={(open) => { setIsEditOpen(open); if (!open) setEditingProvider(null); }}>
                     <DialogTrigger asChild>
                       <Button
@@ -685,6 +688,7 @@ export default function SettingsPanel() {
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
+                  </>)}
                   </div>
                 </div>
               </div>
