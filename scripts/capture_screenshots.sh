@@ -8,6 +8,9 @@
 #
 # Requirements: adb, Python3 with Pillow, connected Android device
 
+# Check we have a usable terminal
+[ -t 0 ] || exec 0</dev/tty
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -98,7 +101,7 @@ echo "Navigate to the desired screen in the app, then press Enter to capture."
 echo "Type 'q' to finish and resize all screenshots."
 echo ""
 
-COUNT=$(ls -1 "$RAW_DIR"/screenshot_*.png 2>/dev/null | wc -l)
+COUNT=$(ls -1 "$RAW_DIR"/screenshot_*.png 2>/dev/null | wc -l) || true
 
 while true; do
   if [ "$AUTO" = true ]; then
