@@ -33,7 +33,7 @@ const DEFAULT_PROVIDER: Omit<LLMProvider, 'id' | 'createdAt' | 'updatedAt'> = {
   apiKey: '',
   model: 'gemma-4',
   isActive: true,
-  supportsVision: false,
+  supportsVision: true,
 };
 
 const DEFAULT_PROFILE: Omit<UserProfile, 'id' | 'updatedAt'> = {
