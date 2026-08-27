@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import BottomNav from '@/components/app/BottomNav';
 import DashboardPanel from '@/components/app/DashboardPanel';
@@ -12,6 +12,11 @@ import ProfilePanel from '@/components/app/ProfilePanel';
 import SettingsPanel from '@/components/app/SettingsPanel';
 import HelpPanel from '@/components/app/HelpPanel';
 import type { HelpSection } from '@/components/app/HelpPanel';
+
+function getTodayLocal(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 export default function Home() {
   const activeTab = useAppStore((s) => s.activeTab);
@@ -43,8 +48,8 @@ export default function Home() {
     loadFoodProducts();
     loadDishes();
     seedFoodCatalog();
-    loadWaterLog(new Date().toISOString().split('T')[0]);
-    loadSleepLog(new Date().toISOString().split('T')[0]);
+    loadWaterLog(getTodayLocal());
+    loadSleepLog(getTodayLocal());
   }, [loadProviders, loadProfile, loadFoodEntries, loadDiaryEntries, loadFoodProducts, loadDishes, seedFoodCatalog, loadWaterLog, loadSleepLog]);
 
   // Apply theme on mount and when it changes
@@ -63,6 +68,49 @@ export default function Home() {
     mql.addEventListener('change', handler);
     return () => mql.removeEventListener('change', handler);
   }, [setTheme]);
+
+  // Reload per-day data (water, sleep) when the app resumes from background
+  // and the calendar date has changed (e.g. overnight).
+  const lastLoadedDate = useRef(getTodayLocal());
+
+  useEffect(() => {
+    const reloadIfNewDay = () => {
+      const today = getTodayLocal();
+      if (today !== lastLoadedDate.current) {
+        lastLoadedDate.current = today;
+        loadWaterLog(today);
+        loadSleepLog(today);
+      }
+    };
+
+    // Capacitor native: app state change
+    let nativeCleanup: (() => void) | undefined;
+    (async () => {
+      try {
+        const { App } = await import('@capacitor/core');
+        const handler = App.addListener('appStateChange', (state) => {
+          if (state.isActive) reloadIfNewDay();
+        });
+        nativeCleanup = () => handler.then((h) => h.remove());
+      } catch {
+        // Not a native platform — fall through to browser listeners
+      }
+    })();
+
+    // Browser fallback: visibility change + window focus
+    const onVisChange = () => {
+      if (document.visibilityState === 'visible') reloadIfNewDay();
+    };
+    const onFocus = () => reloadIfNewDay();
+    document.addEventListener('visibilitychange', onVisChange);
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      nativeCleanup?.();
+      document.removeEventListener('visibilitychange', onVisChange);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [loadWaterLog, loadSleepLog]);
 
   // Close help/privacy overlay when switching tabs
   useEffect(() => {
