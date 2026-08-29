@@ -136,12 +136,11 @@ export default function ProfilePanel() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Пол</Label>
-                  <Select value={localProfile.gender} onValueChange={(v) => setLocalProfile({ ...localProfile, gender: v as 'male' | 'female' | 'other' })}>
+                  <Select value={localProfile.gender} onValueChange={(v) => setLocalProfile({ ...localProfile, gender: v as 'male' | 'female' })}>
                     <SelectTrigger><SelectValue placeholder="Выберите" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="male">Мужской</SelectItem>
                       <SelectItem value="female">Женский</SelectItem>
-                      <SelectItem value="other">Другой</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
