@@ -99,6 +99,7 @@ ORIG_W=$(echo "$ORIG_SIZE" | cut -dx -f1)
 ORIG_H=$(echo "$ORIG_SIZE" | cut -dx -f2)
 if [ -n "$ORIG_W" ] && [ -n "$ORIG_DENSITY" ] && [ "$ORIG_W" -gt 0 ] 2>/dev/null; then
   NEW_DENSITY=$(( TARGET_W * ORIG_DENSITY / ORIG_W ))
+  NEW_DENSITY=400
   adb shell wm density "$NEW_DENSITY"
   echo "Density adjusted:   $ORIG_DENSITY -> $NEW_DENSITY"
 fi

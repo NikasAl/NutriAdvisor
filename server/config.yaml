@@ -132,25 +132,25 @@ model_aliases:
 # При падении туннеля — автоперезапуск (auto_restart: true)
 # ---------------------------------------------------------------------------
 external_proxies:
-  - id: proxy-az1
+  - id: proxy-am2
     enabled: false
     socks5_addr: "127.0.0.1:10801"
-    ssh_login: "az1lellkkr1-vpnjantit.com@az1.vpnjantit.com"
+    ssh_login: "am2kwlelw2-vpnjantit.com@am2.vpnjantit.com"
     ssh_port: 22
     auto_restart: true
     health_check_interval: 180s
     restart_delay: 30s
-    tags: ["general"]
+    tags: ["armenia"]
 
   - id: proxy-az2
     enabled: true
     socks5_addr: "127.0.0.1:10802"
-    ssh_login: "az1krksdsew1-vpnjantit.com@az1.vpnjantit.com"
+    ssh_login: "az1rrkrlew1-vpnjantit.com@az1.vpnjantit.com"
     ssh_port: 22
     auto_restart: true
     health_check_interval: 180s
     restart_delay: 30s
-    tags: ["general"]
+    tags: ["azer"]
 
   - id: proxy-usa5
     enabled: false
