@@ -15,12 +15,19 @@ type ResponseUsage struct {
 
 // ChatRequest is the standard OpenAI-compatible chat completion request.
 type ChatRequest struct {
-        Model    string        `json:"model"`
-        Messages []Message     `json:"messages"`
-        MaxTokens int          `json:"max_tokens,omitempty"`
-        Temperature float64    `json:"temperature,omitempty"`
-        Stream   bool          `json:"stream,omitempty"`
+        Model       string          `json:"model"`
+        Messages    []Message       `json:"messages"`
+        MaxTokens   int             `json:"max_tokens,omitempty"`
+        Temperature float64         `json:"temperature,omitempty"`
+        TopP        float64         `json:"top_p,omitempty"`
+        Stream      bool            `json:"stream,omitempty"`
+        Reasoning   *ReasoningParams `json:"reasoning,omitempty"`
         // Vision: one message can have image_url content parts
+}
+
+// ReasoningParams enables reasoning/thinking mode (e.g. GLM-5.3-Flash on modal.com).
+type ReasoningParams struct {
+        Enabled bool `json:"enabled"`
 }
 
 // Message represents a single chat message.

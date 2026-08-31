@@ -26,6 +26,22 @@ providers:
         output_price: 0.0
         max_tokens: 8192
 
+  - name: modal
+    type: openai_compatible
+    base_url: "https://nikita-avdonin--ep-glm-5-3-flash-server.us-west.modal.direct/v1"
+    api_key: "${MODAL_API_KEY}"
+    max_concurrency: 2
+    priority: 1
+    timeout: 120s
+    proxy_required: false
+    models:
+      - name: "zai-org/GLM-5.3-Flash"
+        alias: "gemma-4"
+        priority: 0             # самый высокий приоритет
+        input_price: 0.0
+        output_price: 0.0
+        max_tokens: 8192
+
   - name: openrouter
     type: openai_compatible
     base_url: "https://openrouter.ai/api"
@@ -36,7 +52,7 @@ providers:
     proxy_required: true
     models:
       # --- gemma-4 alias (все варианты одной модели) ---
-      # Порядок: бесплатные сначала, потом локальный, потом платные
+      # Порядок: modal → бесплатные openrouter → локальный → платные openrouter
       - name: "google/gemma-4-31b-it:free"
         alias: "gemma-4"
         priority: 1             # самый высокий — бесплатная 31b
@@ -111,7 +127,7 @@ providers:
 # ---------------------------------------------------------------------------
 model_aliases:
   - name: gemma-4
-    fallback_chain: [openrouter, llama-local]   # free → local → paid
+    fallback_chain: [modal, openrouter, llama-local]   # modal → free → local → paid
     strategy: priority
   - name: glm-5.2-free
     fallback_chain: [openrouter]
