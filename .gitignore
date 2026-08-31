@@ -37,3 +37,4 @@ android/local.properties
 # Misc
 bun.lock
 android-resources/
+scripts/1.sh
