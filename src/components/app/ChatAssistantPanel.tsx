@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   Plus, Send, Loader2, Trash2, PenLine, History, PanelLeftClose, PanelLeft,
-  Check, X, Pencil, Square,
+  Check, X, Pencil, Square, Sparkles,
 } from 'lucide-react';
 import MarkdownRenderer from '@/components/ui/markdown-renderer';
 import type { ChatSession } from '@/lib/types';
@@ -531,6 +531,25 @@ export default function ChatAssistantPanel() {
             <button onClick={() => setError('')} className="ml-2 underline">Закрыть</button>
           </div>
         )}
+
+        {/* Quick templates */}
+        <div className="shrink-0 flex gap-1.5 overflow-x-auto px-0 pb-1 scrollbar-none">
+          {[
+            { label: 'Анализ дня', text: 'Проведи подробный анализ моего питания за сегодня. Оцени баланс нутриентов, калорий и дай рекомендации по улучшению.' },
+            { label: 'Анализ завтрака', text: 'Проанализируй мой завтрак сегодня. Оцени питательную ценность и дай рекомендации.' },
+            { label: 'Анализ первой половины дня', text: 'Проанализируй моё питание за первую половину дня (завтрак и обед). Оцени баланс и дай рекомендации.' },
+          ].map((tpl) => (
+            <button
+              key={tpl.label}
+              onClick={() => setInput((prev) => prev ? `${prev} ${tpl.text}` : tpl.text)}
+              disabled={isSending}
+              className="flex shrink-0 items-center gap-1 rounded-full border bg-background px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
+            >
+              <Sparkles className="h-3 w-3" />
+              {tpl.label}
+            </button>
+          ))}
+        </div>
 
         {/* Input bar */}
         <div className="shrink-0 border-t bg-background px-0 pt-2 pb-2">
