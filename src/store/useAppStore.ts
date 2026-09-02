@@ -949,7 +949,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           if (abort.signal.aborted) return;
           finalContent = text;
           set({ streamingContent: text });
-        });
+        }, abort.signal);
       } catch (streamErr) {
         if (abort.signal.aborted) return;
         // Streaming not supported — fallback to non-streaming
@@ -1051,7 +1051,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           if (abort.signal.aborted) return;
           finalContent = text;
           set({ streamingContent: text });
-        });
+        }, abort.signal);
       } catch (streamErr) {
         if (abort.signal.aborted) return '';
         // Streaming not supported — fallback to non-streaming

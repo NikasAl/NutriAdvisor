@@ -133,7 +133,8 @@ export async function callLLMStream(
   messages: LLMMessage[],
   temperature: number = 0.7,
   maxTokens?: number,
-  onChunk: (text: string) => void
+  onChunk: (text: string) => void,
+  signal?: AbortSignal
 ): Promise<Pick<LLMResponse, 'model' | 'provider' | 'usage'>> {
   const headers = buildHeaders(provider);
 
@@ -152,27 +153,43 @@ export async function callLLMStream(
     return new Promise<Pick<LLMResponse, 'model' | 'provider' | 'usage'>>((resolve, reject) => {
       const state = { totalContent: '', model: provider.model, usage: undefined as LLMResponse['usage'] };
       let settled = false;
+      let cleanupFn: (() => void) | null = null;
+
+      const finish = (result: 'resolve' | 'reject', value: any) => {
+        if (settled) return;
+        settled = true;
+        if (signal) signal.removeEventListener('abort', onAbort);
+        if (result === 'resolve') resolve(value);
+        else reject(value);
+      };
+
+      const onAbort = () => {
+        if (cleanupFn) { cleanupFn(); cleanupFn = null; }
+        finish('reject', new DOMException('Aborted', 'AbortError'));
+      };
+
+      if (signal) {
+        if (signal.aborted) { finish('reject', new DOMException('Aborted', 'AbortError')); return; }
+        signal.addEventListener('abort', onAbort, { once: true });
+      }
 
       nativeStreamRequest(url, {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),
+        signal,
         onLine: (line: string) => {
           if (settled) return;
           // Parse line-by-line as they arrive from Java
           parseSSELines([line], state, provider, onChunk);
         },
         onDone: (_status: number) => {
-          if (settled) return;
-          settled = true;
-          resolve({ model: state.model, provider: provider.name, usage: state.usage });
+          finish('resolve', { model: state.model, provider: provider.name, usage: state.usage });
         },
         onError: (message: string) => {
-          if (settled) return;
-          settled = true;
-          reject(new Error(`LLM stream error: ${message}`));
+          finish('reject', new Error(`LLM stream error: ${message}`));
         },
-      });
+      }).then((cleanup) => { cleanupFn = cleanup; });
     });
   }
 
@@ -181,6 +198,7 @@ export async function callLLMStream(
     method: 'POST',
     headers,
     body: JSON.stringify(payload),
+    signal,
   });
 
   if (!fetchRes.ok) {

@@ -278,6 +278,7 @@ export default function FoodJournalPanel() {
     } else {
       await addFoodEntry(entryData as Omit<FoodEntry, 'id' | 'createdAt'>);
     }
+    setIsAddOpen(false);
     resetForm();
   };
 

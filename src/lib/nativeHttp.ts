@@ -85,16 +85,17 @@ export async function nativeStreamRequest(
     method?: string;
     headers?: Record<string, string>;
     body?: string;
+    signal?: AbortSignal;
     onLine: (line: string) => void;
     onDone: (status: number) => void;
     onError: (message: string) => void;
   }
 ): Promise<() => void> {
-  const { method, headers, body, onLine, onDone, onError } = options;
+  const { method, headers, body, signal, onLine, onDone, onError } = options;
 
   if (isNativePlatform()) {
     // Set up listeners before starting the request
-    const cleanup = async () => {
+    let cleanup = async () => {
       try { await NativeHttp.removeAllListeners(); } catch {}
     };
 
@@ -120,12 +121,37 @@ export async function nativeStreamRequest(
       body,
     });
 
+    // If an external signal is provided, abort native stream when it fires
+    if (signal) {
+      if (signal.aborted) {
+        cleanup();
+        return cleanup;
+      }
+      const onAbort = () => { cleanup(); };
+      signal.addEventListener('abort', onAbort, { once: true });
+      const origCleanup = cleanup;
+      cleanup = async () => {
+        signal.removeEventListener('abort', onAbort);
+        await origCleanup();
+      };
+    }
+
     return cleanup;
   }
 
   // Browser: use fetch with ReadableStream
   const controller = new AbortController();
-  const signal = controller.signal;
+
+  // If external signal provided, bridge its abort to our controller
+  let externalAbortHandler: (() => void) | undefined;
+  if (signal) {
+    if (signal.aborted) {
+      controller.abort();
+    } else {
+      externalAbortHandler = () => controller.abort();
+      signal.addEventListener('abort', externalAbortHandler, { once: true });
+    }
+  }
 
   (async () => {
     try {
@@ -133,7 +159,7 @@ export async function nativeStreamRequest(
         method: method ?? 'POST',
         headers: headers ?? {},
         body,
-        signal,
+        signal: controller.signal,
       });
 
       if (!res.ok) {
@@ -172,10 +198,15 @@ export async function nativeStreamRequest(
 
       onDone(res.status);
     } catch (err) {
-      if (signal.aborted) return;
+      if (controller.signal.aborted) return;
       onError(err instanceof Error ? err.message : 'Stream error');
     }
   })();
 
-  return () => controller.abort();
+  return () => {
+    if (externalAbortHandler && signal) {
+      signal.removeEventListener('abort', externalAbortHandler);
+    }
+    controller.abort();
+  };
 }
