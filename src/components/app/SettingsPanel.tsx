@@ -352,7 +352,7 @@ export default function SettingsPanel() {
         }
       }
 
-      const parts = [];
+      const parts: string[] = [];
       if (data.providers) parts.push(`${data.providers.length} провайдер`);
       if (data.foodEntries) parts.push(`${data.foodEntries.length} записей еды`);
       if (data.foodProducts) parts.push(`${data.foodProducts.length} продуктов`);

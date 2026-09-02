@@ -878,9 +878,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   renameChatSession: async (id: string, title: string) => {
-    await db.chatSessions.update(id, { title, updatedAt: new Date() });
+    await db.chatSessions.update(id, { title, lastActivity: new Date() });
  set((s) => ({
-      chatSessions: s.chatSessions.map((cs) => cs.id === id ? { ...cs, title, updatedAt: new Date() } : cs),
+      chatSessions: s.chatSessions.map((cs) => cs.id === id ? { ...cs, title, lastActivity: new Date() } : cs),
     }));
   },
 
@@ -945,11 +945,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       // Use streaming
       let finalContent = '';
       try {
-        await callLLMStream(provider, llmMessages, 0.8, undefined, (text) => {
+        await callLLMStream(provider, llmMessages, (text) => {
           if (abort.signal.aborted) return;
           finalContent = text;
           set({ streamingContent: text });
-        }, abort.signal);
+        }, 0.8, { signal: abort.signal });
       } catch (streamErr) {
         if (abort.signal.aborted) return;
         // Streaming not supported — fallback to non-streaming
@@ -1047,11 +1047,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       // Use streaming
       let finalContent = '';
       try {
-        await callLLMStream(provider, llmMessages, 0.8, undefined, (text) => {
+        await callLLMStream(provider, llmMessages, (text) => {
           if (abort.signal.aborted) return;
           finalContent = text;
           set({ streamingContent: text });
-        }, abort.signal);
+        }, 0.8, { signal: abort.signal });
       } catch (streamErr) {
         if (abort.signal.aborted) return '';
         // Streaming not supported — fallback to non-streaming
@@ -1134,10 +1134,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       let finalContent = '';
       try {
-        await callLLMStream(provider, messages, 0.6, undefined, (text) => {
+        await callLLMStream(provider, messages, (text) => {
           finalContent = text;
           set({ streamingAnalysis: text });
-        });
+        }, 0.6);
       } catch {
         // Streaming not supported — fallback to non-streaming
         const response = await callLLM(provider, messages, 0.6);
@@ -1217,10 +1217,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       let finalContent = '';
       try {
-        await callLLMStream(provider, messages, 0.6, undefined, (text) => {
+        await callLLMStream(provider, messages, (text) => {
           finalContent = text;
           set({ streamingAnalysis: text });
-        });
+        }, 0.6);
       } catch {
         // Streaming not supported — fallback to non-streaming
         const response = await callLLM(provider, messages, 0.6);

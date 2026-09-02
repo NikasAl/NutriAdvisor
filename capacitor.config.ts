@@ -7,6 +7,7 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
   },
+  // @ts-expect-error splashScreen is valid but missing from @capacitor/cli types
   splashScreen: {
     launchShowDuration: 500,
     backgroundColor: '#059669',

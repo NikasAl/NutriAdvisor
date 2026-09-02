@@ -87,6 +87,7 @@ export default function Home() {
     let nativeCleanup: (() => void) | undefined;
     (async () => {
       try {
+        // @ts-expect-error App plugin types not exported from @capacitor/core barrel
         const { App } = await import('@capacitor/core');
         const handler = App.addListener('appStateChange', (state) => {
           if (state.isActive) reloadIfNewDay();

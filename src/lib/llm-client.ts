@@ -124,6 +124,14 @@ function parseSSELines(
 }
 
 /**
+ * Options for callLLMStream.
+ */
+export interface LLMStreamOptions {
+  maxTokens?: number;
+  signal?: AbortSignal;
+}
+
+/**
  * Streaming call to LLM using SSE (OpenAI-compatible).
  * True streaming on both native (via Java InputStream + notifyListeners)
  * and browser (via fetch ReadableStream).
@@ -131,11 +139,11 @@ function parseSSELines(
 export async function callLLMStream(
   provider: LLMProvider,
   messages: LLMMessage[],
-  temperature: number = 0.7,
-  maxTokens?: number,
   onChunk: (text: string) => void,
-  signal?: AbortSignal
+  temperature: number = 0.7,
+  options?: LLMStreamOptions
 ): Promise<Pick<LLMResponse, 'model' | 'provider' | 'usage'>> {
+  const { maxTokens, signal } = options ?? {};
   const headers = buildHeaders(provider);
 
   const payload: Record<string, unknown> = {
