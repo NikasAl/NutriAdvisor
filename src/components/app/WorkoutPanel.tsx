@@ -62,7 +62,7 @@ export default function WorkoutPanel() {
   const deleteWorkoutEntry = useAppStore((s) => s.deleteWorkoutEntry);
   const addExercise = useAppStore((s) => s.addExercise);
   const deleteExercise = useAppStore((s) => s.deleteExercise);
-  const analyzeFoodTextStream = useAppStore((s) => s.analyzeFoodTextStream);
+  const analyzeWorkoutStream = useAppStore((s) => s.analyzeWorkoutStream);
   const isSending = useAppStore((s) => s.isSending);
   const streamingAnalysis = useAppStore((s) => s.streamingAnalysis);
   const profile = useAppStore((s) => s.profile);
@@ -195,9 +195,9 @@ export default function WorkoutPanel() {
       if (profile.weight) profileInfo.push(`Вес: ${profile.weight} кг`);
       if (profile.age) profileInfo.push(`Возраст: ${profile.age}`);
 
-      const prompt = `Проанализируй следующую тренировку и оцени нагрузку, интенсивность и рекомендуемое время восстановления. Дай рекомендации по улучшению. Укажи примерное количество сожжённых калорий.\n\n${profileInfo.length > 0 ? 'Данные пользователя: ' + profileInfo.join(', ') + '\n\n' : ''}Тренировка: ${workoutName || 'Без названия'}\n${lines.join('\n')}${workoutDuration ? `\nДлительность: ${workoutDuration} мин` : ''}`;
+      const prompt = `Тренировка: ${workoutName || 'Без названия'}\n${lines.join('\n')}${workoutDuration ? `\nДлительность: ${workoutDuration} мин` : ''}`;
 
-      const result = await analyzeFoodTextStream(prompt);
+      const result = await analyzeWorkoutStream(prompt);
       setAiAnalysis(result);
     } catch {
       // ignore

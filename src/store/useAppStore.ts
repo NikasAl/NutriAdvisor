@@ -174,6 +174,7 @@ interface AppState {
   analyzeFoodStream: (description?: string, imageBase64?: string, weight?: number, mealType?: string) => Promise<string>;
   analyzeFoodText: (description: string, weight?: number, mealType?: string) => Promise<string>;
   analyzeFoodTextStream: (description: string, weight?: number, mealType?: string) => Promise<string>;
+  analyzeWorkoutStream: (description: string) => Promise<string>;
   lastAnalysisDebug: { prompt: string; response: string } | null;
   isSending: boolean;
   streamingContent: string;
@@ -1354,6 +1355,52 @@ export const useAppStore = create<AppState>((set, get) => ({
       const userContent = weight
         ? `Проанализируй эту еду: ${description}. Вес порции: ${weight}г.`
         : `Проанализируй эту еду: ${description}`;
+      const messages: LLMMessage[] = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userContent },
+      ];
+
+      let finalContent = '';
+      try {
+        await callLLMStream(provider, messages, (text) => {
+          finalContent = text;
+          set({ streamingAnalysis: text });
+        }, 0.6);
+      } catch {
+        // Streaming not supported — fallback to non-streaming
+        const response = await callLLM(provider, messages, 0.6);
+        finalContent = response.content;
+        set({ streamingAnalysis: finalContent });
+      }
+
+      set({
+        isSending: false,
+        streamingAnalysis: '',
+        lastAnalysisDebug: {
+          prompt: `--- Системный промпт ---\n${systemPrompt}\n\n--- Запрос пользователя ---\n${userContent}`,
+          response: finalContent,
+        },
+      });
+      return finalContent;
+    } catch (error) {
+      set({ isSending: false, streamingAnalysis: '' });
+      throw error;
+    }
+  },
+
+  analyzeWorkoutStream: async (description: string): Promise<string> => {
+    const { profile, customGoals } = get();
+    const provider = get().getActiveProvider();
+    if (!provider || !provider.baseUrl || !provider.model) {
+      throw new Error('Настройте провайдер LLM в настройках');
+    }
+
+    set({ isSending: true, streamingAnalysis: '', lastAnalysisDebug: null });
+
+    try {
+      const profileInfo = buildProfileInfoForAnalysis(profile, customGoals);
+      const systemPrompt = NutritionPrompts.getWorkoutAnalysisPrompt(profileInfo);
+      const userContent = description;
       const messages: LLMMessage[] = [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userContent },
