@@ -191,7 +191,49 @@ export interface FoodLibraryItem {
   createdAt: Date;
 }
 
-export type TabId = 'dashboard' | 'food' | 'catalog' | 'diary' | 'chat' | 'profile' | 'settings';
+export type ExerciseCategory = 'chest' | 'back' | 'shoulders' | 'arms' | 'legs' | 'core' | 'cardio' | 'other';
+
+export const EXERCISE_CATEGORY_LABELS: Record<ExerciseCategory, string> = {
+  chest: 'Грудь',
+  back: 'Спина',
+  shoulders: 'Плечи',
+  arms: 'Руки',
+  legs: 'Ноги',
+  core: 'Кор',
+  cardio: 'Кардио',
+  other: 'Другое',
+};
+
+export interface Exercise {
+  id: string;
+  name: string;
+  category: ExerciseCategory;
+  createdAt: Date;
+}
+
+export interface WorkoutSet {
+  exerciseId: string;
+  exerciseName: string;
+  weight?: number;
+  reps?: number;
+  sets?: number;
+  duration?: number;
+  distance?: number;
+  notes?: string;
+}
+
+export interface WorkoutEntry {
+  id?: string;
+  date: string;
+  name?: string;
+  sets: WorkoutSet[];
+  estimatedDuration?: number;
+  estimatedCaloriesBurned?: number;
+  aiAnalysis?: string;
+  createdAt: Date;
+}
+
+export type TabId = 'dashboard' | 'food' | 'catalog' | 'diary' | 'workout' | 'chat' | 'profile' | 'settings';
 
 export interface WaterLog {
   id?: string;

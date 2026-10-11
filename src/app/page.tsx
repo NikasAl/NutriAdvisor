@@ -7,6 +7,7 @@ import DashboardPanel from '@/components/app/DashboardPanel';
 import FoodJournalPanel from '@/components/app/FoodJournalPanel';
 import FoodCatalogPanel from '@/components/app/FoodCatalogPanel';
 import DiaryPanel from '@/components/app/DiaryPanel';
+import WorkoutPanel from '@/components/app/WorkoutPanel';
 import ChatAssistantPanel from '@/components/app/ChatAssistantPanel';
 import ProfilePanel from '@/components/app/ProfilePanel';
 import SettingsPanel from '@/components/app/SettingsPanel';
@@ -31,6 +32,9 @@ export default function Home() {
   const setTheme = useAppStore((s) => s.setTheme);
   const loadWaterLog = useAppStore((s) => s.loadWaterLog);
   const loadSleepLog = useAppStore((s) => s.loadSleepLog);
+  const loadExercises = useAppStore((s) => s.loadExercises);
+  const loadWorkoutEntries = useAppStore((s) => s.loadWorkoutEntries);
+  const seedExerciseCatalog = useAppStore((s) => s.seedExerciseCatalog);
   const [showHelp, setShowHelp] = useState<HelpSection | false>(false);
 
   // Show help on first launch (after hydration)
@@ -50,7 +54,10 @@ export default function Home() {
     seedFoodCatalog();
     loadWaterLog(getTodayLocal());
     loadSleepLog(getTodayLocal());
-  }, [loadProviders, loadProfile, loadFoodEntries, loadDiaryEntries, loadFoodProducts, loadDishes, seedFoodCatalog, loadWaterLog, loadSleepLog]);
+    loadExercises();
+    loadWorkoutEntries();
+    seedExerciseCatalog();
+  }, [loadProviders, loadProfile, loadFoodEntries, loadDiaryEntries, loadFoodProducts, loadDishes, seedFoodCatalog, loadWaterLog, loadSleepLog, loadExercises, loadWorkoutEntries, seedExerciseCatalog]);
 
   // Apply theme on mount and when it changes
   useEffect(() => {
@@ -148,6 +155,7 @@ export default function Home() {
           {activeTab === 'food' && <FoodJournalPanel />}
           {activeTab === 'catalog' && <FoodCatalogPanel />}
           {activeTab === 'diary' && <DiaryPanel />}
+          {activeTab === 'workout' && <WorkoutPanel />}
           {activeTab === 'profile' && <ProfilePanel />}
           {activeTab === 'settings' && <SettingsPanel />}
         </main>

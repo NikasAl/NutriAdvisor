@@ -20,11 +20,15 @@ import type {
   WaterLog,
   SleepLog,
   SleepPeriod,
+  Exercise,
+  ExerciseCategory,
+  WorkoutEntry,
+  WorkoutSet,
 } from '@/lib/types';
 import { NutritionPrompts } from '@/lib/prompts';
 import { callLLM, callLLMStream, buildChatMessages } from '@/lib/llm-client';
 import type { LLMMessage, ContentPart } from '@/lib/llm-client';
-import { SEED_PRODUCTS, SEED_DISHES } from '@/data/seed-data';
+import { SEED_PRODUCTS, SEED_DISHES, SEED_EXERCISES } from '@/data/seed-data';
 
 const DEFAULT_PROVIDER: Omit<LLMProvider, 'id' | 'createdAt' | 'updatedAt'> = {
   name: 'NuAdvi Proxy',
@@ -146,6 +150,21 @@ interface AppState {
   updateChatMessage: (id: string, content: string) => Promise<void>;
   resendFromMessage: (messageId: string, newContent: string, nutritionPeriod?: string) => Promise<void>;
   loadChatMessages: () => Promise<void>;
+
+  // Exercises (like foodProducts)
+  exercises: Exercise[];
+  loadExercises: () => Promise<void>;
+  addExercise: (name: string, category: ExerciseCategory) => Promise<void>;
+  updateExercise: (id: string, updates: Partial<Exercise>) => Promise<void>;
+  deleteExercise: (id: string) => Promise<void>;
+  seedExerciseCatalog: () => Promise<void>;
+
+  // Workout entries (like foodEntries)
+  workoutEntries: WorkoutEntry[];
+  loadWorkoutEntries: () => Promise<void>;
+  addWorkoutEntry: (entry: Omit<WorkoutEntry, 'id' | 'createdAt'>) => Promise<void>;
+  updateWorkoutEntry: (id: string, updates: Partial<WorkoutEntry>) => Promise<void>;
+  deleteWorkoutEntry: (id: string) => Promise<void>;
 
   // Streaming abort controller ref
   _abortController: AbortController | null;
@@ -367,6 +386,59 @@ function buildNutritionSummary(
   }
 
   summary += '--- Конец данных о питании ---';
+  return summary;
+}
+
+/** Build a workout summary string from workout entries for a given period */
+function buildWorkoutSummary(
+  workoutEntries: WorkoutEntry[],
+  period: 'today' | 'week' | 'month'
+): string {
+  const periodStart = new Date();
+  if (period === 'today') {
+    periodStart.setHours(0, 0, 0, 0);
+  } else if (period === 'week') {
+    periodStart.setDate(periodStart.getDate() - 7);
+    periodStart.setHours(0, 0, 0, 0);
+  } else {
+    periodStart.setDate(periodStart.getDate() - 30);
+    periodStart.setHours(0, 0, 0, 0);
+  }
+
+  const filtered = workoutEntries.filter((e) => new Date(e.date) >= periodStart);
+
+  if (filtered.length === 0) {
+    const label = period === 'today' ? 'за сегодня' : period === 'week' ? 'за последнюю неделю' : 'за последний месяц';
+    return `\n--- Тренировки ${label} ---\nНет тренировок.\n--- Конец данных о тренировках ---`;
+  }
+
+  const periodLabel = period === 'today' ? 'сегодня' : period === 'week' ? 'за последнюю неделю' : 'за последний месяц';
+  let summary = `\n--- Тренировки ${periodLabel} ---\n`;
+  summary += `Количество тренировок: ${filtered.length}\n\n`;
+
+  for (const entry of filtered) {
+    const name = entry.name || 'Тренировка';
+    summary += `• [${entry.date}] ${name}\n`;
+    for (const set of entry.sets) {
+      let line = `  - ${set.exerciseName}`;
+      if (set.weight) line += ` ${set.weight}кг`;
+      if (set.reps) line += ` × ${set.reps} повторов`;
+      if (set.sets) line += ` × ${set.sets} подхода`;
+      if (set.duration) line += ` ${set.duration}мин`;
+      if (set.distance) line += ` ${set.distance}км`;
+      summary += line + '\n';
+    }
+    if (entry.estimatedDuration) summary += `  Длительность: ~${entry.estimatedDuration} мин\n`;
+    if (entry.estimatedCaloriesBurned) summary += `  Сожжено: ~${entry.estimatedCaloriesBurned} ккал\n`;
+  }
+
+  const totalCal = filtered.reduce((s, e) => s + (e.estimatedCaloriesBurned ?? 0), 0);
+  const totalDur = filtered.reduce((s, e) => s + (e.estimatedDuration ?? 0), 0);
+  if (totalCal > 0 || totalDur > 0) {
+    summary += `\nИтого: ${totalDur} мин, ${totalCal} ккал\n`;
+  }
+
+  summary += '--- Конец данных о тренировках ---';
   return summary;
 }
 
@@ -831,6 +903,76 @@ export const useAppStore = create<AppState>((set, get) => ({
     return get().foodEntries.filter((e) => e.date === date);
   },
 
+  // Exercises
+  exercises: [],
+
+  loadExercises: async () => {
+    const exercises = await db.exercises.orderBy('name').toArray();
+    set({ exercises });
+  },
+
+  addExercise: async (name, category) => {
+    const exercise: Exercise = { id: uuid(), name: name.trim(), category, createdAt: new Date() };
+    await db.exercises.add(exercise);
+    set((s) => ({ exercises: [...s.exercises, exercise].sort((a, b) => a.name.localeCompare(b.name)) }));
+  },
+
+  updateExercise: async (id, updates) => {
+    await db.exercises.update(id, updates);
+    set((s) => ({
+      exercises: s.exercises.map((e) => (e.id === id ? { ...e, ...updates } : e)).sort((a, b) => a.name.localeCompare(b.name)),
+    }));
+  },
+
+  deleteExercise: async (id) => {
+    await db.exercises.delete(id);
+    set((s) => ({ exercises: s.exercises.filter((e) => e.id !== id) }));
+  },
+
+  seedExerciseCatalog: async () => {
+    const existingCount = await db.exercises.count();
+    if (existingCount > 0) return;
+
+    const now = new Date();
+    const exercises: Exercise[] = SEED_EXERCISES.map((e) => ({
+      id: e.id,
+      name: e.name,
+      category: e.category,
+      createdAt: now,
+    }));
+
+    await db.exercises.bulkAdd(exercises);
+    set((s) => ({ exercises: [...s.exercises, ...exercises].sort((a, b) => a.name.localeCompare(b.name)) }));
+  },
+
+  // Workout entries
+  workoutEntries: [],
+
+  loadWorkoutEntries: async () => {
+    const entries = await db.workoutEntries.orderBy('createdAt').reverse().toArray();
+    set({ workoutEntries: entries });
+  },
+
+  addWorkoutEntry: async (entry) => {
+    const id = uuid();
+    const now = new Date();
+    const full: WorkoutEntry = { ...entry, id, createdAt: now };
+    await db.workoutEntries.add(full);
+    set((s) => ({ workoutEntries: [full, ...s.workoutEntries] }));
+  },
+
+  updateWorkoutEntry: async (id, updates) => {
+    await db.workoutEntries.update(id, updates);
+    set((s) => ({
+      workoutEntries: s.workoutEntries.map((e) => (e.id === id ? { ...e, ...updates } : e)),
+    }));
+  },
+
+  deleteWorkoutEntry: async (id) => {
+    await db.workoutEntries.delete(id);
+    set((s) => ({ workoutEntries: s.workoutEntries.filter((e) => e.id !== id) }));
+  },
+
   // Chat
   chatSessions: [],
   currentChatId: null,
@@ -938,7 +1080,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       const diarySummary = buildDiarySummary(diaryEntries, period);
       const waterSummary = buildWaterSummary(get().waterLog, period);
       const sleepSummary = buildSleepSummaryFromLog(get().sleepLog, period);
-      systemPrompt += nutritionSummary + diarySummary + waterSummary + sleepSummary;
+      const workoutSummary = buildWorkoutSummary(get().workoutEntries, period);
+      systemPrompt += nutritionSummary + diarySummary + waterSummary + sleepSummary + workoutSummary;
 
       const llmMessages = buildChatMessages(systemPrompt, history, newContent);
 
@@ -1035,7 +1178,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       const diarySummary = buildDiarySummary(diaryEntries, period);
       const waterSummary = buildWaterSummary(get().waterLog, period);
       const sleepSummary = buildSleepSummaryFromLog(get().sleepLog, period);
-      systemPrompt += nutritionSummary + diarySummary + waterSummary + sleepSummary;
+      const workoutSummary = buildWorkoutSummary(get().workoutEntries, period);
+      systemPrompt += nutritionSummary + diarySummary + waterSummary + sleepSummary + workoutSummary;
 
       // Build history for LLM (limit to last 20 messages)
       const history: LLMMessage[] = chatMessages

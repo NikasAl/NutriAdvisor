@@ -1,4 +1,4 @@
-import type { FoodProduct, DishIngredientData } from '@/lib/types';
+import type { FoodProduct, DishIngredientData, ExerciseCategory } from '@/lib/types';
 
 export interface SeedProduct {
   id: string;
@@ -247,4 +247,32 @@ export const SEED_DISHES: SeedDish[] = [
       { productId: '1ab613d9-3539-48bf-9c22-1b6ac3ea1a85', weightGrams: 50 },
     ],
   },
+];
+
+export interface SeedExercise {
+  id: string;
+  name: string;
+  category: ExerciseCategory;
+}
+
+export const SEED_EXERCISES: SeedExercise[] = [
+  { id: 'ex-001', name: 'Отжимания', category: 'chest' },
+  { id: 'ex-002', name: 'Жим лёжа', category: 'chest' },
+  { id: 'ex-003', name: 'Разводка гантелей', category: 'chest' },
+  { id: 'ex-004', name: 'Подтягивания', category: 'back' },
+  { id: 'ex-005', name: 'Тяга в наклоне', category: 'back' },
+  { id: 'ex-006', name: 'Жим гантелей сидя', category: 'shoulders' },
+  { id: 'ex-007', name: 'Махи гантелями', category: 'shoulders' },
+  { id: 'ex-008', name: 'Сгибание рук (бицепс)', category: 'arms' },
+  { id: 'ex-009', name: 'Разгибание рук (трицепс)', category: 'arms' },
+  { id: 'ex-010', name: 'Приседания', category: 'legs' },
+  { id: 'ex-011', name: 'Жим ногами', category: 'legs' },
+  { id: 'ex-012', name: 'Выпады', category: 'legs' },
+  { id: 'ex-013', name: 'Становая тяга', category: 'legs' },
+  { id: 'ex-014', name: 'Планка', category: 'core' },
+  { id: 'ex-015', name: 'Скручивания', category: 'core' },
+  { id: 'ex-016', name: 'Бег', category: 'cardio' },
+  { id: 'ex-017', name: 'Велосипед', category: 'cardio' },
+  { id: 'ex-018', name: 'Плавание', category: 'cardio' },
+  { id: 'ex-019', name: 'Скакалка', category: 'cardio' },
 ];
