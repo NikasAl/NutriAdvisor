@@ -553,7 +553,7 @@ export default function SettingsPanel() {
                     )}
                   </Button>
 
-                  {provider.type !== 'nuadvi' && (<>
+                  {(<>
                   <Dialog open={isEditOpen && editingProvider?.id === provider.id} onOpenChange={(open) => { setIsEditOpen(open); if (!open) setEditingProvider(null); }}>
                     <DialogTrigger asChild>
                       <Button

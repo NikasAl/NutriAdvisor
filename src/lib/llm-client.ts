@@ -86,7 +86,43 @@ export async function testProvider(provider: LLMProvider): Promise<{ ok: boolean
 
     const data = JSON.parse(res.body);
     const content = data.choices?.[0]?.message?.content ?? '';
-    return { ok: true, message: `Провайдер работает. Модель: ${data.model ?? provider.model}. Ответ: "${content.slice(0, 50)}"` };
+    let message = `Провайдер работает. Модель: ${data.model ?? provider.model}. Ответ: "${content.slice(0, 50)}"`;
+
+    // Test Vision if enabled
+    if (provider.supportsVision) {
+      try {
+        const visionRes = await nativeRequest(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            model: provider.model,
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'text', text: 'What do you see?' },
+                { type: 'image_url', image_url: { url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==' } },
+              ],
+            }],
+            max_tokens: 5,
+          }),
+        });
+
+        if (visionRes.status < 200 || visionRes.status >= 300) {
+          message += ' ⚠️ Vision не поддерживается этой моделью';
+        } else {
+          const visionData = JSON.parse(visionRes.body);
+          if (visionData.choices?.[0]?.message?.content) {
+            message += ' ✅ Vision работает';
+          } else {
+            message += ' ⚠️ Vision: пустой ответ';
+          }
+        }
+      } catch {
+        message += ' ⚠️ Vision: ошибка запроса';
+      }
+    }
+
+    return { ok: true, message };
   } catch (err) {
     return { ok: false, message: `Ошибка соединения: ${err instanceof Error ? err.message : 'Неизвестная ошибка'}` };
   }

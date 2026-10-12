@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -52,6 +52,7 @@ function formatDateLabel(dateStr: string): string {
 }
 
 const CATEGORIES: ExerciseCategory[] = ['chest', 'back', 'shoulders', 'arms', 'legs', 'core', 'cardio', 'other'];
+const PAGE_SIZE = 10;
 
 export default function WorkoutPanel() {
   const exercises = useAppStore((s) => s.exercises);
@@ -67,8 +68,8 @@ export default function WorkoutPanel() {
   const streamingAnalysis = useAppStore((s) => s.streamingAnalysis);
   const profile = useAppStore((s) => s.profile);
 
-  // Date navigation
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  // Pagination
+  const [page, setPage] = useState(0);
 
   // Exercise library expand
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -90,20 +91,26 @@ export default function WorkoutPanel() {
   // Expanded entry cards
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
-  React.useEffect(() => { loadWorkoutEntries(); }, [loadWorkoutEntries]);
+  useEffect(() => { loadWorkoutEntries(); }, [loadWorkoutEntries]);
 
-  // Date nav
-  const shiftDate = (days: number) => {
-    const d = new Date(selectedDate + 'T12:00:00');
-    d.setDate(d.getDate() + days);
-    setSelectedDate(d.toISOString().split('T')[0]);
-  };
+  // Reset page when entries change
+  useEffect(() => { setPage(0); }, [workoutEntries]);
 
-  // Entries for selected date
-  const dateEntries = useMemo(
-    () => workoutEntries.filter((e) => e.date === selectedDate),
-    [workoutEntries, selectedDate]
-  );
+  const today = new Date().toISOString().split('T')[0];
+  const todayEntries = workoutEntries.filter((e) => e.date === today);
+  const totalDuration = todayEntries.reduce((sum, e) => sum + (e.estimatedDuration ?? 0), 0);
+  const totalCaloriesBurned = todayEntries.reduce((sum, e) => sum + (e.estimatedCaloriesBurned ?? 0), 0);
+
+  const olderEntries = useMemo(() => {
+    const nonToday = workoutEntries.filter((e) => e.date !== today);
+    const grouped = new Map<string, WorkoutEntry[]>();
+    for (const entry of nonToday) { if (!grouped.has(entry.date)) grouped.set(entry.date, []); grouped.get(entry.date)!.push(entry); }
+    const sortedDates = Array.from(grouped.keys()).sort().reverse();
+    return sortedDates.map((date) => ({ date, entries: grouped.get(date)! }));
+  }, [workoutEntries, today]);
+
+  const totalPages = Math.max(1, Math.ceil(olderEntries.length / PAGE_SIZE));
+  const paginatedGroups = useMemo(() => olderEntries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [olderEntries, page]);
 
   // Group exercises by category
   const exercisesByCategory = useMemo(() => {
@@ -130,7 +137,7 @@ export default function WorkoutPanel() {
   const openNewWorkout = () => {
     setEditingWorkout(null);
     setWorkoutName('');
-    setWorkoutDate(selectedDate);
+    setWorkoutDate(today);
     setWorkoutSets([{ exerciseId: '', exerciseName: '', weight: undefined, reps: undefined, sets: undefined, duration: undefined, distance: undefined, notes: '' }]);
     setWorkoutDuration('');
     setWorkoutCalories('');
@@ -156,7 +163,7 @@ export default function WorkoutPanel() {
     if (validSets.length === 0) return;
 
     const entryData = {
-      date: workoutDate || selectedDate,
+      date: workoutDate || today,
       name: workoutName.trim() || undefined,
       sets: validSets,
       estimatedDuration: workoutDuration ? parseFloat(workoutDuration) : undefined,
@@ -249,16 +256,23 @@ export default function WorkoutPanel() {
 
   return (
     <div className="space-y-4">
-      {/* Date selector */}
-      <div className="flex items-center justify-between gap-2">
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => shiftDate(-1)}>
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <span className="text-sm font-medium">{formatDateLabel(selectedDate)}</span>
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => shiftDate(1)}>
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
+      {/* Today summary */}
+      <Card className="border-emerald-200 dark:border-emerald-900">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-semibold">Сегодня</h3>
+            <span className="text-xs text-muted-foreground">{todayEntries.length} тренировок</span>
+          </div>
+          {todayEntries.length > 0 ? (
+            <div className="grid grid-cols-2 gap-2 text-center">
+              <div><div className="text-lg font-bold text-emerald-600">{totalDuration}</div><div className="text-[10px] text-muted-foreground">мин</div></div>
+              <div><div className="text-lg font-bold text-orange-500">{totalCaloriesBurned}</div><div className="text-[10px] text-muted-foreground">ккал сожжено</div></div>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground text-center py-2">Добавьте тренировку для отслеживания</p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Exercise Library (expandable) */}
       <Card>
@@ -345,114 +359,233 @@ export default function WorkoutPanel() {
           Тренировки
         </h3>
 
-        {dateEntries.length === 0 ? (
+        {todayEntries.map((entry) => {
+          const isExpanded = expandedIds.has(entry.id!);
+          return (
+            <Card key={entry.id} className="overflow-hidden">
+              <CardContent className="p-3">
+                <div
+                  className="flex items-start justify-between gap-2 cursor-pointer"
+                  onClick={() => toggleExpanded(entry.id!)}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Dumbbell className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                      <span className="text-sm font-medium truncate">
+                        {entry.name || 'Тренировка'}
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground space-y-0.5">
+                      {entry.sets.slice(0, isExpanded ? undefined : 2).map((set, i) => {
+                        let line = set.exerciseName;
+                        if (set.weight) line += `: ${set.weight}кг`;
+                        if (set.reps) line += ` × ${set.reps} повт.`;
+                        if (set.sets) line += ` × ${set.sets} подх.`;
+                        if (set.duration) line += ` ${set.duration}мин`;
+                        if (set.distance) line += ` ${set.distance}км`;
+                        return <p key={i}>• {line}</p>;
+                      })}
+                      {!isExpanded && entry.sets.length > 2 && (
+                        <p className="text-muted-foreground/60">...и ещё {entry.sets.length - 2}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      {entry.estimatedDuration && (
+                        <Badge variant="outline" className="text-[10px] gap-0.5">
+                          <Clock className="h-2.5 w-2.5" /> {entry.estimatedDuration} мин
+                        </Badge>
+                      )}
+                      {entry.estimatedCaloriesBurned && (
+                        <Badge variant="outline" className="text-[10px] gap-0.5">
+                          <Flame className="h-2.5 w-2.5" /> {entry.estimatedCaloriesBurned} ккал
+                        </Badge>
+                      )}
+                      {entry.aiAnalysis && (
+                        <Badge className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                          <Sparkles className="h-2.5 w-2.5 mr-0.5" /> ИИ
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      className="rounded p-1 hover:bg-muted text-muted-foreground"
+                      onClick={(e) => { e.stopPropagation(); openEditWorkout(entry); }}
+                      title="Редактировать"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <button
+                          className="rounded p-1 hover:bg-destructive/10 text-destructive"
+                          onClick={(e) => e.stopPropagation()}
+                          title="Удалить"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Удалить тренировку?</AlertDialogTitle>
+                          <AlertDialogDescription>Тренировка «{entry.name || 'Без названия'}» будет удалена.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Отмена</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => deleteWorkoutEntry(entry.id!)}
+                            className="bg-destructive text-destructive-foreground"
+                          >
+                            Удалить
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                    {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                  </div>
+                </div>
+
+                {/* Expanded: AI analysis */}
+                {isExpanded && entry.aiAnalysis && (
+                  <div className="mt-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 p-3 border border-emerald-200 dark:border-emerald-800/40">
+                    <div className="flex items-center gap-1 mb-1.5">
+                      <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                      <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">ИИ-анализ</span>
+                    </div>
+                    <MarkdownRenderer content={entry.aiAnalysis} className="text-xs" />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+
+        {paginatedGroups.map((group) => (
+          <React.Fragment key={group.date}>
+            <div className="flex items-center gap-2 pt-3 pb-1">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-xs text-muted-foreground whitespace-nowrap">{formatDateLabel(group.date)}</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+            {group.entries.map((entry) => {
+              const isExpanded = expandedIds.has(entry.id!);
+              return (
+                <Card key={entry.id} className="overflow-hidden">
+                  <CardContent className="p-3">
+                    <div
+                      className="flex items-start justify-between gap-2 cursor-pointer"
+                      onClick={() => toggleExpanded(entry.id!)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Dumbbell className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                          <span className="text-sm font-medium truncate">
+                            {entry.name || 'Тренировка'}
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground space-y-0.5">
+                          {entry.sets.slice(0, isExpanded ? undefined : 2).map((set, i) => {
+                            let line = set.exerciseName;
+                            if (set.weight) line += `: ${set.weight}кг`;
+                            if (set.reps) line += ` × ${set.reps} повт.`;
+                            if (set.sets) line += ` × ${set.sets} подх.`;
+                            if (set.duration) line += ` ${set.duration}мин`;
+                            if (set.distance) line += ` ${set.distance}км`;
+                            return <p key={i}>• {line}</p>;
+                          })}
+                          {!isExpanded && entry.sets.length > 2 && (
+                            <p className="text-muted-foreground/60">...и ещё {entry.sets.length - 2}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          {entry.estimatedDuration && (
+                            <Badge variant="outline" className="text-[10px] gap-0.5">
+                              <Clock className="h-2.5 w-2.5" /> {entry.estimatedDuration} мин
+                            </Badge>
+                          )}
+                          {entry.estimatedCaloriesBurned && (
+                            <Badge variant="outline" className="text-[10px] gap-0.5">
+                              <Flame className="h-2.5 w-2.5" /> {entry.estimatedCaloriesBurned} ккал
+                            </Badge>
+                          )}
+                          {entry.aiAnalysis && (
+                            <Badge className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                              <Sparkles className="h-2.5 w-2.5 mr-0.5" /> ИИ
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          className="rounded p-1 hover:bg-muted text-muted-foreground"
+                          onClick={(e) => { e.stopPropagation(); openEditWorkout(entry); }}
+                          title="Редактировать"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <button
+                              className="rounded p-1 hover:bg-destructive/10 text-destructive"
+                              onClick={(e) => e.stopPropagation()}
+                              title="Удалить"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Удалить тренировку?</AlertDialogTitle>
+                              <AlertDialogDescription>Тренировка «{entry.name || 'Без названия'}» будет удалена.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Отмена</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deleteWorkoutEntry(entry.id!)}
+                                className="bg-destructive text-destructive-foreground"
+                              >
+                                Удалить
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                        {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                      </div>
+                    </div>
+
+                    {/* Expanded: AI analysis */}
+                    {isExpanded && entry.aiAnalysis && (
+                      <div className="mt-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 p-3 border border-emerald-200 dark:border-emerald-800/40">
+                        <div className="flex items-center gap-1 mb-1.5">
+                          <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                          <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">ИИ-анализ</span>
+                        </div>
+                        <MarkdownRenderer content={entry.aiAnalysis} className="text-xs" />
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </React.Fragment>
+        ))}
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 pt-2">
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page === 0} onClick={() => setPage(page - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+            <span className="text-xs text-muted-foreground">{page + 1} / {totalPages}</span>
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)}><ChevronRight className="h-4 w-4" /></Button>
+          </div>
+        )}
+
+        {workoutEntries.length === 0 && (
           <Card>
             <CardContent className="p-6 text-center">
               <Dumbbell className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-              <p className="text-sm text-muted-foreground">Нет тренировок за этот день</p>
+              <p className="text-sm text-muted-foreground">Нет тренировок</p>
+              <p className="text-xs text-muted-foreground mt-1">Нажмите + чтобы добавить тренировку</p>
             </CardContent>
           </Card>
-        ) : (
-          dateEntries.map((entry) => {
-            const isExpanded = expandedIds.has(entry.id!);
-            return (
-              <Card key={entry.id} className="overflow-hidden">
-                <CardContent className="p-3">
-                  <div
-                    className="flex items-start justify-between gap-2 cursor-pointer"
-                    onClick={() => toggleExpanded(entry.id!)}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <Dumbbell className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                        <span className="text-sm font-medium truncate">
-                          {entry.name || 'Тренировка'}
-                        </span>
-                      </div>
-                      <div className="text-xs text-muted-foreground space-y-0.5">
-                        {entry.sets.slice(0, isExpanded ? undefined : 2).map((set, i) => {
-                          let line = set.exerciseName;
-                          if (set.weight) line += `: ${set.weight}кг`;
-                          if (set.reps) line += ` × ${set.reps} повт.`;
-                          if (set.sets) line += ` × ${set.sets} подх.`;
-                          if (set.duration) line += ` ${set.duration}мин`;
-                          if (set.distance) line += ` ${set.distance}км`;
-                          return <p key={i}>• {line}</p>;
-                        })}
-                        {!isExpanded && entry.sets.length > 2 && (
-                          <p className="text-muted-foreground/60">...и ещё {entry.sets.length - 2}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 mt-1.5">
-                        {entry.estimatedDuration && (
-                          <Badge variant="outline" className="text-[10px] gap-0.5">
-                            <Clock className="h-2.5 w-2.5" /> {entry.estimatedDuration} мин
-                          </Badge>
-                        )}
-                        {entry.estimatedCaloriesBurned && (
-                          <Badge variant="outline" className="text-[10px] gap-0.5">
-                            <Flame className="h-2.5 w-2.5" /> {entry.estimatedCaloriesBurned} ккал
-                          </Badge>
-                        )}
-                        {entry.aiAnalysis && (
-                          <Badge className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                            <Sparkles className="h-2.5 w-2.5 mr-0.5" /> ИИ
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        className="rounded p-1 hover:bg-muted text-muted-foreground"
-                        onClick={(e) => { e.stopPropagation(); openEditWorkout(entry); }}
-                        title="Редактировать"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <button
-                            className="rounded p-1 hover:bg-destructive/10 text-destructive"
-                            onClick={(e) => e.stopPropagation()}
-                            title="Удалить"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Удалить тренировку?</AlertDialogTitle>
-                            <AlertDialogDescription>Тренировка «{entry.name || 'Без названия'}» будет удалена.</AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Отмена</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => deleteWorkoutEntry(entry.id!)}
-                              className="bg-destructive text-destructive-foreground"
-                            >
-                              Удалить
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                      {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                    </div>
-                  </div>
-
-                  {/* Expanded: AI analysis */}
-                  {isExpanded && entry.aiAnalysis && (
-                    <div className="mt-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 p-3 border border-emerald-200 dark:border-emerald-800/40">
-                      <div className="flex items-center gap-1 mb-1.5">
-                        <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
-                        <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">ИИ-анализ</span>
-                      </div>
-                      <MarkdownRenderer content={entry.aiAnalysis} className="text-xs" />
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })
         )}
       </div>
 
