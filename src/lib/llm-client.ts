@@ -129,6 +129,100 @@ export async function testProvider(provider: LLMProvider): Promise<{ ok: boolean
 }
 
 /**
+ * Creates a throttled, visibility-aware wrapper around an onChunk callback.
+ *
+ * Problem: When the phone screen turns off during streaming, the Android WebView
+ * JS thread is throttled but Capacitor bridge events queue up. When the screen
+ * turns back on, all queued events fire in rapid succession — each triggering
+ * a full Zustand state update → React re-render → markdown parse → DOM rebuild.
+ * This causes a multi-second white screen freeze.
+ *
+ * Solution:
+ * - Throttle updates to at most every ~50ms (even in foreground)
+ * - When document.hidden (screen off), buffer the latest content without updating
+ * - When document becomes visible, immediately flush the buffered content
+ * - Always flush final content on cleanup
+ */
+function createThrottledChunkHandler(
+  onChunk: (text: string) => void
+): { handler: (text: string) => void; flushFinal: () => void } {
+  let latestContent: string | null = null;
+  let timerId: ReturnType<typeof setTimeout> | null = null;
+  let lastUpdateTime = 0;
+  let isVisible = typeof document !== 'undefined' ? !document.hidden : true;
+  const THROTTLE_MS = 50;
+
+  const flush = () => {
+    timerId = null;
+    if (latestContent !== null) {
+      const content = latestContent;
+      latestContent = null;
+      lastUpdateTime = Date.now();
+      onChunk(content);
+    }
+  };
+
+  const scheduleFlush = () => {
+    if (timerId !== null) return; // Already scheduled
+    const elapsed = Date.now() - lastUpdateTime;
+    if (elapsed >= THROTTLE_MS) {
+      // Enough time passed — flush synchronously on next microtask
+      timerId = setTimeout(flush, 0);
+    } else {
+      timerId = setTimeout(flush, THROTTLE_MS - elapsed);
+    }
+  };
+
+  const handler = (text: string) => {
+    latestContent = text;
+    if (!isVisible) return; // Buffer only, don't schedule updates
+    scheduleFlush();
+  };
+
+  // Visibility change listener — flush immediately when becoming visible
+  const onVisChange = () => {
+    const nowVisible = typeof document !== 'undefined' ? !document.hidden : true;
+    if (nowVisible && !isVisible) {
+      // Becoming visible — cancel any pending timer and flush immediately
+      isVisible = true;
+      if (timerId !== null) {
+        clearTimeout(timerId);
+        timerId = null;
+      }
+      if (latestContent !== null) {
+        flush(); // Immediate single update with latest buffered content
+      }
+    } else {
+      isVisible = nowVisible;
+    }
+  };
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', onVisChange);
+  }
+
+  // flushFinal: call when stream is done to deliver the last content
+  // and clean up the visibility listener
+  const flushFinal = () => {
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', onVisChange);
+    }
+    if (timerId !== null) {
+      clearTimeout(timerId);
+      timerId = null;
+    }
+    // Always deliver final content
+    if (latestContent !== null) {
+      const content = latestContent;
+      latestContent = null;
+      onChunk(content);
+    }
+  };
+
+  return { handler, flushFinal };
+}
+
+/**
  * Parse SSE data lines from a stream and extract content chunks.
  * Accumulates content and calls onChunk with the full content so far.
  */
@@ -192,89 +286,101 @@ export async function callLLMStream(
 
   const url = `${provider.baseUrl.replace(/\/+$/, '')}/chat/completions`;
 
-  if (isNativePlatform()) {
-    // Native path: true streaming via requestStream + notifyListeners
-    return new Promise<Pick<LLMResponse, 'model' | 'provider' | 'usage'>>((resolve, reject) => {
-      const state = { totalContent: '', model: provider.model, usage: undefined as LLMResponse['usage'] };
-      let settled = false;
-      let cleanupFn: (() => void) | null = null;
+  // Wrap onChunk with throttled + visibility-aware handler to prevent
+  // UI freeze when phone screen turns off during streaming
+  const { handler: throttledOnChunk, flushFinal } = createThrottledChunkHandler(onChunk);
 
-      const finish = (result: 'resolve' | 'reject', value: any) => {
-        if (settled) return;
-        settled = true;
-        if (signal) signal.removeEventListener('abort', onAbort);
-        if (result === 'resolve') resolve(value);
-        else reject(value);
-      };
+  try {
+    if (isNativePlatform()) {
+      // Native path: true streaming via requestStream + notifyListeners
+      return await new Promise<Pick<LLMResponse, 'model' | 'provider' | 'usage'>>((resolve, reject) => {
+        const state = { totalContent: '', model: provider.model, usage: undefined as LLMResponse['usage'] };
+        let settled = false;
+        let cleanupFn: (() => void) | null = null;
 
-      const onAbort = () => {
-        if (cleanupFn) { cleanupFn(); cleanupFn = null; }
-        finish('reject', new DOMException('Aborted', 'AbortError'));
-      };
-
-      if (signal) {
-        if (signal.aborted) { finish('reject', new DOMException('Aborted', 'AbortError')); return; }
-        signal.addEventListener('abort', onAbort, { once: true });
-      }
-
-      nativeStreamRequest(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload),
-        signal,
-        onLine: (line: string) => {
+        const finish = (result: 'resolve' | 'reject', value: any) => {
           if (settled) return;
-          // Parse line-by-line as they arrive from Java
-          parseSSELines([line], state, provider, onChunk);
-        },
-        onDone: (_status: number) => {
-          finish('resolve', { model: state.model, provider: provider.name, usage: state.usage });
-        },
-        onError: (message: string) => {
-          finish('reject', new Error(`LLM stream error: ${message}`));
-        },
-      }).then((cleanup) => { cleanupFn = cleanup; });
+          settled = true;
+          if (signal) signal.removeEventListener('abort', onAbort);
+          if (result === 'resolve') resolve(value);
+          else reject(value);
+        };
+
+        const onAbort = () => {
+          if (cleanupFn) { cleanupFn(); cleanupFn = null; }
+          finish('reject', new DOMException('Aborted', 'AbortError'));
+        };
+
+        if (signal) {
+          if (signal.aborted) { finish('reject', new DOMException('Aborted', 'AbortError')); return; }
+          signal.addEventListener('abort', onAbort, { once: true });
+        }
+
+        nativeStreamRequest(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+          signal,
+          onLine: (line: string) => {
+            if (settled) return;
+            // Parse line-by-line as they arrive from Java
+            // Use throttledOnChunk instead of raw onChunk
+            parseSSELines([line], state, provider, throttledOnChunk);
+          },
+          onDone: (_status: number) => {
+            flushFinal(); // Deliver any buffered final content
+            finish('resolve', { model: state.model, provider: provider.name, usage: state.usage });
+          },
+          onError: (message: string) => {
+            finish('reject', new Error(`LLM stream error: ${message}`));
+          },
+        }).then((cleanup) => { cleanupFn = cleanup; });
+      });
+    }
+
+    // Browser path: fetch() with ReadableStream for true streaming
+    const fetchRes = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+      signal,
     });
+
+    if (!fetchRes.ok) {
+      const errText = await fetchRes.text().catch(() => 'Unknown error');
+      throw new Error(`LLM API error (${fetchRes.status}): ${errText}`);
+    }
+
+    const reader = fetchRes.body?.getReader();
+    if (!reader) throw new Error('Streaming не поддерживается: тело ответа пустое');
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+    const state = { totalContent: '', model: provider.model, usage: undefined as LLMResponse['usage'] };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+
+      parseSSELines(lines, state, provider, throttledOnChunk);
+    }
+
+    // Process remaining buffer
+    if (buffer) {
+      parseSSELines([buffer], state, provider, throttledOnChunk);
+    }
+
+    flushFinal(); // Deliver any buffered final content
+    return { model: state.model, provider: provider.name, usage: state.usage };
+  } catch (err) {
+    flushFinal(); // Clean up even on error
+    throw err;
   }
-
-  // Browser path: fetch() with ReadableStream for true streaming
-  const fetchRes = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(payload),
-    signal,
-  });
-
-  if (!fetchRes.ok) {
-    const errText = await fetchRes.text().catch(() => 'Unknown error');
-    throw new Error(`LLM API error (${fetchRes.status}): ${errText}`);
-  }
-
-  const reader = fetchRes.body?.getReader();
-  if (!reader) throw new Error('Streaming не поддерживается: тело ответа пустое');
-
-  const decoder = new TextDecoder();
-  let buffer = '';
-  const state = { totalContent: '', model: provider.model, usage: undefined as LLMResponse['usage'] };
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-
-    const lines = buffer.split('\n');
-    buffer = lines.pop() ?? '';
-
-    parseSSELines(lines, state, provider, onChunk);
-  }
-
-  // Process remaining buffer
-  if (buffer) {
-    parseSSELines([buffer], state, provider, onChunk);
-  }
-
-  return { model: state.model, provider: provider.name, usage: state.usage };
 }
 
 export async function callLLM(
