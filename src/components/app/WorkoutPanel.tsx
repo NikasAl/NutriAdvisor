@@ -37,8 +37,9 @@ import {
 import {
   Plus, Loader2, Trash2, ChevronDown, ChevronUp,
   ChevronLeft, ChevronRight, Pencil, Dumbbell, X, Flame, Clock, Sparkles,
+  Activity, Check,
 } from 'lucide-react';
-import type { ExerciseCategory, WorkoutEntry, WorkoutSet } from '@/lib/types';
+import type { ExerciseCategory, WorkoutEntry, WorkoutSet, DiaryEntry } from '@/lib/types';
 import { EXERCISE_CATEGORY_LABELS } from '@/lib/types';
 import MarkdownRenderer from '@/components/ui/markdown-renderer';
 
@@ -68,6 +69,18 @@ export default function WorkoutPanel() {
   const streamingAnalysis = useAppStore((s) => s.streamingAnalysis);
   const profile = useAppStore((s) => s.profile);
 
+  // Activity diary entries (moved from Diary page)
+  const diaryEntries = useAppStore((s) => s.diaryEntries);
+  const addDiaryEntry = useAppStore((s) => s.addDiaryEntry);
+  const updateDiaryEntry = useAppStore((s) => s.updateDiaryEntry);
+  const deleteDiaryEntry = useAppStore((s) => s.deleteDiaryEntry);
+
+  // Filter activity entries from diary
+  const activityEntries = useMemo(
+    () => diaryEntries.filter((e) => e.type === 'activity'),
+    [diaryEntries]
+  );
+
   // Pagination
   const [page, setPage] = useState(0);
 
@@ -90,6 +103,17 @@ export default function WorkoutPanel() {
 
   // Expanded entry cards
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  // Activity dialog (moved from Diary)
+  const [isActivityDialogOpen, setIsActivityDialogOpen] = useState(false);
+  const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
+  const [activityDesc, setActivityDesc] = useState('');
+  const [activityDuration, setActivityDuration] = useState('');
+  const [activityDate, setActivityDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [activityTime, setActivityTime] = useState(() => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  });
 
   useEffect(() => { loadWorkoutEntries(); }, [loadWorkoutEntries]);
 
@@ -254,6 +278,58 @@ export default function WorkoutPanel() {
     });
   };
 
+  // Activity entries grouped by date
+  const todayActivityEntries = activityEntries.filter((e) => e.date === today);
+  const totalActivityMin = todayActivityEntries.reduce((s, e) => s + (e.durationMinutes ?? 0), 0);
+
+  const olderActivityEntries = useMemo(() => {
+    const nonToday = activityEntries.filter((e) => e.date !== today);
+    const grouped = new Map<string, DiaryEntry[]>();
+    for (const entry of nonToday) {
+      if (!grouped.has(entry.date)) grouped.set(entry.date, []);
+      grouped.get(entry.date)!.push(entry);
+    }
+    const sortedDates = Array.from(grouped.keys()).sort().reverse();
+    return sortedDates.map((date) => ({ date, entries: grouped.get(date)! }));
+  }, [activityEntries, today]);
+
+  // Activity dialog handlers
+  const openNewActivity = () => {
+    setEditingActivityId(null);
+    setActivityDesc('');
+    setActivityDuration('');
+    setActivityDate(today);
+    const now = new Date();
+    setActivityTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
+    setIsActivityDialogOpen(true);
+  };
+
+  const openEditActivity = (entry: DiaryEntry) => {
+    setEditingActivityId(entry.id ?? null);
+    setActivityDesc(entry.description ?? '');
+    setActivityDuration(entry.durationMinutes ? String(entry.durationMinutes) : '');
+    setActivityDate(entry.date);
+    setActivityTime(entry.time ?? '');
+    setIsActivityDialogOpen(true);
+  };
+
+  const handleSaveActivity = async () => {
+    if (!activityDesc.trim()) return;
+    const data = {
+      type: 'activity' as const,
+      date: activityDate,
+      time: activityTime || undefined,
+      description: activityDesc.trim(),
+      durationMinutes: activityDuration ? Number(activityDuration) : undefined,
+    };
+    if (editingActivityId) {
+      await updateDiaryEntry(editingActivityId, data);
+    } else {
+      await addDiaryEntry(data as Omit<DiaryEntry, 'id' | 'createdAt'>);
+    }
+    setIsActivityDialogOpen(false);
+  };
+
   return (
     <div className="space-y-4">
       {/* Today summary */}
@@ -261,15 +337,16 @@ export default function WorkoutPanel() {
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold">Сегодня</h3>
-            <span className="text-xs text-muted-foreground">{todayEntries.length} тренировок</span>
+            <span className="text-xs text-muted-foreground">{todayEntries.length} тренировок{todayActivityEntries.length > 0 ? `, ${todayActivityEntries.length} активностей` : ''}</span>
           </div>
-          {todayEntries.length > 0 ? (
-            <div className="grid grid-cols-2 gap-2 text-center">
+          {todayEntries.length > 0 || todayActivityEntries.length > 0 ? (
+            <div className="grid grid-cols-3 gap-2 text-center">
               <div><div className="text-lg font-bold text-emerald-600">{totalDuration}</div><div className="text-[10px] text-muted-foreground">мин</div></div>
-              <div><div className="text-lg font-bold text-orange-500">{totalCaloriesBurned}</div><div className="text-[10px] text-muted-foreground">ккал сожжено</div></div>
+              <div><div className="text-lg font-bold text-orange-500">{totalCaloriesBurned}</div><div className="text-[10px] text-muted-foreground">ккал</div></div>
+              <div><div className="text-lg font-bold text-blue-600">{totalActivityMin || '—'}</div><div className="text-[10px] text-muted-foreground">мин акт.</div></div>
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground text-center py-2">Добавьте тренировку для отслеживания</p>
+            <p className="text-xs text-muted-foreground text-center py-2">Добавьте тренировку или активность</p>
           )}
         </CardContent>
       </Card>
@@ -460,6 +537,55 @@ export default function WorkoutPanel() {
           );
         })}
 
+        {/* Today activity entries */}
+        {todayActivityEntries.map((entry) => (
+          <Card key={entry.id} className="overflow-hidden border-blue-200 dark:border-blue-900/50">
+            <CardContent className="p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Activity className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                    <span className="text-sm font-medium">Активность</span>
+                    {entry.time && (
+                      <span className="text-[10px] text-muted-foreground flex items-center gap-0.5 ml-1">
+                        <Clock className="h-2.5 w-2.5" />{entry.time}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{entry.description}</p>
+                  {entry.durationMinutes && (
+                    <Badge variant="outline" className="text-[10px] gap-0.5 mt-1.5">
+                      <Clock className="h-2.5 w-2.5" /> {entry.durationMinutes} мин
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button className="rounded p-1 hover:bg-muted text-muted-foreground" onClick={() => openEditActivity(entry)} title="Редактировать">
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <button className="rounded p-1 hover:bg-destructive/10 text-destructive" title="Удалить">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Удалить активность?</AlertDialogTitle>
+                        <AlertDialogDescription>«{entry.description}» будет удалено.</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Отмена</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => deleteDiaryEntry(entry.id!)} className="bg-destructive text-destructive-foreground">Удалить</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+
         {paginatedGroups.map((group) => (
           <React.Fragment key={group.date}>
             <div className="flex items-center gap-2 pt-3 pb-1">
@@ -570,6 +696,64 @@ export default function WorkoutPanel() {
           </React.Fragment>
         ))}
 
+        {/* Older activity entries by date */}
+        {olderActivityEntries.map((group) => (
+          <React.Fragment key={`act-${group.date}`}>
+            <div className="flex items-center gap-2 pt-3 pb-1">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-xs text-muted-foreground whitespace-nowrap">{formatDateLabel(group.date)}</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+            {group.entries.map((entry) => (
+              <Card key={entry.id} className="overflow-hidden border-blue-200 dark:border-blue-900/50">
+                <CardContent className="p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Activity className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                        <span className="text-sm font-medium">Активность</span>
+                        {entry.time && (
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5 ml-1">
+                            <Clock className="h-2.5 w-2.5" />{entry.time}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">{entry.description}</p>
+                      {entry.durationMinutes && (
+                        <Badge variant="outline" className="text-[10px] gap-0.5 mt-1.5">
+                          <Clock className="h-2.5 w-2.5" /> {entry.durationMinutes} мин
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button className="rounded p-1 hover:bg-muted text-muted-foreground" onClick={() => openEditActivity(entry)} title="Редактировать">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button className="rounded p-1 hover:bg-destructive/10 text-destructive" title="Удалить">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Удалить активность?</AlertDialogTitle>
+                            <AlertDialogDescription>«{entry.description}» будет удалено.</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Отмена</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => deleteDiaryEntry(entry.id!)} className="bg-destructive text-destructive-foreground">Удалить</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </React.Fragment>
+        ))}
+
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-2 pt-2">
             <Button variant="outline" size="icon" className="h-8 w-8" disabled={page === 0} onClick={() => setPage(page - 1)}><ChevronLeft className="h-4 w-4" /></Button>
@@ -578,25 +762,34 @@ export default function WorkoutPanel() {
           </div>
         )}
 
-        {workoutEntries.length === 0 && (
+        {workoutEntries.length === 0 && activityEntries.length === 0 && (
           <Card>
             <CardContent className="p-6 text-center">
               <Dumbbell className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-              <p className="text-sm text-muted-foreground">Нет тренировок</p>
-              <p className="text-xs text-muted-foreground mt-1">Нажмите + чтобы добавить тренировку</p>
+              <p className="text-sm text-muted-foreground">Нет тренировок или активностей</p>
+              <p className="text-xs text-muted-foreground mt-1">Нажмите + чтобы добавить</p>
             </CardContent>
           </Card>
         )}
       </div>
 
-      {/* FAB - Add workout */}
-      <button
-        onClick={openNewWorkout}
-        className="fixed bottom-20 right-4 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg hover:bg-emerald-700 transition-colors"
-        title="Добавить тренировку"
-      >
-        <Plus className="h-5 w-5" />
-      </button>
+      {/* FAB - Add workout or activity */}
+      <div className="fixed bottom-20 right-4 z-30 flex items-end gap-2">
+        <button
+          onClick={openNewActivity}
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700 transition-colors"
+          title="Добавить активность"
+        >
+          <Activity className="h-4.5 w-4.5" />
+        </button>
+        <button
+          onClick={openNewWorkout}
+          className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg hover:bg-emerald-700 transition-colors"
+          title="Добавить тренировку"
+        >
+          <Plus className="h-5 w-5" />
+        </button>
+      </div>
 
       {/* Add Exercise Dialog */}
       <Dialog open={addExerciseOpen} onOpenChange={setAddExerciseOpen}>
@@ -868,6 +1061,49 @@ export default function WorkoutPanel() {
               className="bg-emerald-600 hover:bg-emerald-700"
             >
               {editingWorkout ? 'Сохранить' : 'Добавить'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add/Edit Activity Dialog */}
+      <Dialog open={isActivityDialogOpen} onOpenChange={setIsActivityDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{editingActivityId ? 'Редактировать активность' : 'Новая активность'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Описание активности</Label>
+              <Textarea
+                value={activityDesc}
+                onChange={(e) => setActivityDesc(e.target.value)}
+                placeholder="Прогулка 10км пешком, занятия на тренажерах..."
+                rows={2}
+                className="mt-1"
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <Label className="text-xs">Дата</Label>
+                <Input type="date" value={activityDate} onChange={(e) => setActivityDate(e.target.value)} className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Время</Label>
+                <Input type="time" value={activityTime} onChange={(e) => setActivityTime(e.target.value)} className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Минут</Label>
+                <Input type="number" value={activityDuration} onChange={(e) => setActivityDuration(e.target.value)} placeholder="60" className="mt-1" />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Отмена</Button>
+            </DialogClose>
+            <Button onClick={handleSaveActivity} disabled={!activityDesc.trim()} className="bg-blue-600 hover:bg-blue-700">
+              <Check className="mr-1.5 h-4 w-4" /> {editingActivityId ? 'Сохранить' : 'Добавить'}
             </Button>
           </DialogFooter>
         </DialogContent>

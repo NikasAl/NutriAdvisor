@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,31 +28,36 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
-  Plus, Trash2, Pencil, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
-  Activity, Heart, Smile, Check, Clock, X,
+  Plus, Trash2, Pencil, ChevronLeft, ChevronRight,
+  Heart, Smile, Check, Clock, BookOpen,
 } from 'lucide-react';
-import type { DiaryEntryType, DiaryEntry } from '@/lib/types';
-import { DIARY_TYPE_LABELS } from '@/lib/types';
+import type { DiaryEntry } from '@/lib/types';
 
-const TYPE_ICONS: Record<DiaryEntryType, React.ElementType> = {
-  activity: Activity,
+/** Only non-activity diary types — activity moved to Workout page */
+type DiaryViewType = 'wellbeing' | 'blood_pressure';
+
+const VIEW_TYPE_LABELS: Record<DiaryViewType, string> = {
+  wellbeing: 'Самочувствие',
+  blood_pressure: 'Давление',
+};
+
+const VIEW_TYPE_ICONS: Record<DiaryViewType, React.ElementType> = {
   wellbeing: Smile,
   blood_pressure: Heart,
 };
 
-const TYPE_COLORS: Record<DiaryEntryType, string> = {
-  activity: 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400',
+const VIEW_TYPE_COLORS: Record<DiaryViewType, string> = {
   wellbeing: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
   blood_pressure: 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400',
 };
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 10;
 
-function formatDiaryDate(dateStr: string): string {
+function formatDateLabel(dateStr: string): string {
   const today = new Date().toISOString().split('T')[0];
-  const yesterdayDate = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  const yd = new Date(Date.now() - 86400000).toISOString().split('T')[0];
   if (dateStr === today) return 'Сегодня';
-  if (dateStr === yesterdayDate) return 'Вчера';
+  if (dateStr === yd) return 'Вчера';
   const d = new Date(dateStr + 'T12:00:00');
   return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: d.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined });
 }
@@ -63,18 +68,20 @@ export default function DiaryPanel() {
   const updateDiaryEntry = useAppStore((s) => s.updateDiaryEntry);
   const deleteDiaryEntry = useAppStore((s) => s.deleteDiaryEntry);
 
+  // Filter out activity entries — they belong to Workout page now
+  const visibleEntries = useMemo(
+    () => diaryEntries.filter((e) => e.type !== 'activity'),
+    [diaryEntries]
+  );
+
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [entryType, setEntryType] = useState<DiaryEntryType>('activity');
+  const [entryType, setEntryType] = useState<DiaryViewType>('wellbeing');
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [entryTime, setEntryTime] = useState(() => {
     const now = new Date();
     return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   });
   const [editingId, setEditingId] = useState<string | null>(null);
-
-  // Activity fields
-  const [activityDesc, setActivityDesc] = useState('');
-  const [duration, setDuration] = useState('');
 
   // Wellbeing fields
   const [wellbeingNote, setWellbeingNote] = useState('');
@@ -84,51 +91,38 @@ export default function DiaryPanel() {
   const [diastolic, setDiastolic] = useState('');
   const [pulse, setPulse] = useState('');
 
-  // Pagination & grouping
+  // Pagination
   const [page, setPage] = useState(0);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['today']));
 
-  const toggleGroup = (key: string) => {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
-
-  // Group entries by date
-  const grouped = useMemo(() => {
-    const map = new Map<string, DiaryEntry[]>();
-    for (const e of diaryEntries) {
-      if (!map.has(e.date)) map.set(e.date, []);
-      map.get(e.date)!.push(e);
-    }
-    const sortedDates = Array.from(map.keys()).sort().reverse();
-    return sortedDates.map((date) => ({ date, entries: map.get(date)! }));
-  }, [diaryEntries]);
-
-  const totalPages = Math.max(1, Math.ceil(grouped.length / PAGE_SIZE));
-  const paginatedGroups = useMemo(() => {
-    return grouped.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-  }, [grouped, page]);
-
-  // Stats for today
+  // Today vs older grouping (feed layout like Food/Workout)
   const today = new Date().toISOString().split('T')[0];
-  const todayEntries = diaryEntries.filter((e) => e.date === today);
-  const todayActivities = todayEntries.filter((e) => e.type === 'activity');
+  const todayEntries = visibleEntries.filter((e) => e.date === today);
   const todayBp = todayEntries.filter((e) => e.type === 'blood_pressure');
   const todayWellbeing = todayEntries.filter((e) => e.type === 'wellbeing');
-  const totalActivityMin = todayActivities.reduce((s, e) => s + (e.durationMinutes ?? 0), 0);
+
+  const olderEntries = useMemo(() => {
+    const nonToday = visibleEntries.filter((e) => e.date !== today);
+    const grouped = new Map<string, DiaryEntry[]>();
+    for (const entry of nonToday) {
+      if (!grouped.has(entry.date)) grouped.set(entry.date, []);
+      grouped.get(entry.date)!.push(entry);
+    }
+    const sortedDates = Array.from(grouped.keys()).sort().reverse();
+    return sortedDates.map((date) => ({ date, entries: grouped.get(date)! }));
+  }, [visibleEntries, today]);
+
+  const totalPages = Math.max(1, Math.ceil(olderEntries.length / PAGE_SIZE));
+  const paginatedGroups = useMemo(() => olderEntries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [olderEntries, page]);
+
+  // Reset page when entries change
+  useMemo(() => { setPage(0); }, [visibleEntries.length]);
 
   const resetForm = () => {
     setEditingId(null);
-    setEntryType('activity');
+    setEntryType('wellbeing');
     setSelectedDate(new Date().toISOString().split('T')[0]);
     const now = new Date();
     setEntryTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
-    setActivityDesc('');
-    setDuration('');
     setWellbeingNote('');
     setSystolic('');
     setDiastolic('');
@@ -138,15 +132,7 @@ export default function DiaryPanel() {
   const handleSave = async () => {
     const base = { date: selectedDate, time: entryTime || undefined, type: entryType };
 
-    if (entryType === 'activity') {
-      if (!activityDesc.trim()) return;
-      const data = { ...base, description: activityDesc.trim(), durationMinutes: duration ? Number(duration) : undefined };
-      if (editingId) {
-        await updateDiaryEntry(editingId, data);
-      } else {
-        await addDiaryEntry(data as Omit<DiaryEntry, 'id' | 'createdAt'>);
-      }
-    } else if (entryType === 'wellbeing') {
+    if (entryType === 'wellbeing') {
       if (!wellbeingNote.trim()) return;
       const data = { ...base, note: wellbeingNote.trim() };
       if (editingId) {
@@ -168,13 +154,10 @@ export default function DiaryPanel() {
 
   const handleEdit = (entry: DiaryEntry) => {
     setEditingId(entry.id ?? null);
-    setEntryType(entry.type);
+    setEntryType(entry.type as DiaryViewType);
     setSelectedDate(entry.date);
     setEntryTime(entry.time ?? '');
-    if (entry.type === 'activity') {
-      setActivityDesc(entry.description ?? '');
-      setDuration(entry.durationMinutes ? String(entry.durationMinutes) : '');
-    } else if (entry.type === 'wellbeing') {
+    if (entry.type === 'wellbeing') {
       setWellbeingNote(entry.note ?? '');
     } else if (entry.type === 'blood_pressure') {
       setSystolic(entry.systolic ? String(entry.systolic) : '');
@@ -184,92 +167,90 @@ export default function DiaryPanel() {
     setIsAddOpen(true);
   };
 
-  const renderEntry = (entry: DiaryEntry) => {
+  const renderEntryCard = (entry: DiaryEntry) => {
     const eid = entry.id ?? '';
-    const Icon = TYPE_ICONS[entry.type];
-    const colorClass = TYPE_COLORS[entry.type];
+    const viewType = entry.type as DiaryViewType;
+    const Icon = VIEW_TYPE_ICONS[viewType];
+    const colorClass = VIEW_TYPE_COLORS[viewType];
 
     return (
-      <div key={eid} className="flex items-start gap-2 py-2 px-1">
-        <div className={`shrink-0 mt-0.5 rounded-md p-1.5 ${colorClass}`}>
-          <Icon className="h-3.5 w-3.5" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="text-[10px]">{DIARY_TYPE_LABELS[entry.type]}</Badge>
-            {entry.time && (
-              <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                <Clock className="h-2.5 w-2.5" />{entry.time}
-              </span>
-            )}
-          </div>
-          {entry.type === 'activity' && (
-            <p className="mt-0.5 text-sm">
-              {entry.description}
-              {entry.durationMinutes && <span className="text-muted-foreground"> — {entry.durationMinutes} мин</span>}
-            </p>
-          )}
-          {entry.type === 'wellbeing' && (
-            <p className="mt-0.5 text-sm">{entry.note}</p>
-          )}
-          {entry.type === 'blood_pressure' && (
-            <p className="mt-0.5 text-sm">
-              {entry.systolic}/{entry.diastolic} мм рт.ст.
-              {entry.pulse && <span className="text-muted-foreground">, пульс {entry.pulse} уд/мин</span>}
-            </p>
-          )}
-        </div>
-        <div className="flex flex-col gap-1 shrink-0">
-          <button onClick={() => handleEdit(entry)} className="rounded-md p-1 hover:bg-muted text-muted-foreground" title="Редактировать">
-            <Pencil className="h-3.5 w-3.5" />
-          </button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <button className="rounded-md p-1 hover:bg-destructive/10 text-destructive" title="Удалить">
-                <Trash2 className="h-3.5 w-3.5" />
+      <Card key={eid} className="overflow-hidden">
+        <CardContent className="p-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 mb-1">
+                <div className={`shrink-0 rounded-md p-1 ${colorClass}`}>
+                  <Icon className="h-3.5 w-3.5" />
+                </div>
+                <Badge variant="secondary" className="text-[10px]">{VIEW_TYPE_LABELS[viewType]}</Badge>
+                {entry.time && (
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                    <Clock className="h-2.5 w-2.5" />{entry.time}
+                  </span>
+                )}
+              </div>
+              {entry.type === 'wellbeing' && (
+                <p className="text-sm leading-relaxed">{entry.note}</p>
+              )}
+              {entry.type === 'blood_pressure' && (
+                <p className="text-sm">
+                  <span className="font-semibold">{entry.systolic}/{entry.diastolic}</span> мм рт.ст.
+                  {entry.pulse && <span className="text-muted-foreground">, пульс {entry.pulse} уд/мин</span>}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={() => handleEdit(entry)}
+                className="rounded p-1 hover:bg-muted text-muted-foreground"
+                title="Редактировать"
+              >
+                <Pencil className="h-3.5 w-3.5" />
               </button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Удалить запись?</AlertDialogTitle>
-                <AlertDialogDescription>Эта запись будет удалена без возможности восстановления.</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Отмена</AlertDialogCancel>
-                <AlertDialogAction onClick={() => deleteDiaryEntry(eid)} className="bg-destructive text-destructive-foreground">
-                  Удалить
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      </div>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <button className="rounded p-1 hover:bg-destructive/10 text-destructive" title="Удалить">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Удалить запись?</AlertDialogTitle>
+                    <AlertDialogDescription>Эта запись будет удалена без возможности восстановления.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Отмена</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => deleteDiaryEntry(eid)} className="bg-destructive text-destructive-foreground">
+                      Удалить
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     );
   };
 
   return (
     <div className="space-y-4 pb-4">
       {/* Today summary */}
-      <Card className="border-blue-200 dark:border-blue-900">
+      <Card className="border-amber-200 dark:border-amber-900">
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold">Сегодня</h3>
             <span className="text-xs text-muted-foreground">{todayEntries.length} записей</span>
           </div>
           {todayEntries.length > 0 ? (
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div>
-                <div className="text-lg font-bold text-blue-600">{todayActivities.length}</div>
-                <div className="text-[10px] text-muted-foreground">Активностей</div>
-                {totalActivityMin > 0 && <div className="text-[10px] text-muted-foreground">{totalActivityMin} мин</div>}
-              </div>
+            <div className="grid grid-cols-2 gap-2 text-center">
               <div>
                 <div className="text-lg font-bold text-amber-600">{todayWellbeing.length}</div>
-                <div className="text-[10px] text-muted-foreground">Заметки</div>
+                <div className="text-[10px] text-muted-foreground">Заметок</div>
               </div>
               <div>
                 <div className="text-lg font-bold text-red-600">{todayBp.length}</div>
-                <div className="text-[10px] text-muted-foreground">Давлений</div>
+                <div className="text-[10px] text-muted-foreground">Замеров давления</div>
               </div>
             </div>
           ) : (
@@ -278,36 +259,21 @@ export default function DiaryPanel() {
         </CardContent>
       </Card>
 
-      {/* Entries grouped by date */}
+      {/* Diary entries feed */}
       <div className="space-y-2">
-        {paginatedGroups.map((group) => {
-          const todayKey = new Date().toISOString().split('T')[0];
-          const groupKey = group.date === todayKey ? 'today' : group.date;
-          const isExpanded = expandedGroups.has(groupKey);
-          return (
-            <Card key={group.date}>
-              <CardHeader
-                className="pb-1 pt-3 px-4 cursor-pointer select-none"
-                onClick={() => toggleGroup(groupKey)}
-              >
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-xs font-medium text-muted-foreground">
-                    {formatDiaryDate(group.date)}
-                    <span className="ml-2 text-[10px]">({group.entries.length})</span>
-                  </CardTitle>
-                  {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                </div>
-              </CardHeader>
-              {isExpanded && (
-                <CardContent className="px-4 pb-3">
-                  {group.entries.map(renderEntry)}
-                </CardContent>
-              )}
-            </Card>
-          );
-        })}
+        {todayEntries.map(renderEntryCard)}
 
-        {/* Pagination */}
+        {paginatedGroups.map((group) => (
+          <React.Fragment key={group.date}>
+            <div className="flex items-center gap-2 pt-3 pb-1">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-xs text-muted-foreground whitespace-nowrap">{formatDateLabel(group.date)}</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+            {group.entries.map(renderEntryCard)}
+          </React.Fragment>
+        ))}
+
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-2 pt-2">
             <Button variant="outline" size="icon" className="h-8 w-8" disabled={page === 0} onClick={() => setPage(page - 1)}>
@@ -320,9 +286,9 @@ export default function DiaryPanel() {
           </div>
         )}
 
-        {diaryEntries.length === 0 && (
+        {visibleEntries.length === 0 && (
           <div className="py-8 text-center text-sm text-muted-foreground">
-            <Activity className="mx-auto mb-2 h-8 w-8 opacity-30" />
+            <BookOpen className="mx-auto mb-2 h-8 w-8 opacity-30" />
             <p>Дневник пуст</p>
             <p className="text-xs">Нажмите + чтобы добавить запись</p>
           </div>
@@ -343,12 +309,12 @@ export default function DiaryPanel() {
             <DialogTitle>{editingId ? 'Редактировать запись' : 'Новая запись'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            {/* Type selector */}
+            {/* Type selector — only wellbeing & blood_pressure */}
             <div className="space-y-1.5">
               <Label className="text-xs">Тип записи</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {(Object.keys(DIARY_TYPE_LABELS) as DiaryEntryType[]).map((t) => {
-                  const Icon = TYPE_ICONS[t];
+              <div className="grid grid-cols-2 gap-2">
+                {(Object.keys(VIEW_TYPE_LABELS) as DiaryViewType[]).map((t) => {
+                  const Icon = VIEW_TYPE_ICONS[t];
                   return (
                     <button
                       key={t}
@@ -358,7 +324,7 @@ export default function DiaryPanel() {
                       }`}
                     >
                       <Icon className="h-5 w-5" />
-                      <span className="text-[10px] font-medium">{DIARY_TYPE_LABELS[t]}</span>
+                      <span className="text-[10px] font-medium">{VIEW_TYPE_LABELS[t]}</span>
                     </button>
                   );
                 })}
@@ -384,30 +350,6 @@ export default function DiaryPanel() {
                 />
               </div>
             </div>
-
-            {/* Activity form */}
-            {entryType === 'activity' && (
-              <>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Описание активности</Label>
-                  <Textarea
-                    value={activityDesc}
-                    onChange={(e) => setActivityDesc(e.target.value)}
-                    placeholder="Прогулка 10км пешком, занятия на тренажерах..."
-                    rows={2}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Длительность (мин, опционально)</Label>
-                  <Input
-                    type="number"
-                    value={duration}
-                    onChange={(e) => setDuration(e.target.value)}
-                    placeholder="60"
-                  />
-                </div>
-              </>
-            )}
 
             {/* Wellbeing form */}
             {entryType === 'wellbeing' && (
@@ -443,7 +385,6 @@ export default function DiaryPanel() {
           <DialogFooter>
             <DialogClose asChild><Button variant="outline">Отмена</Button></DialogClose>
             <Button onClick={handleSave} disabled={
-              (entryType === 'activity' && !activityDesc.trim()) ||
               (entryType === 'wellbeing' && !wellbeingNote.trim()) ||
               (entryType === 'blood_pressure' && (!systolic || !diastolic))
             }>
