@@ -235,7 +235,7 @@ export interface WorkoutEntry {
   createdAt: Date;
 }
 
-export type TabId = 'dashboard' | 'food' | 'catalog' | 'diary' | 'workout' | 'chat' | 'profile' | 'settings';
+export type TabId = 'dashboard' | 'food' | 'catalog' | 'diary' | 'workout' | 'stats' | 'chat' | 'profile' | 'settings';
 
 export interface WaterLog {
   id?: string;

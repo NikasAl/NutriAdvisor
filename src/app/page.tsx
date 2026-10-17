@@ -8,6 +8,7 @@ import FoodJournalPanel from '@/components/app/FoodJournalPanel';
 import FoodCatalogPanel from '@/components/app/FoodCatalogPanel';
 import DiaryPanel from '@/components/app/DiaryPanel';
 import WorkoutPanel from '@/components/app/WorkoutPanel';
+import StatsPanel from '@/components/app/StatsPanel';
 import ChatAssistantPanel from '@/components/app/ChatAssistantPanel';
 import ProfilePanel from '@/components/app/ProfilePanel';
 import SettingsPanel from '@/components/app/SettingsPanel';
@@ -156,6 +157,7 @@ export default function Home() {
           {activeTab === 'catalog' && <FoodCatalogPanel />}
           {activeTab === 'diary' && <DiaryPanel />}
           {activeTab === 'workout' && <WorkoutPanel />}
+          {activeTab === 'stats' && <StatsPanel />}
           {activeTab === 'profile' && <ProfilePanel />}
           {activeTab === 'settings' && <SettingsPanel />}
         </main>
