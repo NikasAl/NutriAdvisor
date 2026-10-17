@@ -220,6 +220,8 @@ export interface WorkoutSet {
   duration?: number;
   distance?: number;
   notes?: string;
+  startTime?: number; // ms timestamp when exercise started
+  endTime?: number;   // ms timestamp when exercise ended
 }
 
 export interface WorkoutEntry {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,11 +37,36 @@ import {
 import {
   Plus, Loader2, Trash2, ChevronDown, ChevronUp,
   ChevronLeft, ChevronRight, Pencil, Dumbbell, X, Flame, Clock, Sparkles,
-  Activity, Check, Copy,
+  Activity, Check, Copy, Play, Square, Timer,
 } from 'lucide-react';
 import type { ExerciseCategory, WorkoutEntry, WorkoutSet, DiaryEntry } from '@/lib/types';
 import { EXERCISE_CATEGORY_LABELS } from '@/lib/types';
 import MarkdownRenderer from '@/components/ui/markdown-renderer';
+
+/** Parse calories burned and duration from AI analysis text */
+function parseWorkoutFromText(text: string) {
+  const result = { caloriesBurned: null as number | null, duration: null as number | null };
+  const num = '(\\d+[.,]?\\d*)';
+  const sep = '[\\s:*|\\u2014\\u2013-]+';
+
+  // Calories burned patterns
+  const calP = [
+    new RegExp(`(?:сожжено|расход|потрачено|израсходовано|ккал|calories?\\s+burned|burned\\s+calories?)${sep}[~≈]?\\s*${num}\\s*(?:ккал|кКал|kkal|cal|к)?`, 'i'),
+    new RegExp(`(?:ккал|kkal)${sep}[~≈]?\\s*${num}`, 'i'),
+    new RegExp(`${num}\\s*(?:ккал|kkal)`, 'i'),
+    new RegExp(`(?:Калории|Calories)${sep}${num}`, 'i'),
+  ];
+  for (const p of calP) { const m = text.match(p); if (m) { result.caloriesBurned = parseFloat(m[1].replace(',', '.')); break; } }
+
+  // Duration patterns (in minutes)
+  const durP = [
+    new RegExp(`(?:длительность|время|продолжительность|duration|минут)${sep}[~≈]?\\s*${num}\\s*(?:мин|минут|м|min)?`, 'i'),
+    new RegExp(`${num}\\s*(?:мин|минут|min)`, 'i'),
+  ];
+  for (const p of durP) { const m = text.match(p); if (m) { result.duration = parseFloat(m[1].replace(',', '.')); break; } }
+
+  return result;
+}
 
 function formatDateLabel(dateStr: string): string {
   const today = new Date().toISOString().split('T')[0];
@@ -100,6 +125,15 @@ export default function WorkoutPanel() {
   const [workoutCalories, setWorkoutCalories] = useState('');
   const [aiAnalysis, setAiAnalysis] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  // Timer tick for live elapsed display (updates every second while any timer is running)
+  const [timerTick, setTimerTick] = useState(0);
+  useEffect(() => {
+    const hasRunning = workoutSets.some((s) => s.startTime && !s.endTime);
+    if (!hasRunning) return;
+    const iv = setInterval(() => setTimerTick((t) => t + 1), 1000);
+    return () => clearInterval(iv);
+  }, [workoutSets.some((s) => s.startTime && !s.endTime), timerTick]);
 
   // Expanded entry cards
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -162,7 +196,7 @@ export default function WorkoutPanel() {
     setEditingWorkout(null);
     setWorkoutName('');
     setWorkoutDate(today);
-    setWorkoutSets([{ exerciseId: '', exerciseName: '', weight: undefined, reps: undefined, sets: undefined, duration: undefined, distance: undefined, notes: '' }]);
+    setWorkoutSets([{ exerciseId: '', exerciseName: '', weight: undefined, reps: undefined, sets: undefined, duration: undefined, distance: undefined, notes: '', startTime: undefined, endTime: undefined }]);
     setWorkoutDuration('');
     setWorkoutCalories('');
     setAiAnalysis('');
@@ -174,7 +208,7 @@ export default function WorkoutPanel() {
     setEditingWorkout(entry);
     setWorkoutName(entry.name || '');
     setWorkoutDate(entry.date);
-    setWorkoutSets(entry.sets.length > 0 ? entry.sets : [{ exerciseId: '', exerciseName: '', weight: undefined, reps: undefined, sets: undefined, duration: undefined, distance: undefined, notes: '' }]);
+    setWorkoutSets(entry.sets.length > 0 ? entry.sets : [{ exerciseId: '', exerciseName: '', weight: undefined, reps: undefined, sets: undefined, duration: undefined, distance: undefined, notes: '', startTime: undefined, endTime: undefined }]);
     setWorkoutDuration(entry.estimatedDuration?.toString() || '');
     setWorkoutCalories(entry.estimatedCaloriesBurned?.toString() || '');
     setAiAnalysis(entry.aiAnalysis || '');
@@ -186,7 +220,7 @@ export default function WorkoutPanel() {
     setEditingWorkout(null);
     setWorkoutName(entry.name || '');
     setWorkoutDate(new Date().toISOString().split('T')[0]);
-    setWorkoutSets(entry.sets.length > 0 ? entry.sets.map(s => ({ ...s })) : [{ exerciseId: '', exerciseName: '', weight: undefined, reps: undefined, sets: undefined, duration: undefined, distance: undefined, notes: '' }]);
+    setWorkoutSets(entry.sets.length > 0 ? entry.sets.map(s => ({ ...s, startTime: undefined, endTime: undefined })) : [{ exerciseId: '', exerciseName: '', weight: undefined, reps: undefined, sets: undefined, duration: undefined, distance: undefined, notes: '', startTime: undefined, endTime: undefined }]);
     setWorkoutDuration('');
     setWorkoutCalories('');
     setAiAnalysis('');
@@ -242,11 +276,26 @@ export default function WorkoutPanel() {
 
       const result = await analyzeWorkoutStream(prompt);
       setAiAnalysis(result);
+      // Parse calories burned and duration from AI response
+      const parsed = parseWorkoutFromText(result);
+      if (parsed.caloriesBurned !== null) setWorkoutCalories(String(Math.round(parsed.caloriesBurned)));
+      if (parsed.duration !== null) setWorkoutDuration(String(Math.round(parsed.duration)));
     } catch {
       // ignore
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  // Auto-calculate total duration from exercise start/end times
+  const calcDurationFromTimers = () => {
+    const setsWithTime = workoutSets.filter((s) => s.startTime && s.endTime);
+    if (setsWithTime.length === 0) return;
+    // Find earliest start and latest end
+    const earliestStart = Math.min(...setsWithTime.map((s) => s.startTime!));
+    const latestEnd = Math.max(...setsWithTime.map((s) => s.endTime!));
+    const durationMin = Math.round((latestEnd - earliestStart) / 60000);
+    if (durationMin > 0) setWorkoutDuration(String(durationMin));
   };
 
   // Update a single set field
@@ -260,12 +309,46 @@ export default function WorkoutPanel() {
 
   // Add empty set
   const addSet = () => {
-    setWorkoutSets((prev) => [...prev, { exerciseId: '', exerciseName: '', weight: undefined, reps: undefined, sets: undefined, duration: undefined, distance: undefined, notes: '' }]);
+    setWorkoutSets((prev) => [...prev, { exerciseId: '', exerciseName: '', weight: undefined, reps: undefined, sets: undefined, duration: undefined, distance: undefined, notes: '', startTime: undefined, endTime: undefined }]);
   };
 
   // Remove set
   const removeSet = (index: number) => {
     setWorkoutSets((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Duplicate set (copy exercise, clear timer fields)
+  const duplicateSet = (index: number) => {
+    setWorkoutSets((prev) => {
+      const source = prev[index];
+      const copy: WorkoutSet = {
+        ...source,
+        startTime: undefined,
+        endTime: undefined,
+      };
+      const next = [...prev];
+      next.splice(index + 1, 0, copy);
+      return next;
+    });
+  };
+
+  // Start/stop timer for an exercise
+  const toggleTimer = (index: number) => {
+    setWorkoutSets((prev) => {
+      const next = [...prev];
+      const set = next[index];
+      if (!set.startTime) {
+        // Start timer
+        next[index] = { ...set, startTime: Date.now(), endTime: undefined };
+      } else if (!set.endTime) {
+        // Stop timer
+        next[index] = { ...set, endTime: Date.now() };
+      } else {
+        // Reset timer
+        next[index] = { ...set, startTime: undefined, endTime: undefined };
+      }
+      return next;
+    });
   };
 
   // Select exercise for a set
@@ -914,19 +997,59 @@ export default function WorkoutPanel() {
               {workoutSets.map((set, index) => {
                 const exercise = exercises.find((e) => e.id === set.exerciseId);
                 const isCardio = exercise?.category === 'cardio';
+                // Timer state for this exercise
+                const isTimerRunning = !!(set.startTime && !set.endTime);
+                const isTimerDone = !!(set.startTime && set.endTime);
+                const elapsedMs = isTimerRunning
+                  ? Date.now() - set.startTime!
+                  : isTimerDone
+                    ? set.endTime! - set.startTime!
+                    : 0;
+                const elapsedSec = Math.floor(elapsedMs / 1000);
+                const elapsedMin = Math.floor(elapsedSec / 60);
+                const elapsedDisplay = elapsedMin > 0
+                  ? `${elapsedMin}:${String(elapsedSec % 60).padStart(2, '0')}`
+                  : `${elapsedSec}с`;
                 return (
                   <div key={index} className="rounded-lg border bg-muted/30 p-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-medium text-muted-foreground">Упражнение {index + 1}</span>
-                      {workoutSets.length > 1 && (
+                      <div className="flex items-center gap-1">
+                        {/* Timer button */}
                         <button
-                          className="rounded p-1 hover:bg-destructive/10 text-destructive"
-                          onClick={() => removeSet(index)}
+                          className={`rounded p-1 ${isTimerRunning ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : isTimerDone ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'hover:bg-muted text-muted-foreground'}`}
+                          onClick={() => toggleTimer(index)}
+                          title={isTimerRunning ? 'Остановить' : isTimerDone ? 'Сбросить таймер' : 'Начать таймер'}
                         >
-                          <Trash2 className="h-3 w-3" />
+                          {isTimerRunning ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}
                         </button>
-                      )}
+                        {/* Copy button */}
+                        <button
+                          className="rounded p-1 hover:bg-muted text-muted-foreground"
+                          onClick={() => duplicateSet(index)}
+                          title="Создать копию"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </button>
+                        {/* Delete button */}
+                        {workoutSets.length > 1 && (
+                          <button
+                            className="rounded p-1 hover:bg-destructive/10 text-destructive"
+                            onClick={() => removeSet(index)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
                     </div>
+
+                    {/* Timer display */}
+                    {(isTimerRunning || isTimerDone) && (
+                      <div className={`flex items-center gap-1 text-[10px] font-medium ${isTimerRunning ? 'text-emerald-600 dark:text-emerald-400' : 'text-blue-600 dark:text-blue-400'}`}>
+                        <Timer className="h-3 w-3" />
+                        <span>{isTimerRunning ? `${elapsedDisplay} (идёт)` : `${elapsedDisplay}`}</span>
+                      </div>
+                    )}
 
                     {/* Exercise selector */}
                     <Select
@@ -1032,27 +1155,39 @@ export default function WorkoutPanel() {
             </div>
 
             {/* Duration & Calories */}
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs">Длительность (мин)</Label>
-                <Input
-                  type="number"
-                  value={workoutDuration}
-                  onChange={(e) => setWorkoutDuration(e.target.value)}
-                  placeholder="0"
-                  className="mt-1"
-                />
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">Длительность (мин)</Label>
+                  <Input
+                    type="number"
+                    value={workoutDuration}
+                    onChange={(e) => setWorkoutDuration(e.target.value)}
+                    placeholder="0"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Сожжено (ккал)</Label>
+                  <Input
+                    type="number"
+                    value={workoutCalories}
+                    onChange={(e) => setWorkoutCalories(e.target.value)}
+                    placeholder="0"
+                    className="mt-1"
+                  />
+                </div>
               </div>
-              <div>
-                <Label className="text-xs">Сожжено (ккал)</Label>
-                <Input
-                  type="number"
-                  value={workoutCalories}
-                  onChange={(e) => setWorkoutCalories(e.target.value)}
-                  placeholder="0"
-                  className="mt-1"
-                />
-              </div>
+              {workoutSets.some((s) => s.startTime && s.endTime) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 gap-1 text-xs w-full"
+                  onClick={calcDurationFromTimers}
+                >
+                  <Timer className="h-3 w-3" /> Рассчитать длительность из таймеров
+                </Button>
+              )}
             </div>
 
             {/* AI Analysis */}
