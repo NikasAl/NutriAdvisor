@@ -378,7 +378,7 @@ export default function FoodJournalPanel() {
                 </div>
               )}
             </div>
-            <div className="flex flex-col items-center gap-1 shrink-0">
+            <div className="flex flex-col items-center gap-2 shrink-0">
               <button onClick={() => handleEditEntry(entry)} className="rounded-md p-1 hover:bg-muted text-muted-foreground" title="Редактировать"><Pencil className="h-3.5 w-3.5" /></button>
               <button onClick={() => handleTemplate(entry)} className="rounded-md p-1 hover:bg-muted text-muted-foreground" title="Создать из шаблона"><Copy className="h-3.5 w-3.5" /></button>
               <button onClick={() => toggleExpand(eid)} className="rounded-md p-1 hover:bg-muted text-muted-foreground" title={isExpanded ? 'Свернуть' : 'Подробнее'}>{isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</button>

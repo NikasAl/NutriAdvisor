@@ -37,7 +37,7 @@ import {
 import {
   Plus, Loader2, Trash2, ChevronDown, ChevronUp,
   ChevronLeft, ChevronRight, Pencil, Dumbbell, X, Flame, Clock, Sparkles,
-  Activity, Check,
+  Activity, Check, Copy,
 } from 'lucide-react';
 import type { ExerciseCategory, WorkoutEntry, WorkoutSet, DiaryEntry } from '@/lib/types';
 import { EXERCISE_CATEGORY_LABELS } from '@/lib/types';
@@ -178,6 +178,18 @@ export default function WorkoutPanel() {
     setWorkoutDuration(entry.estimatedDuration?.toString() || '');
     setWorkoutCalories(entry.estimatedCaloriesBurned?.toString() || '');
     setAiAnalysis(entry.aiAnalysis || '');
+    setIsWorkoutDialogOpen(true);
+  };
+
+  // Copy workout as template (open as new, copying sets but clearing analysis)
+  const handleWorkoutTemplate = (entry: WorkoutEntry) => {
+    setEditingWorkout(null);
+    setWorkoutName(entry.name || '');
+    setWorkoutDate(new Date().toISOString().split('T')[0]);
+    setWorkoutSets(entry.sets.length > 0 ? entry.sets.map(s => ({ ...s })) : [{ exerciseId: '', exerciseName: '', weight: undefined, reps: undefined, sets: undefined, duration: undefined, distance: undefined, notes: '' }]);
+    setWorkoutDuration('');
+    setWorkoutCalories('');
+    setAiAnalysis('');
     setIsWorkoutDialogOpen(true);
   };
 
@@ -484,18 +496,32 @@ export default function WorkoutPanel() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex flex-col items-center gap-2 shrink-0">
                     <button
-                      className="rounded p-1 hover:bg-muted text-muted-foreground"
+                      className="rounded-md p-1 hover:bg-muted text-muted-foreground"
                       onClick={(e) => { e.stopPropagation(); openEditWorkout(entry); }}
                       title="Редактировать"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
+                    <button
+                      className="rounded-md p-1 hover:bg-muted text-muted-foreground"
+                      onClick={(e) => { e.stopPropagation(); handleWorkoutTemplate(entry); }}
+                      title="Создать из шаблона"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      className="rounded-md p-1 hover:bg-muted text-muted-foreground"
+                      onClick={(e) => { e.stopPropagation(); toggleExpanded(entry.id!); }}
+                      title={isExpanded ? 'Свернуть' : 'Подробнее'}
+                    >
+                      {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <button
-                          className="rounded p-1 hover:bg-destructive/10 text-destructive"
+                          className="rounded-md p-1 hover:bg-destructive/10 text-destructive"
                           onClick={(e) => e.stopPropagation()}
                           title="Удалить"
                         >
@@ -518,7 +544,6 @@ export default function WorkoutPanel() {
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
-                    {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                   </div>
                 </div>
 
@@ -559,13 +584,13 @@ export default function WorkoutPanel() {
                     </Badge>
                   )}
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <button className="rounded p-1 hover:bg-muted text-muted-foreground" onClick={() => openEditActivity(entry)} title="Редактировать">
+                <div className="flex flex-col items-center gap-2 shrink-0">
+                  <button className="rounded-md p-1 hover:bg-muted text-muted-foreground" onClick={() => openEditActivity(entry)} title="Редактировать">
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <button className="rounded p-1 hover:bg-destructive/10 text-destructive" title="Удалить">
+                      <button className="rounded-md p-1 hover:bg-destructive/10 text-destructive" title="Удалить">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </AlertDialogTrigger>
@@ -641,18 +666,32 @@ export default function WorkoutPanel() {
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex flex-col items-center gap-2 shrink-0">
                         <button
-                          className="rounded p-1 hover:bg-muted text-muted-foreground"
+                          className="rounded-md p-1 hover:bg-muted text-muted-foreground"
                           onClick={(e) => { e.stopPropagation(); openEditWorkout(entry); }}
                           title="Редактировать"
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
+                        <button
+                          className="rounded-md p-1 hover:bg-muted text-muted-foreground"
+                          onClick={(e) => { e.stopPropagation(); handleWorkoutTemplate(entry); }}
+                          title="Создать из шаблона"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          className="rounded-md p-1 hover:bg-muted text-muted-foreground"
+                          onClick={(e) => { e.stopPropagation(); toggleExpanded(entry.id!); }}
+                          title={isExpanded ? 'Свернуть' : 'Подробнее'}
+                        >
+                          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <button
-                              className="rounded p-1 hover:bg-destructive/10 text-destructive"
+                              className="rounded-md p-1 hover:bg-destructive/10 text-destructive"
                               onClick={(e) => e.stopPropagation()}
                               title="Удалить"
                             >
@@ -675,7 +714,6 @@ export default function WorkoutPanel() {
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
-                        {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                       </div>
                     </div>
 
@@ -725,13 +763,13 @@ export default function WorkoutPanel() {
                         </Badge>
                       )}
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button className="rounded p-1 hover:bg-muted text-muted-foreground" onClick={() => openEditActivity(entry)} title="Редактировать">
+                    <div className="flex flex-col items-center gap-2 shrink-0">
+                      <button className="rounded-md p-1 hover:bg-muted text-muted-foreground" onClick={() => openEditActivity(entry)} title="Редактировать">
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <button className="rounded p-1 hover:bg-destructive/10 text-destructive" title="Удалить">
+                          <button className="rounded-md p-1 hover:bg-destructive/10 text-destructive" title="Удалить">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </AlertDialogTrigger>
