@@ -30,8 +30,134 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
+/**
+ * Map of LaTeX commands to their Unicode equivalents.
+ * Covers arrows, math operators, relations, Greek letters, and common symbols
+ * that LLMs frequently emit in analysis reports.
+ */
+const LATEX_SYMBOLS: Record<string, string> = {
+  // Arrows
+  '\\rightarrow': '→',
+  '\\to': '→',
+  '\\leftarrow': '←',
+  '\\gets': '←',
+  '\\Rightarrow': '⇒',
+  '\\Leftarrow': '⇐',
+  '\\leftrightarrow': '↔',
+  '\\Leftrightarrow': '⇔',
+  '\\uparrow': '↑',
+  '\\downarrow': '↓',
+  '\\Uparrow': '⇑',
+  '\\Downarrow': '⇓',
+  '\\nearrow': '↗',
+  '\\searrow': '↘',
+  '\\swarrow': '↙',
+  '\\nwarrow': '↖',
+  '\\mapsto': '↦',
+  '\\hookrightarrow': '↪',
+  '\\hookleftarrow': '↩',
+  // Math operators
+  '\\times': '×',
+  '\\div': '÷',
+  '\\pm': '±',
+  '\\mp': '∓',
+  '\\cdot': '·',
+  '\\circ': '∘',
+  '\\bullet': '•',
+  '\\star': '★',
+  '\\sum': '∑',
+  '\\prod': '∏',
+  '\\int': '∫',
+  '\\partial': '∂',
+  '\\nabla': '∇',
+  '\\infty': '∞',
+  '\\sqrt': '√',
+  '\\oplus': '⊕',
+  '\\otimes': '⊗',
+  // Relations
+  '\\leq': '≤',
+  '\\geq': '≥',
+  '\\neq': '≠',
+  '\\approx': '≈',
+  '\\equiv': '≡',
+  '\\sim': '∼',
+  '\\simeq': '≃',
+  '\\propto': '∝',
+  '\\ll': '≪',
+  '\\gg': '≫',
+  '\\in': '∈',
+  '\\notin': '∉',
+  '\\subset': '⊂',
+  '\\supset': '⊃',
+  '\\subseteq': '⊆',
+  '\\supseteq': '⊇',
+  '\\cup': '∪',
+  '\\cap': '∩',
+  '\\emptyset': '∅',
+  // Misc symbols
+  '\\checkmark': '✓',
+  '\\dagger': '†',
+  '\\ddagger': '‡',
+  '\\angle': '∠',
+  '\\perp': '⊥',
+  '\\parallel': '∥',
+  '\\forall': '∀',
+  '\\exists': '∃',
+  '\\neg': '¬',
+  '\\implies': '⟹',
+  '\\iff': '⟺',
+  '\\therefore': '∴',
+  '\\because': '∵',
+  '\\dots': '…',
+  '\\ldots': '…',
+  '\\cdots': '⋯',
+  '\\vdots': '⋮',
+  '\\ddots': '⋱',
+  // Greek letters (lowercase)
+  '\\alpha': 'α', '\\beta': 'β', '\\gamma': 'γ', '\\delta': 'δ',
+  '\\epsilon': 'ε', '\\varepsilon': 'ε', '\\zeta': 'ζ', '\\eta': 'η',
+  '\\theta': 'θ', '\\vartheta': 'ϑ', '\\iota': 'ι', '\\kappa': 'κ',
+  '\\lambda': 'λ', '\\mu': 'μ', '\\nu': 'ν', '\\xi': 'ξ',
+  '\\pi': 'π', '\\rho': 'ρ', '\\sigma': 'σ', '\\tau': 'τ',
+  '\\upsilon': 'υ', '\\phi': 'φ', '\\varphi': 'ϕ', '\\chi': 'χ',
+  '\\psi': 'ψ', '\\omega': 'ω',
+  // Greek letters (uppercase)
+  '\\Gamma': 'Γ', '\\Delta': 'Δ', '\\Theta': 'Θ', '\\Lambda': 'Λ',
+  '\\Xi': 'Ξ', '\\Pi': 'Π', '\\Sigma': 'Σ', '\\Upsilon': 'Υ',
+  '\\Phi': 'Φ', '\\Psi': 'Ψ', '\\Omega': 'Ω',
+};
+
+/**
+ * Replace LaTeX math notation in text with Unicode symbols.
+ * Handles both inline math ($\cmd$) and bare \cmd patterns.
+ */
+function replaceLatexMath(text: string): string {
+  // 1) Replace inline math delimiters: $\cmd$ → Unicode symbol
+  //    Process $...$ first so the delimiters are cleanly consumed
+  let result = text.replace(/\$([^$]+)\$/g, (_match, inner: string) => {
+    let replaced = inner;
+    for (const [cmd, sym] of Object.entries(LATEX_SYMBOLS)) {
+      replaced = replaced.split(cmd).join(sym);
+    }
+    // Strip any remaining LaTeX formatting (e.g. {} grouping, \text{...})
+    replaced = replaced.replace(/\{([^}]*)\}/g, '$1');
+    replaced = replaced.replace(/\\text\{([^}]*)\}/g, '$1');
+    return replaced.trim();
+  });
+
+  // 2) Replace bare LaTeX commands outside of $...$
+  //    (for LLMs that emit \rightarrow without $ delimiters)
+  for (const [cmd, sym] of Object.entries(LATEX_SYMBOLS)) {
+    // Use split/join to avoid regex escaping issues with backslashes
+    result = result.split(cmd).join(sym);
+  }
+
+  return result;
+}
+
 function renderInline(text: string): string {
-  let result = escapeHtml(text);
+  let result = replaceLatexMath(text);
+  result = escapeHtml(result);
   // Inline code (must be before bold/italic to avoid conflicts)
   result = result.replace(/`([^`]+)`/g, '<code class="rounded bg-muted px-1 py-0.5 text-xs font-mono">$1</code>');
   // Bold + italic
