@@ -14,6 +14,7 @@ import type {
   SleepLog,
   Exercise,
   WorkoutEntry,
+  DayEval,
 } from './types';
 
 export class NutriDexie extends Dexie {
@@ -31,6 +32,7 @@ export class NutriDexie extends Dexie {
   sleepLogs!: Table<SleepLog, string>;
   exercises!: Table<Exercise, string>;
   workoutEntries!: Table<WorkoutEntry, string>;
+  dayEvals!: Table<DayEval, string>;
 
   constructor() {
     super('NutriAdvisorDB');
@@ -130,6 +132,24 @@ export class NutriDexie extends Dexie {
       sleepLogs: 'id, date, updatedAt',
       exercises: 'id, name, category, createdAt',
       workoutEntries: 'id, date, createdAt',
+    });
+
+    this.version(9).stores({
+      providers: 'id, name, type, isActive',
+      userProfile: 'id',
+      foodEntries: 'id, date, mealType, createdAt',
+      chatSessions: 'id, lastActivity',
+      chatMessages: 'id, sessionId, createdAt',
+      customGoals: 'id, isActive, createdAt',
+      foodLibrary: 'id, name, lastUsedAt, useCount',
+      diaryEntries: 'id, type, date, createdAt',
+      foodProducts: 'id, name, createdAt',
+      dishes: 'id, name, createdAt',
+      waterLogs: 'id, date, updatedAt',
+      sleepLogs: 'id, date, updatedAt',
+      exercises: 'id, name, category, createdAt',
+      workoutEntries: 'id, date, createdAt',
+      dayEvals: 'id, date, updatedAt',
     });
   }
 }

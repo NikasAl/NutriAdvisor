@@ -261,14 +261,14 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
             <div>
               <span className="text-2xl font-bold text-blue-600">{waterLog?.glasses ?? 0}</span>
               <span className="ml-1 text-sm text-muted-foreground">
-                / {Math.ceil(2000 / waterGlassMl)} стаканов
+                / {Math.ceil((profile.waterTargetMl || 2000) / waterGlassMl)} стаканов
               </span>
             </div>
             <span className="text-sm text-muted-foreground">
-              {((waterLog?.glasses ?? 0) * waterGlassMl)} / 2000 мл
+              {((waterLog?.glasses ?? 0) * waterGlassMl)} / {profile.waterTargetMl || 2000} мл
             </span>
           </div>
-          <Progress value={Math.min(100, ((waterLog?.glasses ?? 0) * waterGlassMl / 2000) * 100)} className="h-2" />
+          <Progress value={Math.min(100, ((waterLog?.glasses ?? 0) * waterGlassMl / (profile.waterTargetMl || 2000)) * 100)} className="h-2" />
           <div className="flex items-center justify-center gap-4">
             <Button
               variant="outline"
@@ -355,13 +355,13 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
                   </div>
                 ))}
               </div>
-              {/* Target progress bar (8h = 480 min) */}
+              {/* Target progress bar */}
               <Progress
-                value={Math.min(100, (sleepLog.periods.reduce((s, p) => s + calcDuration(p.start, p.end), 0) / 480) * 100)}
+                value={Math.min(100, (sleepLog.periods.reduce((s, p) => s + calcDuration(p.start, p.end), 0) / ((profile.sleepTargetHours || 8) * 60)) * 100)}
                 className="h-2"
               />
               <div className="text-[10px] text-muted-foreground text-right">
-                Цель: 8 часов
+                Цель: {profile.sleepTargetHours || 8} часов
               </div>
             </>
           )}

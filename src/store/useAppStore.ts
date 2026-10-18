@@ -50,6 +50,8 @@ const DEFAULT_PROFILE: Omit<UserProfile, 'id' | 'updatedAt'> = {
   restrictions: '',
   activityLevel: 'moderate',
   healthNotes: '',
+  waterTargetMl: 2000,
+  sleepTargetHours: 8,
 };
 
 interface AppState {

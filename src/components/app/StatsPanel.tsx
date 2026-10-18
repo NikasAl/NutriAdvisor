@@ -5,8 +5,8 @@ import { useAppStore } from '@/store/useAppStore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, ChevronLeft, ChevronRight, Loader2, Flame, Dumbbell, Droplets, BedDouble, Apple, TrendingUp, TrendingDown, Minus, Target, Calendar, Activity } from 'lucide-react';
-import type { GoalType } from '@/lib/types';
+import { Sparkles, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Loader2, Flame, Dumbbell, Droplets, BedDouble, Apple, TrendingUp, Target, Calendar, Activity } from 'lucide-react';
+import type { GoalType, DayEval } from '@/lib/types';
 import { db } from '@/lib/db';
 import type { WaterLog, SleepLog } from '@/lib/types';
 import MarkdownRenderer from '@/components/ui/markdown-renderer';
@@ -67,7 +67,9 @@ interface DaySummary {
   pulseAvg: number | null;
   hasData: boolean;
 }
-function calcDayQuality(day: DaySummary, calGoal: number): { score: number; factors: { label: string; value: number; max: number; icon: React.ElementType }[] } {
+
+// Quality score: 0-100 based on multiple factors
+function calcDayQuality(day: DaySummary, calGoal: number, waterTarget: number, sleepTargetH: number): { score: number; factors: { label: string; value: number; max: number; icon: React.ElementType }[] } {
   const factors: { label: string; value: number; max: number; icon: React.ElementType }[] = [];
   let totalScore = 0;
   let totalMax = 0;
@@ -75,7 +77,6 @@ function calcDayQuality(day: DaySummary, calGoal: number): { score: number; fact
   // 1. Calorie intake (0-30 points) — closer to goal = better
   if (day.caloriesIn > 0) {
     const calRatio = calGoal > 0 ? Math.min(day.caloriesIn / calGoal, 1.5) : 0;
-    // Optimal is 0.85-1.15 of goal
     const calScore = calRatio >= 0.85 && calRatio <= 1.15 ? 30
       : calRatio >= 0.7 && calRatio <= 1.3 ? 20
       : calRatio >= 0.5 ? 10 : 5;
@@ -84,7 +85,7 @@ function calcDayQuality(day: DaySummary, calGoal: number): { score: number; fact
     totalMax += 30;
   }
 
-  // 2. Protein (0-15 points) — at least 1g per kg body weight
+  // 2. Protein (0-15 points)
   if (day.protein > 0) {
     const protScore = day.protein >= 80 ? 15 : day.protein >= 50 ? 10 : day.protein >= 30 ? 5 : 2;
     factors.push({ label: 'Белок', value: protScore, max: 15, icon: Apple });
@@ -92,33 +93,33 @@ function calcDayQuality(day: DaySummary, calGoal: number): { score: number; fact
     totalMax += 15;
   }
 
-  // 3. Workout (0-20 points) — any workout is good
+  // 3. Workout (0-20 points)
   if (day.workoutMin > 0) {
-    const workScore$ = day.workoutMin >= 45 ? 20 : day.workoutMin >= 20 ? 15 : day.workoutMin >= 10 ? 10 : 5;
-    factors.push({ label: 'Тренировка', value: workScore$, max: 20, icon: Dumbbell });
-    totalScore += workScore$;
+    const workScore = day.workoutMin >= 45 ? 20 : day.workoutMin >= 20 ? 15 : day.workoutMin >= 10 ? 10 : 5;
+    factors.push({ label: 'Тренировка', value: workScore, max: 20, icon: Dumbbell });
+    totalScore += workScore;
     totalMax += 20;
   }
 
-  // 4. Water (0-15 points) — target 2000ml
+  // 4. Water (0-15 points) — uses profile target
   if (day.waterMl > 0) {
-    const waterRatio = day.waterMl / 2000;
+    const waterRatio = day.waterMl / waterTarget;
     const waterScore = waterRatio >= 1 ? 15 : waterRatio >= 0.7 ? 10 : waterRatio >= 0.4 ? 5 : 2;
     factors.push({ label: 'Вода', value: waterScore, max: 15, icon: Droplets });
     totalScore += waterScore;
     totalMax += 15;
   }
 
-  // 5. Sleep (0-20 points) — target 7-9 hours
+  // 5. Sleep (0-20 points) — uses profile target
   if (day.sleepMin > 0) {
     const sleepH = day.sleepMin / 60;
-    const sleepScore = sleepH >= 7 && sleepH <= 9 ? 20 : sleepH >= 6 ? 14 : sleepH >= 5 ? 8 : 3;
+    const sleepScore = sleepH >= sleepTargetH - 0.5 && sleepH <= sleepTargetH + 1 ? 20
+      : sleepH >= sleepTargetH - 1 ? 14 : sleepH >= sleepTargetH - 2 ? 8 : 3;
     factors.push({ label: 'Сон', value: sleepScore, max: 20, icon: BedDouble });
     totalScore += sleepScore;
     totalMax += 20;
   }
 
-  // Normalize to 0-100
   const score = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0;
   return { score, factors };
 }
@@ -137,22 +138,22 @@ export default function StatsPanel() {
   const streamingAnalysis = useAppStore((s) => s.streamingAnalysis);
 
   const [period, setPeriod] = useState<Period>('week');
-  const [pageOffset, setPageOffset] = useState(0); // 0 = current, 1 = previous week/month, etc.
+  const [pageOffset, setPageOffset] = useState(0);
   const [dayEvals, setDayEvals] = useState<Record<string, string>>({});
+  const [expandedEvals, setExpandedEvals] = useState<Set<string>>(new Set());
   const [evaluatingDate, setEvaluatingDate] = useState<string | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
 
-  // Load historical water/sleep logs
   const [waterLogs, setWaterLogs] = useState<WaterLog[]>([]);
   const [sleepLogs, setSleepLogs] = useState<SleepLog[]>([]);
 
   const days = period === 'week' ? 7 : 30;
   const periodDays = useMemo(() => {
     const start = pageOffset * days;
-    return dateRange(days).map((d, i) => getDaysAgo(start + days - 1 - i));
+    return dateRange(days).map((_, i) => getDaysAgo(start + days - 1 - i));
   }, [period, pageOffset, days]);
 
-  // Load historical water/sleep data for the period
+  // Load historical water/sleep/eval data
   useEffect(() => {
     const loadHistorical = async () => {
       try {
@@ -160,6 +161,11 @@ export default function StatsPanel() {
         const sLogs = await db.sleepLogs.where('date').anyOf(periodDays).toArray();
         setWaterLogs(wLogs);
         setSleepLogs(sLogs);
+        // Load saved day evals from DB
+        const evals = await db.dayEvals.where('date').anyOf(periodDays).toArray();
+        const evalMap: Record<string, string> = {};
+        for (const e of evals) evalMap[e.date] = e.analysis;
+        setDayEvals((prev) => ({ ...evalMap, ...prev }));
       } catch {
         // ignore
       }
@@ -168,6 +174,8 @@ export default function StatsPanel() {
   }, [periodDays.join(',')]);
 
   const calGoal = useMemo(() => calcCalorieGoal(profile), [profile]);
+  const waterTarget = profile.waterTargetMl || 2000;
+  const sleepTargetH = profile.sleepTargetHours || 8;
 
   // Build day summaries
   const daySummaries = useMemo((): DaySummary[] => {
@@ -195,7 +203,7 @@ export default function StatsPanel() {
           const [sh, sm] = p.start.split(':').map(Number);
           const [eh, em] = p.end.split(':').map(Number);
           let diff = (eh * 60 + em) - (sh * 60 + sm);
-          if (diff < 0) diff += 1440; // overnight
+          if (diff < 0) diff += 1440;
           sleepMin += diff;
         }
       }
@@ -221,11 +229,20 @@ export default function StatsPanel() {
       totalCalBurned: withData.reduce((s, d) => s + d.caloriesBurned, 0),
       avgWaterMl: withData.length ? Math.round(withData.reduce((s, d) => s + d.waterMl, 0) / withData.length) : 0,
       avgSleepH: withData.filter((d) => d.sleepMin > 0).length ? +(withData.filter((d) => d.sleepMin > 0).reduce((s, d) => s + d.sleepMin, 0) / withData.filter((d) => d.sleepMin > 0).length / 60).toFixed(1) : 0,
-      avgQuality: withData.length ? Math.round(withData.reduce((s, d) => s + calcDayQuality(d, calGoal).score, 0) / withData.length) : 0,
+      avgQuality: withData.length ? Math.round(withData.reduce((s, d) => s + calcDayQuality(d, calGoal, waterTarget, sleepTargetH).score, 0) / withData.length) : 0,
       calorieGoalMet: withData.filter((d) => d.caloriesIn > 0 && Math.abs(d.caloriesIn - calGoal) / calGoal <= 0.15).length,
       workoutDays: withData.filter((d) => d.workoutMin > 0).length,
     };
-  }, [daySummaries, calGoal]);
+  }, [daySummaries, calGoal, waterTarget, sleepTargetH]);
+
+  // Toggle eval expand
+  const toggleEvalExpand = (date: string) => {
+    setExpandedEvals((prev) => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date); else next.add(date);
+      return next;
+    });
+  };
 
   // AI day evaluation
   const handleEvalDay = async (date: string) => {
@@ -238,22 +255,102 @@ export default function StatsPanel() {
     setIsEvaluating(true);
     setEvaluatingDate(date);
     try {
-      const q = calcDayQuality(day, calGoal);
-      const prompt = `Оцени день пользователя NutriAdvisor на основе данных:
-Дата: ${formatDateLabel(date)}
-Калории: ${day.caloriesIn} из ${Math.round(calGoal)} ккал (${Math.round((day.caloriesIn / calGoal) * 100)}% цели)
-Белки: ${day.protein}г, Жиры: ${day.fat}г, Углеводы: ${day.carbs}г
-Тренировки: ${day.workoutMin} мин, ${day.workoutCount} шт, сожжено ${day.caloriesBurned} ккал
-Активность: ${day.activityMin} мин, ${day.activityCount} шт
-Вода: ${day.waterMl} мл из 2000 мл
-Сон: ${(day.sleepMin / 60).toFixed(1)} ч из 8 ч
-Пульс: ${day.pulseAvg ?? 'нет'} уд/мин
+      const q = calcDayQuality(day, calGoal, waterTarget, sleepTargetH);
+      const sleepH = (day.sleepMin / 60).toFixed(1);
+      const calPct = calGoal > 0 ? Math.round((day.caloriesIn / calGoal) * 100) : 0;
+      const waterPct = waterTarget > 0 ? Math.round((day.waterMl / waterTarget) * 100) : 0;
+      const sleepPct = sleepTargetH > 0 ? Math.round((parseFloat(sleepH) / sleepTargetH) * 100) : 0;
+
+      // Build meal breakdown
+      const dayFood = foodEntries.filter((e) => e.date === date);
+      const mealsByType: Record<string, string[]> = {};
+      for (const f of dayFood) {
+        const type = f.mealType || 'other';
+        if (!mealsByType[type]) mealsByType[type] = [];
+        const desc = f.description || 'Без описания';
+        const cal = f.estimatedCalories ? ` (${f.estimatedCalories} ккал)` : '';
+        mealsByType[type].push(`  - ${desc}${cal}`);
+      }
+      const mealLabels: Record<string, string> = { breakfast: 'Завтрак', lunch: 'Обед', dinner: 'Ужин', snack: 'Перекус' };
+      let mealSection = '';
+      for (const [type, items] of Object.entries(mealsByType)) {
+        mealSection += `\n${mealLabels[type] || type}:\n${items.join('\n')}`;
+      }
+
+      // Build workout breakdown
+      const dayWorkouts = workoutEntries.filter((e) => e.date === date);
+      let workoutSection = '';
+      for (const w of dayWorkouts) {
+        const sets = w.sets.map((s) => {
+          let line = s.exerciseName;
+          if (s.weight) line += ` ${s.weight}кг`;
+          if (s.reps) line += ` ×${s.reps}`;
+          if (s.sets) line += ` ×${s.sets} под.`;
+          return `  - ${line}`;
+        }).join('\n');
+        workoutSection += `\n${w.name || 'Тренировка'} (${w.estimatedDuration || '?'} мин, ${w.estimatedCaloriesBurned || '?'} ккал):\n${sets}`;
+      }
+
+      // Build activity breakdown
+      const dayActivities = diaryEntries.filter((e) => e.date === date && e.type === 'activity');
+      const activitySection = dayActivities.length > 0
+        ? '\n' + dayActivities.map((a) => `  - ${a.description || 'Активность'} (${a.durationMinutes || '?'} мин)`).join('\n')
+        : '';
+
+      // Build BP data
+      const dayBp = diaryEntries.filter((e) => e.date === date && e.type === 'blood_pressure');
+      const bpSection = dayBp.length > 0
+        ? '\n' + dayBp.map((b) => `  - ${b.systolic}/${b.diastolic} мм рт.ст., пульс ${b.pulse || '?'} уд/мин`).join('\n')
+        : '';
+
+      const prompt = `Ты — персональный диетолог и тренер пользователя NutriAdvisor. Проанализируй день пользователя на основе всех накопленных данных.
+
+Дата: ${formatDateLabel(date)} (${date})
+
+--- ПИТАНИЕ ---
+Всего: ${day.caloriesIn} ккал из ${Math.round(calGoal)} ккал цели (${calPct}%)
+Белки: ${day.protein}г, Жиры: ${day.fat}г, Углеводы: ${day.carbs}г${mealSection}
+
+--- ТРЕНИРОВКИ ---
+Всего: ${day.workoutMin} мин, ${day.workoutCount} шт, сожжено ${day.caloriesBurned} ккал${workoutSection}
+
+--- АКТИВНОСТЬ ---
+Всего: ${day.activityMin} мин, ${day.activityCount} шт${activitySection}
+
+--- ВОДА ---
+${day.waterMl} мл из ${waterTarget} мл цели (${waterPct}%)
+
+--- СОН ---
+${sleepH} ч из ${sleepTargetH} ч цели (${sleepPct}%)
+
+--- ДАВЛЕНИЕ И ПУЛЬС ---${bpSection || '\nНет данных'}
+
+--- ИТОГО ---
 Оценка качества дня: ${q.score}/100
 
-Дай краткую оценку дня (2-3 предложения): что хорошо, что можно улучшить, конкретные рекомендации.`;
+Проанализируй день комплексно:
+1. Оцени питание: баланс КБЖУ, достаточно ли белка, не много ли жиров/углеводов
+2. Оцени тренировки и активность: объём, интенсивность, восстановление
+3. Оцени гидратацию и сон
+4. Учитывай давление и пульс если есть
+5. Дай конкретные рекомендации на завтра: что изменить, добавить, на что обратить внимание
+
+Будь конкретным и практичным. 4-6 предложений.`;
 
       const result = await analyzeWorkoutStream(prompt);
       setDayEvals((prev) => ({ ...prev, [date]: result }));
+      setExpandedEvals((prev) => new Set(prev).add(date));
+      // Save to DB
+      try {
+        const existing = await db.dayEvals.where('date').equals(date).first();
+        if (existing) {
+          await db.dayEvals.update(existing.id!, { analysis: result, updatedAt: new Date() });
+        } else {
+          await db.dayEvals.add({ date, analysis: result, updatedAt: new Date() });
+        }
+      } catch {
+        // ignore DB error
+      }
     } catch {
       // ignore
     } finally {
@@ -262,7 +359,7 @@ export default function StatsPanel() {
     }
   };
 
-  // Quality color
+  // Quality color helpers
   const qualityColor = (score: number) =>
     score >= 80 ? 'text-emerald-600 dark:text-emerald-400'
     : score >= 60 ? 'text-yellow-600 dark:text-yellow-400'
@@ -275,10 +372,19 @@ export default function StatsPanel() {
     : score >= 40 ? 'bg-orange-100 dark:bg-orange-900/30'
     : 'bg-red-100 dark:bg-red-900/30';
 
+  const qualityBarColor = (score: number) =>
+    score >= 80 ? 'bg-emerald-500'
+    : score >= 60 ? 'bg-yellow-500'
+    : score >= 40 ? 'bg-orange-500'
+    : 'bg-red-500';
+
   const qualityLabel = (score: number) =>
-    score >= 80 ? 'Отлично' : score >= 60 ? 'Хорошо' : score >= 40 ? 'Средне' : score > 0 ? 'Слабо' : 'Нет данных';
+    score >= 80 ? 'Отлично' : score >= 60 ? 'Хорошо' : score >= 40 ? 'Средне' : score > 0 ? 'Слабо' : '—';
 
   const periodLabel = period === 'week' ? 'Неделя' : 'Месяц';
+
+  // Reverse order: today first
+  const daysWithData = daySummaries.filter((d) => d.hasData).reverse();
 
   return (
     <div className="space-y-4">
@@ -337,29 +443,24 @@ export default function StatsPanel() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            {/* Avg quality */}
             <div className="text-center">
               <div className={`text-2xl font-bold ${qualityColor(periodAgg.avgQuality)}`}>{periodAgg.avgQuality}</div>
               <div className="text-[10px] text-muted-foreground">Ср. качество</div>
             </div>
-            {/* Avg calories */}
             <div className="text-center">
               <div className="text-2xl font-bold">{periodAgg.avgCalories}</div>
               <div className="text-[10px] text-muted-foreground">Ср. ккал/день</div>
             </div>
-            {/* Workout */}
             <div className="text-center">
               <div className="text-2xl font-bold text-emerald-600">{periodAgg.workoutDays}</div>
               <div className="text-[10px] text-muted-foreground">Трен. дней</div>
             </div>
-            {/* Calorie goal met */}
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">{periodAgg.calorieGoalMet}</div>
               <div className="text-[10px] text-muted-foreground">Цель kcal ±15%</div>
             </div>
           </div>
 
-          {/* Secondary stats */}
           <div className="mt-3 grid grid-cols-3 gap-2 text-center border-t pt-2">
             <div>
               <div className="text-sm font-semibold">{periodAgg.avgProtein}г</div>
@@ -384,18 +485,18 @@ export default function StatsPanel() {
             <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-xs font-semibold">Качество дней</span>
           </div>
-          <div className="flex items-end gap-1 h-20">
+          <div className="flex items-end gap-1" style={{ height: '80px' }}>
             {daySummaries.map((day) => {
-              const q = calcDayQuality(day, calGoal);
-              const heightPct = q.score > 0 ? Math.max(8, q.score) : 4;
+              const q = calcDayQuality(day, calGoal, waterTarget, sleepTargetH);
+              const heightPct = q.score > 0 ? Math.max(10, q.score) : 6;
               return (
-                <div key={day.date} className="flex-1 flex flex-col items-center gap-0.5">
+                <div key={day.date} className="flex-1 flex flex-col items-center justify-end" style={{ height: '100%' }}>
                   <div
-                    className={`w-full rounded-t-sm ${q.score > 0 ? qualityBg(q.score) : 'bg-muted/40'}`}
+                    className={`w-full rounded-t-sm transition-all ${q.score > 0 ? qualityBarColor(q.score) : 'bg-muted/40'}`}
                     style={{ height: `${heightPct}%` }}
                     title={`${formatDateLabel(day.date)}: ${q.score}%`}
                   />
-                  <span className="text-[8px] text-muted-foreground leading-none">
+                  <span className="text-[8px] text-muted-foreground leading-none mt-0.5">
                     {new Date(day.date + 'T12:00:00').toLocaleDateString('ru-RU', { day: 'numeric' })}
                   </span>
                 </div>
@@ -405,10 +506,12 @@ export default function StatsPanel() {
         </CardContent>
       </Card>
 
-      {/* Daily details */}
+      {/* Daily details — today first */}
       <div className="space-y-3">
-        {daySummaries.filter((d) => d.hasData).map((day) => {
-          const q = calcDayQuality(day, calGoal);
+        {daysWithData.map((day) => {
+          const q = calcDayQuality(day, calGoal, waterTarget, sleepTargetH);
+          const isEvalExpanded = expandedEvals.has(day.date);
+          const hasEval = !!dayEvals[day.date];
           return (
             <Card key={day.date} className="overflow-hidden">
               <CardContent className="p-3 space-y-2">
@@ -458,15 +561,11 @@ export default function StatsPanel() {
                   {day.caloriesIn > 0 && (
                     <span className="flex items-center gap-0.5"><Flame className="h-2.5 w-2.5" /> {day.caloriesIn} ккал</span>
                   )}
-                  {day.protein > 0 && (
-                    <span>Б: {day.protein}г</span>
-                  )}
+                  {day.protein > 0 && <span>Б: {day.protein}г</span>}
                   {day.workoutMin > 0 && (
                     <span className="flex items-center gap-0.5"><Dumbbell className="h-2.5 w-2.5" /> {day.workoutMin} мин</span>
                   )}
-                  {day.caloriesBurned > 0 && (
-                    <span>−{day.caloriesBurned} ккал</span>
-                  )}
+                  {day.caloriesBurned > 0 && <span>−{day.caloriesBurned} ккал</span>}
                   {day.waterMl > 0 && (
                     <span className="flex items-center gap-0.5"><Droplets className="h-2.5 w-2.5" /> {day.waterMl} мл</span>
                   )}
@@ -494,14 +593,22 @@ export default function StatsPanel() {
                   </div>
                 )}
 
-                {/* AI evaluation */}
-                {dayEvals[day.date] && (
-                  <div className="mt-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 p-2 border border-emerald-200 dark:border-emerald-800/40 text-xs">
-                    <div className="flex items-center gap-1 mb-1">
-                      <Sparkles className="h-3 w-3 text-emerald-600" />
-                      <span className="font-medium text-emerald-700 dark:text-emerald-400">Оценка ИИ</span>
-                    </div>
-                    <MarkdownRenderer content={dayEvals[day.date]} className="text-xs" />
+                {/* AI evaluation — collapsible */}
+                {hasEval && (
+                  <div className="mt-1">
+                    <button
+                      className="flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
+                      onClick={() => toggleEvalExpand(day.date)}
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      <span>Оценка ИИ</span>
+                      {isEvalExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    </button>
+                    {isEvalExpanded && (
+                      <div className="mt-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 p-2 border border-emerald-200 dark:border-emerald-800/40 text-xs">
+                        <MarkdownRenderer content={dayEvals[day.date]} className="text-xs" />
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -516,7 +623,7 @@ export default function StatsPanel() {
           );
         })}
 
-        {daySummaries.filter((d) => d.hasData).length === 0 && (
+        {daysWithData.length === 0 && (
           <div className="text-center text-sm text-muted-foreground py-8">
             Нет данных за этот период
           </div>

@@ -82,6 +82,8 @@ export interface UserProfile {
   restrictions: string;
   activityLevel: ActivityLevel;
   healthNotes: string;
+  waterTargetMl: number;  // daily water target in ml (default 2000)
+  sleepTargetHours: number; // daily sleep target in hours (default 8)
   updatedAt: Date;
 }
 
@@ -236,6 +238,13 @@ export interface WorkoutEntry {
 }
 
 export type TabId = 'dashboard' | 'food' | 'catalog' | 'diary' | 'workout' | 'stats' | 'chat' | 'profile' | 'settings';
+
+export interface DayEval {
+  id?: string;
+  date: string;
+  analysis: string;
+  updatedAt: Date;
+}
 
 export interface WaterLog {
   id?: string;

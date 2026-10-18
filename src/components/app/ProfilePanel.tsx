@@ -18,7 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Heart, TrendingDown, TrendingUp, Dumbbell, Flame, Moon, Smile, Brain, Zap, Target, Check,
-  Plus, Trash2, Star,
+  Plus, Trash2, Star, Droplets, BedDouble,
 } from 'lucide-react';
 import type { GoalType, ActivityLevel } from '@/lib/types';
 import { GOAL_LABELS } from '@/lib/types';
@@ -317,6 +317,27 @@ export default function ProfilePanel() {
                   placeholder="Хронические заболевания, принимаемые лекарства, анализы..."
                   rows={3}
                 />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs flex items-center gap-1"><Droplets className="h-3 w-3" /> Цель воды (мл/день)</Label>
+                  <Input
+                    type="number"
+                    value={localProfile.waterTargetMl ?? 2000}
+                    onChange={(e) => setLocalProfile({ ...localProfile, waterTargetMl: e.target.value ? Number(e.target.value) : 2000 })}
+                    placeholder="2000"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs flex items-center gap-1"><BedDouble className="h-3 w-3" /> Цель сна (ч/ночь)</Label>
+                  <Input
+                    type="number"
+                    step="0.5"
+                    value={localProfile.sleepTargetHours ?? 8}
+                    onChange={(e) => setLocalProfile({ ...localProfile, sleepTargetHours: e.target.value ? Number(e.target.value) : 8 })}
+                    placeholder="8"
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
