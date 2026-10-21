@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { v4 as uuid } from 'uuid';
 import { useAppStore } from '@/store/useAppStore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,11 +38,30 @@ import {
 import {
   Plus, Loader2, Trash2, ChevronDown, ChevronUp,
   ChevronLeft, ChevronRight, Pencil, Dumbbell, X, Flame, Clock, Sparkles,
-  Activity, Check, Copy, Play, Square, Timer,
+  Activity, Check, Copy, Play, Square, Timer, GripVertical,
 } from 'lucide-react';
 import type { ExerciseCategory, WorkoutEntry, WorkoutSet, DiaryEntry } from '@/lib/types';
 import { EXERCISE_CATEGORY_LABELS } from '@/lib/types';
 import MarkdownRenderer from '@/components/ui/markdown-renderer';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 
 /** Parse calories burned and duration from AI analysis text */
 function parseWorkoutFromText(text: string) {
@@ -79,6 +99,212 @@ function formatDateLabel(dateStr: string): string {
 
 const CATEGORIES: ExerciseCategory[] = ['chest', 'back', 'shoulders', 'arms', 'legs', 'core', 'cardio', 'other'];
 const PAGE_SIZE = 10;
+
+// ── Sortable Exercise Card (drag & drop) ──────────────────────────
+interface SortableExerciseCardProps {
+  set: WorkoutSet;
+  index: number;
+  exercises: { id: string; name: string; category: ExerciseCategory }[];
+  exercisesByCategory: Map<ExerciseCategory, { id: string; name: string; category: ExerciseCategory }[]>;
+  isOnlySet: boolean;
+  onToggleTimer: () => void;
+  onDuplicate: () => void;
+  onRemove: () => void;
+  onUpdateField: (field: keyof WorkoutSet, value: string | number | undefined) => void;
+  onSelectExercise: (exerciseId: string) => void;
+}
+
+function SortableExerciseCard({
+  set, index, exercises, exercisesByCategory, isOnlySet,
+  onToggleTimer, onDuplicate, onRemove, onUpdateField, onSelectExercise,
+}: SortableExerciseCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: set.id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : 'auto' as unknown as number,
+  };
+
+  const exercise = exercises.find((e) => e.id === set.exerciseId);
+  const isCardio = exercise?.category === 'cardio';
+
+  // Timer state for this exercise
+  const isTimerRunning = !!(set.startTime && !set.endTime);
+  const isTimerDone = !!(set.startTime && set.endTime);
+  const elapsedMs = isTimerRunning
+    ? Date.now() - set.startTime!
+    : isTimerDone
+      ? set.endTime! - set.startTime!
+      : 0;
+  const elapsedSec = Math.floor(elapsedMs / 1000);
+  const elapsedMin = Math.floor(elapsedSec / 60);
+  const elapsedDisplay = elapsedMin > 0
+    ? `${elapsedMin}:${String(elapsedSec % 60).padStart(2, '0')}`
+    : `${elapsedSec}с`;
+
+  return (
+    <div ref={setNodeRef} style={style} className="rounded-lg border bg-muted/30 p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          {/* Drag handle */}
+          <button
+            type="button"
+            className="cursor-grab active:cursor-grabbing rounded p-0.5 hover:bg-muted text-muted-foreground/50 hover:text-muted-foreground touch-none"
+            {...attributes}
+            {...listeners}
+            title="Перетащите для изменения порядка"
+          >
+            <GripVertical className="h-3.5 w-3.5" />
+          </button>
+          <span className="text-[10px] font-medium text-muted-foreground">Упражнение {index + 1}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          {/* Timer button */}
+          <button
+            className={`rounded p-1 ${isTimerRunning ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : isTimerDone ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'hover:bg-muted text-muted-foreground'}`}
+            onClick={onToggleTimer}
+            title={isTimerRunning ? 'Остановить' : isTimerDone ? 'Сбросить таймер' : 'Начать таймер'}
+          >
+            {isTimerRunning ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+          </button>
+          {/* Copy button */}
+          <button
+            className="rounded p-1 hover:bg-muted text-muted-foreground"
+            onClick={onDuplicate}
+            title="Создать копию"
+          >
+            <Copy className="h-3 w-3" />
+          </button>
+          {/* Delete button */}
+          {!isOnlySet && (
+            <button
+              className="rounded p-1 hover:bg-destructive/10 text-destructive"
+              onClick={onRemove}
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Timer display */}
+      {(isTimerRunning || isTimerDone) && (
+        <div className={`flex items-center gap-1 text-[10px] font-medium ${isTimerRunning ? 'text-emerald-600 dark:text-emerald-400' : 'text-blue-600 dark:text-blue-400'}`}>
+          <Timer className="h-3 w-3" />
+          <span>{isTimerRunning ? `${elapsedDisplay} (идёт)` : `${elapsedDisplay}`}</span>
+        </div>
+      )}
+
+      {/* Exercise selector */}
+      <Select
+        value={set.exerciseId}
+        onValueChange={onSelectExercise}
+      >
+        <SelectTrigger className="h-9 text-xs">
+          <SelectValue placeholder="Выберите упражнение" />
+        </SelectTrigger>
+        <SelectContent>
+          {CATEGORIES.map((cat) => {
+            const catExercises = exercisesByCategory.get(cat) ?? [];
+            if (catExercises.length === 0) return null;
+            return (
+              <React.Fragment key={cat}>
+                <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase">
+                  {EXERCISE_CATEGORY_LABELS[cat]}
+                </div>
+                {catExercises.map((ex) => (
+                  <SelectItem key={ex.id} value={ex.id} className="text-xs">
+                    {ex.name}
+                  </SelectItem>
+                ))}
+              </React.Fragment>
+            );
+          })}
+        </SelectContent>
+      </Select>
+
+      {/* Inputs grid */}
+      <div className="grid grid-cols-2 gap-2">
+        {!isCardio && (
+          <>
+            <div>
+              <Label className="text-[10px]">Вес (кг)</Label>
+              <Input
+                type="number"
+                value={set.weight ?? ''}
+                onChange={(e) => onUpdateField('weight', e.target.value ? parseFloat(e.target.value) : undefined)}
+                placeholder="0"
+                className="mt-0.5 h-8 text-xs"
+              />
+            </div>
+            <div>
+              <Label className="text-[10px]">Повторения</Label>
+              <Input
+                type="number"
+                value={set.reps ?? ''}
+                onChange={(e) => onUpdateField('reps', e.target.value ? parseInt(e.target.value) : undefined)}
+                placeholder="0"
+                className="mt-0.5 h-8 text-xs"
+              />
+            </div>
+            <div>
+              <Label className="text-[10px]">Подходы</Label>
+              <Input
+                type="number"
+                value={set.sets ?? ''}
+                onChange={(e) => onUpdateField('sets', e.target.value ? parseInt(e.target.value) : undefined)}
+                placeholder="0"
+                className="mt-0.5 h-8 text-xs"
+              />
+            </div>
+          </>
+        )}
+        {isCardio && (
+          <>
+            <div>
+              <Label className="text-[10px]">Длительность (мин)</Label>
+              <Input
+                type="number"
+                value={set.duration ?? ''}
+                onChange={(e) => onUpdateField('duration', e.target.value ? parseFloat(e.target.value) : undefined)}
+                placeholder="0"
+                className="mt-0.5 h-8 text-xs"
+              />
+            </div>
+            <div>
+              <Label className="text-[10px]">Дистанция (км)</Label>
+              <Input
+                type="number"
+                value={set.distance ?? ''}
+                onChange={(e) => onUpdateField('distance', e.target.value ? parseFloat(e.target.value) : undefined)}
+                placeholder="0"
+                className="mt-0.5 h-8 text-xs"
+              />
+            </div>
+          </>
+        )}
+        <div className={isCardio ? 'col-span-2' : ''}>
+          <Label className="text-[10px]">Заметки</Label>
+          <Input
+            value={set.notes ?? ''}
+            onChange={(e) => onUpdateField('notes', e.target.value || undefined)}
+            placeholder="..."
+            className="mt-0.5 h-8 text-xs"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function WorkoutPanel() {
   const exercises = useAppStore((s) => s.exercises);
@@ -196,7 +422,7 @@ export default function WorkoutPanel() {
     setEditingWorkout(null);
     setWorkoutName('');
     setWorkoutDate(today);
-    setWorkoutSets([{ exerciseId: '', exerciseName: '', weight: undefined, reps: undefined, sets: undefined, duration: undefined, distance: undefined, notes: '', startTime: undefined, endTime: undefined }]);
+    setWorkoutSets([makeBlankSet()]);
     setWorkoutDuration('');
     setWorkoutCalories('');
     setAiAnalysis('');
@@ -208,7 +434,11 @@ export default function WorkoutPanel() {
     setEditingWorkout(entry);
     setWorkoutName(entry.name || '');
     setWorkoutDate(entry.date);
-    setWorkoutSets(entry.sets.length > 0 ? entry.sets : [{ exerciseId: '', exerciseName: '', weight: undefined, reps: undefined, sets: undefined, duration: undefined, distance: undefined, notes: '', startTime: undefined, endTime: undefined }]);
+    // Ensure every set has a stable id (migrate old data without id)
+    const setsWithIds = entry.sets.length > 0
+      ? entry.sets.map((s) => ({ ...s, id: s.id || uuid() }))
+      : [makeBlankSet()];
+    setWorkoutSets(setsWithIds);
     setWorkoutDuration(entry.estimatedDuration?.toString() || '');
     setWorkoutCalories(entry.estimatedCaloriesBurned?.toString() || '');
     setAiAnalysis(entry.aiAnalysis || '');
@@ -220,7 +450,10 @@ export default function WorkoutPanel() {
     setEditingWorkout(null);
     setWorkoutName(entry.name || '');
     setWorkoutDate(new Date().toISOString().split('T')[0]);
-    setWorkoutSets(entry.sets.length > 0 ? entry.sets.map(s => ({ ...s, startTime: undefined, endTime: undefined })) : [{ exerciseId: '', exerciseName: '', weight: undefined, reps: undefined, sets: undefined, duration: undefined, distance: undefined, notes: '', startTime: undefined, endTime: undefined }]);
+    const setsWithIds = entry.sets.length > 0
+      ? entry.sets.map((s) => ({ ...s, id: s.id || uuid(), startTime: undefined, endTime: undefined }))
+      : [makeBlankSet()];
+    setWorkoutSets(setsWithIds);
     setWorkoutDuration('');
     setWorkoutCalories('');
     setAiAnalysis('');
@@ -307,9 +540,24 @@ export default function WorkoutPanel() {
     });
   };
 
+  // Create a blank WorkoutSet with a stable id
+  const makeBlankSet = (): WorkoutSet => ({
+    id: uuid(),
+    exerciseId: '',
+    exerciseName: '',
+    weight: undefined,
+    reps: undefined,
+    sets: undefined,
+    duration: undefined,
+    distance: undefined,
+    notes: '',
+    startTime: undefined,
+    endTime: undefined,
+  });
+
   // Add empty set
   const addSet = () => {
-    setWorkoutSets((prev) => [...prev, { exerciseId: '', exerciseName: '', weight: undefined, reps: undefined, sets: undefined, duration: undefined, distance: undefined, notes: '', startTime: undefined, endTime: undefined }]);
+    setWorkoutSets((prev) => [...prev, makeBlankSet()]);
   };
 
   // Remove set
@@ -323,12 +571,31 @@ export default function WorkoutPanel() {
       const source = prev[index];
       const copy: WorkoutSet = {
         ...source,
+        id: uuid(),
         startTime: undefined,
         endTime: undefined,
       };
       const next = [...prev];
       next.splice(index + 1, 0, copy);
       return next;
+    });
+  };
+
+  // ── Drag & Drop for exercise reordering ──────────────────────
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setWorkoutSets((prev) => {
+      const oldIndex = prev.findIndex((s) => s.id === active.id);
+      const newIndex = prev.findIndex((s) => s.id === over.id);
+      if (oldIndex === -1 || newIndex === -1) return prev;
+      return arrayMove(prev, oldIndex, newIndex);
     });
   };
 
@@ -985,7 +1252,7 @@ export default function WorkoutPanel() {
               />
             </div>
 
-            {/* Sets list */}
+            {/* Sets list with drag & drop reordering */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-semibold">Упражнения</Label>
@@ -994,164 +1261,33 @@ export default function WorkoutPanel() {
                 </Button>
               </div>
 
-              {workoutSets.map((set, index) => {
-                const exercise = exercises.find((e) => e.id === set.exerciseId);
-                const isCardio = exercise?.category === 'cardio';
-                // Timer state for this exercise
-                const isTimerRunning = !!(set.startTime && !set.endTime);
-                const isTimerDone = !!(set.startTime && set.endTime);
-                const elapsedMs = isTimerRunning
-                  ? Date.now() - set.startTime!
-                  : isTimerDone
-                    ? set.endTime! - set.startTime!
-                    : 0;
-                const elapsedSec = Math.floor(elapsedMs / 1000);
-                const elapsedMin = Math.floor(elapsedSec / 60);
-                const elapsedDisplay = elapsedMin > 0
-                  ? `${elapsedMin}:${String(elapsedSec % 60).padStart(2, '0')}`
-                  : `${elapsedSec}с`;
-                return (
-                  <div key={index} className="rounded-lg border bg-muted/30 p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-medium text-muted-foreground">Упражнение {index + 1}</span>
-                      <div className="flex items-center gap-1">
-                        {/* Timer button */}
-                        <button
-                          className={`rounded p-1 ${isTimerRunning ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : isTimerDone ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'hover:bg-muted text-muted-foreground'}`}
-                          onClick={() => toggleTimer(index)}
-                          title={isTimerRunning ? 'Остановить' : isTimerDone ? 'Сбросить таймер' : 'Начать таймер'}
-                        >
-                          {isTimerRunning ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-                        </button>
-                        {/* Copy button */}
-                        <button
-                          className="rounded p-1 hover:bg-muted text-muted-foreground"
-                          onClick={() => duplicateSet(index)}
-                          title="Создать копию"
-                        >
-                          <Copy className="h-3 w-3" />
-                        </button>
-                        {/* Delete button */}
-                        {workoutSets.length > 1 && (
-                          <button
-                            className="rounded p-1 hover:bg-destructive/10 text-destructive"
-                            onClick={() => removeSet(index)}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Timer display */}
-                    {(isTimerRunning || isTimerDone) && (
-                      <div className={`flex items-center gap-1 text-[10px] font-medium ${isTimerRunning ? 'text-emerald-600 dark:text-emerald-400' : 'text-blue-600 dark:text-blue-400'}`}>
-                        <Timer className="h-3 w-3" />
-                        <span>{isTimerRunning ? `${elapsedDisplay} (идёт)` : `${elapsedDisplay}`}</span>
-                      </div>
-                    )}
-
-                    {/* Exercise selector */}
-                    <Select
-                      value={set.exerciseId}
-                      onValueChange={(v) => selectExerciseForSet(index, v)}
-                    >
-                      <SelectTrigger className="h-9 text-xs">
-                        <SelectValue placeholder="Выберите упражнение" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CATEGORIES.map((cat) => {
-                          const catExercises = exercisesByCategory.get(cat) ?? [];
-                          if (catExercises.length === 0) return null;
-                          return (
-                            <React.Fragment key={cat}>
-                              <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase">
-                                {EXERCISE_CATEGORY_LABELS[cat]}
-                              </div>
-                              {catExercises.map((ex) => (
-                                <SelectItem key={ex.id} value={ex.id} className="text-xs">
-                                  {ex.name}
-                                </SelectItem>
-                              ))}
-                            </React.Fragment>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
-
-                    {/* Inputs grid */}
-                    <div className="grid grid-cols-2 gap-2">
-                      {!isCardio && (
-                        <>
-                          <div>
-                            <Label className="text-[10px]">Вес (кг)</Label>
-                            <Input
-                              type="number"
-                              value={set.weight ?? ''}
-                              onChange={(e) => updateSet(index, 'weight', e.target.value ? parseFloat(e.target.value) : undefined)}
-                              placeholder="0"
-                              className="mt-0.5 h-8 text-xs"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-[10px]">Повторения</Label>
-                            <Input
-                              type="number"
-                              value={set.reps ?? ''}
-                              onChange={(e) => updateSet(index, 'reps', e.target.value ? parseInt(e.target.value) : undefined)}
-                              placeholder="0"
-                              className="mt-0.5 h-8 text-xs"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-[10px]">Подходы</Label>
-                            <Input
-                              type="number"
-                              value={set.sets ?? ''}
-                              onChange={(e) => updateSet(index, 'sets', e.target.value ? parseInt(e.target.value) : undefined)}
-                              placeholder="0"
-                              className="mt-0.5 h-8 text-xs"
-                            />
-                          </div>
-                        </>
-                      )}
-                      {isCardio && (
-                        <>
-                          <div>
-                            <Label className="text-[10px]">Длительность (мин)</Label>
-                            <Input
-                              type="number"
-                              value={set.duration ?? ''}
-                              onChange={(e) => updateSet(index, 'duration', e.target.value ? parseFloat(e.target.value) : undefined)}
-                              placeholder="0"
-                              className="mt-0.5 h-8 text-xs"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-[10px]">Дистанция (км)</Label>
-                            <Input
-                              type="number"
-                              value={set.distance ?? ''}
-                              onChange={(e) => updateSet(index, 'distance', e.target.value ? parseFloat(e.target.value) : undefined)}
-                              placeholder="0"
-                              className="mt-0.5 h-8 text-xs"
-                            />
-                          </div>
-                        </>
-                      )}
-                      <div className={isCardio ? 'col-span-2' : ''}>
-                        <Label className="text-[10px]">Заметки</Label>
-                        <Input
-                          value={set.notes ?? ''}
-                          onChange={(e) => updateSet(index, 'notes', e.target.value || undefined)}
-                          placeholder="..."
-                          className="mt-0.5 h-8 text-xs"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              <DndContext
+                sensors={dndSensors}
+                collisionDetection={closestCenter}
+                modifiers={[restrictToVerticalAxis]}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={workoutSets.map((s) => s.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {workoutSets.map((set, index) => (
+                    <SortableExerciseCard
+                      key={set.id}
+                      set={set}
+                      index={index}
+                      exercises={exercises}
+                      exercisesByCategory={exercisesByCategory}
+                      isOnlySet={workoutSets.length === 1}
+                      onToggleTimer={() => toggleTimer(index)}
+                      onDuplicate={() => duplicateSet(index)}
+                      onRemove={() => removeSet(index)}
+                      onUpdateField={(field, value) => updateSet(index, field, value)}
+                      onSelectExercise={(v) => selectExerciseForSet(index, v)}
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
             </div>
 
             {/* Duration & Calories */}

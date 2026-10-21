@@ -214,6 +214,7 @@ export interface Exercise {
 }
 
 export interface WorkoutSet {
+  id: string;           // stable ID for drag-and-drop and React keys
   exerciseId: string;
   exerciseName: string;
   weight?: number;
