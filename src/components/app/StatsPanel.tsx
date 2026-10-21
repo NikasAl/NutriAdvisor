@@ -69,8 +69,17 @@ interface DaySummary {
 }
 
 // Quality score: 0-100 based on multiple factors
-function calcDayQuality(day: DaySummary, calGoal: number, waterTarget: number, sleepTargetH: number): { score: number; factors: { label: string; value: number; max: number; icon: React.ElementType }[] } {
-  const factors: { label: string; value: number; max: number; icon: React.ElementType }[] = [];
+interface QualityFactor {
+  label: string;
+  value: number;   // score points
+  max: number;     // max score points
+  icon: React.ElementType;
+  actual?: string; // human-readable actual value (e.g. "1000 мл")
+  target?: string; // human-readable target value (e.g. "1500 мл")
+}
+
+function calcDayQuality(day: DaySummary, calGoal: number, waterTarget: number, sleepTargetH: number): { score: number; factors: QualityFactor[] } {
+  const factors: QualityFactor[] = [];
   let totalScore = 0;
   let totalMax = 0;
 
@@ -80,7 +89,8 @@ function calcDayQuality(day: DaySummary, calGoal: number, waterTarget: number, s
     const calScore = calRatio >= 0.85 && calRatio <= 1.15 ? 30
       : calRatio >= 0.7 && calRatio <= 1.3 ? 20
       : calRatio >= 0.5 ? 10 : 5;
-    factors.push({ label: 'Калории', value: calScore, max: 30, icon: Flame });
+    factors.push({ label: 'Калории', value: calScore, max: 30, icon: Flame,
+      actual: `${day.caloriesIn} ккал`, target: `${Math.round(calGoal)} ккал` });
     totalScore += calScore;
     totalMax += 30;
   }
@@ -88,7 +98,8 @@ function calcDayQuality(day: DaySummary, calGoal: number, waterTarget: number, s
   // 2. Protein (0-15 points)
   if (day.protein > 0) {
     const protScore = day.protein >= 80 ? 15 : day.protein >= 50 ? 10 : day.protein >= 30 ? 5 : 2;
-    factors.push({ label: 'Белок', value: protScore, max: 15, icon: Apple });
+    factors.push({ label: 'Белок', value: protScore, max: 15, icon: Apple,
+      actual: `${day.protein}г`, target: '80г' });
     totalScore += protScore;
     totalMax += 15;
   }
@@ -96,7 +107,8 @@ function calcDayQuality(day: DaySummary, calGoal: number, waterTarget: number, s
   // 3. Workout (0-20 points)
   if (day.workoutMin > 0) {
     const workScore = day.workoutMin >= 45 ? 20 : day.workoutMin >= 20 ? 15 : day.workoutMin >= 10 ? 10 : 5;
-    factors.push({ label: 'Тренировка', value: workScore, max: 20, icon: Dumbbell });
+    factors.push({ label: 'Тренировка', value: workScore, max: 20, icon: Dumbbell,
+      actual: `${day.workoutMin} мин`, target: '45 мин' });
     totalScore += workScore;
     totalMax += 20;
   }
@@ -105,7 +117,8 @@ function calcDayQuality(day: DaySummary, calGoal: number, waterTarget: number, s
   if (day.waterMl > 0) {
     const waterRatio = day.waterMl / waterTarget;
     const waterScore = waterRatio >= 1 ? 15 : waterRatio >= 0.7 ? 10 : waterRatio >= 0.4 ? 5 : 2;
-    factors.push({ label: 'Вода', value: waterScore, max: 15, icon: Droplets });
+    factors.push({ label: 'Вода', value: waterScore, max: 15, icon: Droplets,
+      actual: `${day.waterMl} мл`, target: `${waterTarget} мл` });
     totalScore += waterScore;
     totalMax += 15;
   }
@@ -115,7 +128,8 @@ function calcDayQuality(day: DaySummary, calGoal: number, waterTarget: number, s
     const sleepH = day.sleepMin / 60;
     const sleepScore = sleepH >= sleepTargetH - 0.5 && sleepH <= sleepTargetH + 1 ? 20
       : sleepH >= sleepTargetH - 1 ? 14 : sleepH >= sleepTargetH - 2 ? 8 : 3;
-    factors.push({ label: 'Сон', value: sleepScore, max: 20, icon: BedDouble });
+    factors.push({ label: 'Сон', value: sleepScore, max: 20, icon: BedDouble,
+      actual: `${sleepH.toFixed(1)} ч`, target: `${sleepTargetH} ч` });
     totalScore += sleepScore;
     totalMax += 20;
   }
@@ -161,13 +175,19 @@ export default function StatsPanel() {
         const sLogs = await db.sleepLogs.where('date').anyOf(periodDays).toArray();
         setWaterLogs(wLogs);
         setSleepLogs(sLogs);
-        // Load saved day evals from DB
+      } catch (e) {
+        console.warn('[StatsPanel] Failed to load water/sleep logs:', e);
+      }
+      // Load saved day evals from DB (separate try/catch so water/sleep isn't blocked)
+      try {
         const evals = await db.dayEvals.where('date').anyOf(periodDays).toArray();
         const evalMap: Record<string, string> = {};
-        for (const e of evals) evalMap[e.date] = e.analysis;
-        setDayEvals((prev) => ({ ...evalMap, ...prev }));
-      } catch {
-        // ignore
+        for (const e of evals) {
+          if (e.analysis) evalMap[e.date] = e.analysis;
+        }
+        setDayEvals(evalMap);
+      } catch (e) {
+        console.warn('[StatsPanel] Failed to load day evals:', e);
       }
     };
     loadHistorical();
@@ -348,11 +368,11 @@ ${sleepH} ч из ${sleepTargetH} ч цели (${sleepPct}%)
         } else {
           await db.dayEvals.add({ date, analysis: result, updatedAt: new Date() });
         }
-      } catch {
-        // ignore DB error
+      } catch (e) {
+        console.warn('[StatsPanel] Failed to save day eval to DB:', e);
       }
     } catch {
-      // ignore
+      // ignore LLM error
     } finally {
       setIsEvaluating(false);
       setEvaluatingDate(null);
@@ -550,7 +570,7 @@ ${sleepH} ч из ${sleepTargetH} ч цели (${sleepPct}%)
                             style={{ width: `${(f.value / f.max) * 100}%` }}
                           />
                         </div>
-                        <span className="text-[10px] text-muted-foreground w-6 text-right">{f.value}/{f.max}</span>
+                        <span className="text-[10px] text-muted-foreground w-auto text-right">{f.actual && f.target ? `${f.actual}/${f.target}` : `${f.value}/${f.max}`}</span>
                       </div>
                     ))}
                   </div>
