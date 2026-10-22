@@ -8,7 +8,7 @@ import {
   ArrowLeft, Heart, Brain, Shield, Settings2, Zap,
   BookOpen, Moon, Droplets, UtensilsCrossed, Activity,
   AlertTriangle, ExternalLink, ChevronDown, ChevronUp,
-  Flame, GlassWater, BedDouble,
+  Flame, GlassWater, BedDouble, Dumbbell, TrendingUp,
 } from 'lucide-react';
 import PrivacyPolicyPanel from './PrivacyPolicyPanel';
 
@@ -86,7 +86,7 @@ function Section({
   );
 }
 
-export type HelpSection = 'about' | 'calories' | 'water' | 'sleep';
+export type HelpSection = 'about' | 'calories' | 'water' | 'sleep' | 'workouts' | 'stats';
 
 export default function HelpPanel({ onBack, initialSection }: { onBack: () => void; initialSection?: HelpSection }) {
   const [showPrivacy, setShowPrivacy] = useState(false);
@@ -374,6 +374,30 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
           </div>
 
           <div className="flex items-start gap-3 rounded-lg bg-muted/50 p-3">
+            <Dumbbell className="h-5 w-5 text-rose-500 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-medium">Тренировки</p>
+              <p className="text-xs text-muted-foreground">
+                Записывайте тренировки с упражнениями (вес, повторения, подходы).
+                Drag & drop для смены порядка упражнений. Каталог упражнений по группам мышц.
+                AI анализирует тренировку и даёт рекомендации по объёму и восстановлению.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 rounded-lg bg-muted/50 p-3">
+            <TrendingUp className="h-5 w-5 text-emerald-500 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-medium">Статистика</p>
+              <p className="text-xs text-muted-foreground">
+                Оценка качества каждого дня по 100-балльной шкале на основе калорий,
+                белка, тренировки, воды и сна. ИИ-анализ дня с персональными рекомендациями.
+                Сводка за неделю/месяц с мини-графиком качества.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 rounded-lg bg-muted/50 p-3">
             <Activity className="h-5 w-5 text-orange-500 mt-0.5 shrink-0" />
             <div>
               <p className="text-sm font-medium">Дневник активности</p>
@@ -544,6 +568,82 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
         </div>
       </Section>
 
+      {/* Section: Workouts */}
+      <Section
+        icon={Dumbbell}
+        title="Тренировки"
+        sectionId="workouts"
+      >
+        <p>
+          Раздел «Тренировки» позволяет вести полноценный журнал тренировок.
+          Каждая тренировка привязана к дате, содержит название, длительность,
+          сожжённые калории и набор упражнений с указанием веса, повторений и подходов.
+        </p>
+
+        <div className="space-y-2">
+          <div className="flex items-start gap-2">
+            <span className="text-rose-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Каталог упражнений</strong> — предустановленные упражнения по группам мышц
+              (грудь, спина, ноги, руки, плечи, пресс). Можно добавлять свои упражнения.
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-rose-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Drag & drop</strong> — упражнения в форме редактирования можно перетаскивать
+              для смены порядка. На десктопе зажмите мышью, на мобильных — long-press + перетаскивание.
+              Порядок сохраняется и при повторном открытии формы.
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-rose-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>ИИ-анализ</strong> — AI оценивает объём и интенсивность тренировки,
+              даёт рекомендации по восстановлению и прогрессии нагрузки.
+            </p>
+          </div>
+        </div>
+      </Section>
+
+      {/* Section: Statistics */}
+      <Section
+        icon={TrendingUp}
+        title="Статистика"
+        sectionId="stats"
+      >
+        <p>
+          Раздел «Статистика» — ваш обзор качества здоровья за период. Каждый день
+          получает оценку от 0 до 100 баллов на основе пяти факторов.
+        </p>
+
+        <div className="space-y-2">
+          <div className="flex items-start gap-2">
+            <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Факторы оценки</strong> — Калории (0–30), Белок (0–15), Тренировка (0–20),
+              Вода (0–15), Сон (0–20). Шкалы заполняются пропорционально фактическому значению
+              относительно цели (например, Сон 6.7ч/8ч → 84% заполнения).
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>ИИ-анализ дня</strong> — нажмите кнопку ✨ рядом с оценкой дня, и AI
+              сгенерирует развёрнутый анализ с учётом питания, тренировок, воды, сна и давления.
+              Анализ сохраняется и доступен при повторном входе на страницу.
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Период и навигация</strong> — просмотр за неделю или месяц с пейджингом.
+              Мини-график качества показывает цветную полосу оценок за каждый день.
+            </p>
+          </div>
+        </div>
+      </Section>
+
       {/* Section 9: Tips */}
       <Section
         icon={BookOpen}
@@ -568,14 +668,18 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
           </li>
           <li className="flex items-start gap-1.5">
             <span className="text-emerald-500">4.</span>
-            <span>Регулярно записывайте воду и сон — чем полнее данные, тем качественнее анализ.</span>
+            <span>Записывайте тренировки с упражнениями — это поможет AI анализировать не только питание, но и физическую нагрузку, давая рекомендации по восстановлению и прогрессии.</span>
           </li>
           <li className="flex items-start gap-1.5">
             <span className="text-emerald-500">5.</span>
-            <span>В чате можно задать любой вопрос о питании, попросить составить меню, разобрать свой рацион за неделю и т.д.</span>
+            <span>Регулярно записывайте воду и сон — чем полнее данные, тем качественнее анализ дня на странице Статистика.</span>
           </li>
           <li className="flex items-start gap-1.5">
             <span className="text-emerald-500">6.</span>
+            <span>В чате можно задать любой вопрос о питании и тренировках, попросить составить меню или план тренировок, разобрать свой рацион за неделю и т.д.</span>
+          </li>
+          <li className="flex items-start gap-1.5">
+            <span className="text-emerald-500">7.</span>
             <span>Для лучших результатов используйте современные модели. Локальные модели удобны для приватности, облачные — для точности.</span>
           </li>
         </ul>
