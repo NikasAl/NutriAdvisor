@@ -1,5 +1,5 @@
 import type { LLMProvider } from './types';
-import { nativeRequest, nativeStreamRequest, isNativePlatform, buildProxyInit } from './nativeHttp';
+import { nativeRequest, nativeStreamRequest, isNativePlatform, buildProxyInit, shouldTryProxy, markProxyAvailability } from './nativeHttp';
 
 export interface LLMMessage {
   role: 'system' | 'user' | 'assistant';
@@ -338,13 +338,34 @@ export async function callLLMStream(
       });
     }
 
-    // Browser path: route through /api/llm CORS proxy for true streaming
-    const { url: proxyUrl, init: proxyInit } = buildProxyInit(url, {
-      headers,
-      body: JSON.stringify(payload),
-      signal,
-    });
-    const fetchRes = await fetch(proxyUrl, proxyInit);
+    // Browser path: try CORS proxy for true streaming, fall back to direct fetch
+    let fetchRes: Response;
+    if (shouldTryProxy()) {
+      const { url: proxyUrl, init: proxyInit } = buildProxyInit(url, {
+        headers,
+        body: JSON.stringify(payload),
+        signal,
+      });
+      try {
+        const proxyRes = await fetch(proxyUrl, proxyInit);
+        // If 404 without X-Proxied header → proxy route not available (static export)
+        if (proxyRes.status === 404 && proxyRes.headers.get('X-Proxied') !== 'true') {
+          markProxyAvailability(false);
+          // Fall back to direct fetch
+          fetchRes = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload), signal });
+        } else {
+          markProxyAvailability(true);
+          fetchRes = proxyRes;
+        }
+      } catch {
+        // Proxy unreachable → fall back to direct fetch
+        markProxyAvailability(false);
+        fetchRes = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload), signal });
+      }
+    } else {
+      // Proxy known unavailable, go direct
+      fetchRes = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload), signal });
+    }
 
     if (!fetchRes.ok) {
       const errText = await fetchRes.text().catch(() => 'Unknown error');

@@ -1,8 +1,5 @@
 import { NextRequest } from 'next/server';
 
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
-
 /**
  * CORS-bypass proxy for LLM API requests.
  *
@@ -13,6 +10,12 @@ export const dynamic = 'force-dynamic';
  * On Capacitor Android, native Java HTTP bypasses CORS directly, so this
  * proxy is only used in browser/PWA mode.
  *
+ * NOTE: This route works during `next dev`. With `output: "export"` in
+ * next.config.ts, it is excluded from the static build — the client will
+ * detect this and fall back to direct fetch() (which may have CORS issues
+ * for some providers; users should use CORS-friendly providers or the
+ * Android APK in that case).
+ *
  * Headers:
  *   X-Target-Url       — the real LLM endpoint URL
  *   X-Forwarded-Auth   — the Authorization header value (e.g. "Bearer sk-...")
@@ -20,13 +23,14 @@ export const dynamic = 'force-dynamic';
  *
  * Body: standard OpenAI-compatible request payload (forwarded as-is).
  * Response: transparently proxied, including SSE streaming.
+ * All responses include X-Proxied: true header for client detection.
  */
 export async function POST(req: NextRequest) {
   const targetUrl = req.headers.get('X-Target-Url');
   if (!targetUrl) {
     return new Response(JSON.stringify({ error: 'Missing X-Target-Url header' }), {
       status: 400,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Proxied': 'true' },
     });
   }
 
@@ -64,7 +68,7 @@ export async function POST(req: NextRequest) {
     const message = err instanceof Error ? err.message : 'Unknown upstream error';
     return new Response(JSON.stringify({ error: `Upstream fetch failed: ${message}` }), {
       status: 502,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Proxied': 'true' },
     });
   }
 
@@ -72,7 +76,7 @@ export async function POST(req: NextRequest) {
     const errText = await targetRes.text();
     return new Response(errText, {
       status: targetRes.status,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Proxied': 'true' },
     });
   }
 
@@ -83,6 +87,7 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
+        'X-Proxied': 'true',
       },
     });
   }
@@ -90,6 +95,6 @@ export async function POST(req: NextRequest) {
   // Non-streaming: return JSON response
   const data = await targetRes.text();
   return new Response(data, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Proxied': 'true' },
   });
 }

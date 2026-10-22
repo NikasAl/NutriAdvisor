@@ -3,8 +3,10 @@
  * bypassing Android WebView CORS and mixed content restrictions.
  * Only available in Capacitor (Android APK). Falls back to fetch() in browser.
  *
- * In browser (PWA) mode, routes requests through /api/llm CORS proxy
- * to avoid cross-origin restrictions on external LLM endpoints.
+ * In browser (PWA) mode, tries to route requests through /api/llm CORS proxy
+ * to avoid cross-origin restrictions on external LLM endpoints. If the proxy
+ * is unavailable (e.g. static export without API routes), falls back to
+ * direct fetch() which may have CORS issues with some providers.
  *
  * Supports two modes:
  * - nativeRequest(): full response at once (for non-streaming calls)
@@ -38,6 +40,14 @@ export function isNativePlatform(): boolean {
 }
 
 const NativeHttp = registerPlugin<NativeHttpPlugin>('NativeHttp');
+
+// ── CORS proxy helpers ──────────────────────────────────────────────
+
+/**
+ * Cached proxy availability: null = unknown, true = available, false = unavailable.
+ * After first probe, all subsequent requests skip the unavailable proxy.
+ */
+let _proxyAvailable: boolean | null = null;
 
 /**
  * Build fetch init for the /api/llm CORS proxy.
@@ -80,6 +90,71 @@ export function buildProxyInit(
 }
 
 /**
+ * Check if a response came from our proxy (has X-Proxied header)
+ * or from the static file server (404 = proxy route not available).
+ */
+function isFromProxy(res: Response): boolean {
+  return res.headers.get('X-Proxied') === 'true';
+}
+
+/**
+ * Should we attempt the CORS proxy?
+ * Returns false if we already know it's unavailable.
+ */
+export function shouldTryProxy(): boolean {
+  return !isNativePlatform() && _proxyAvailable !== false;
+}
+
+/**
+ * Mark proxy as available or unavailable after a probe.
+ */
+export function markProxyAvailability(available: boolean) {
+  _proxyAvailable = available;
+}
+
+/**
+ * Attempt a fetch through the CORS proxy, falling back to direct fetch
+ * if the proxy is unavailable (404 without X-Proxied header) or fails.
+ */
+export async function proxyFetchWithFallback(
+  url: string,
+  directInit: RequestInit,
+  timeoutMs: number = 300_000
+): Promise<Response> {
+  // If proxy is known unavailable, go direct
+  if (_proxyAvailable === false) {
+    return fetch(url, { ...directInit, signal: AbortSignal.timeout(timeoutMs) });
+  }
+
+  try {
+    const { url: proxyUrl, init: proxyInit } = buildProxyInit(url, {
+      method: directInit.method as string | undefined,
+      headers: directInit.headers as Record<string, string> | undefined,
+      body: directInit.body as string | undefined,
+    });
+    const res = await fetch(proxyUrl, { ...proxyInit, signal: AbortSignal.timeout(timeoutMs) });
+
+    // If 404 without X-Proxied → proxy route doesn't exist (static export)
+    if (res.status === 404 && !isFromProxy(res)) {
+      _proxyAvailable = false;
+      // Retry with direct fetch
+      return fetch(url, { ...directInit, signal: AbortSignal.timeout(timeoutMs) });
+    }
+
+    // Proxy responded (even with error status from upstream)
+    _proxyAvailable = true;
+    return res;
+  } catch {
+    // Network error reaching proxy → it's unavailable
+    _proxyAvailable = false;
+    // Fall back to direct fetch
+    return fetch(url, { ...directInit, signal: AbortSignal.timeout(timeoutMs) });
+  }
+}
+
+// ── Request functions ────────────────────────────────────────────────
+
+/**
  * Make a non-streaming HTTP request.
  */
 export async function nativeRequest(
@@ -99,11 +174,11 @@ export async function nativeRequest(
     });
   }
 
-  // Browser: route through /api/llm CORS proxy
-  const { url: proxyUrl, init: proxyInit } = buildProxyInit(url, options);
-  const res = await fetch(proxyUrl, {
-    ...proxyInit,
-    signal: AbortSignal.timeout(300_000),
+  // Browser: try CORS proxy, fall back to direct fetch
+  const res = await proxyFetchWithFallback(url, {
+    method: options.method ?? 'POST',
+    headers: options.headers ?? {},
+    body: options.body,
   });
 
   const responseBody = await res.text();
@@ -113,7 +188,7 @@ export async function nativeRequest(
 /**
  * Streaming HTTP request via native plugin events.
  * On native: uses requestStream() with notifyListeners for true chunk-by-chunk delivery.
- * On browser: uses fetch() with ReadableStream.
+ * On browser: uses fetch() with ReadableStream, through CORS proxy with fallback.
  *
  * Callbacks:
  * - onLine(line: string) — called for each line from the response
@@ -182,7 +257,7 @@ export async function nativeStreamRequest(
     return cleanup;
   }
 
-  // Browser: route through /api/llm CORS proxy with ReadableStream
+  // Browser: try CORS proxy with fallback to direct fetch
   const controller = new AbortController();
 
   // If external signal provided, bridge its abort to our controller
@@ -198,13 +273,39 @@ export async function nativeStreamRequest(
 
   (async () => {
     try {
-      const { url: proxyUrl, init: proxyInit } = buildProxyInit(url, {
-        method,
-        headers,
-        body,
-        signal: controller.signal,
-      });
-      const res = await fetch(proxyUrl, proxyInit);
+      let res: Response;
+
+      if (shouldTryProxy()) {
+        // Try CORS proxy first
+        const { url: proxyUrl, init: proxyInit } = buildProxyInit(url, {
+          method,
+          headers,
+          body,
+          signal: controller.signal,
+        });
+        res = await fetch(proxyUrl, proxyInit);
+
+        // If 404 without X-Proxied → proxy unavailable, retry direct
+        if (res.status === 404 && !isFromProxy(res)) {
+          markProxyAvailability(false);
+          res = await fetch(url, {
+            method: method ?? 'POST',
+            headers: headers ?? {},
+            body,
+            signal: controller.signal,
+          });
+        } else {
+          markProxyAvailability(true);
+        }
+      } else {
+        // Proxy known unavailable, go direct
+        res = await fetch(url, {
+          method: method ?? 'POST',
+          headers: headers ?? {},
+          body,
+          signal: controller.signal,
+        });
+      }
 
       if (!res.ok) {
         const errText = await res.text().catch(() => 'Unknown error');
