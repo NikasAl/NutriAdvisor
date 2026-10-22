@@ -370,7 +370,7 @@ ${sleepH} ч из ${sleepTargetH} ч цели (${sleepPct}%)
       // Save to DB (delete-then-add to avoid duplicate/upsert issues)
       try {
         await db.dayEvals.where('date').equals(date).delete();
-        await db.dayEvals.add({ date, analysis: result, updatedAt: new Date() });
+        await db.dayEvals.add({ id: crypto.randomUUID(), date, analysis: result, updatedAt: new Date() });
         console.log('[StatsPanel] Day eval saved to DB for', date);
       } catch (e) {
         console.warn('[StatsPanel] Failed to save day eval to DB:', e);
