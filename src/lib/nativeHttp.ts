@@ -3,6 +3,9 @@
  * bypassing Android WebView CORS and mixed content restrictions.
  * Only available in Capacitor (Android APK). Falls back to fetch() in browser.
  *
+ * In browser (PWA) mode, routes requests through /api/llm CORS proxy
+ * to avoid cross-origin restrictions on external LLM endpoints.
+ *
  * Supports two modes:
  * - nativeRequest(): full response at once (for non-streaming calls)
  * - nativeStreamRequest(): true streaming via Capacitor events (for LLM SSE)
@@ -37,6 +40,46 @@ export function isNativePlatform(): boolean {
 const NativeHttp = registerPlugin<NativeHttpPlugin>('NativeHttp');
 
 /**
+ * Build fetch init for the /api/llm CORS proxy.
+ * Moves the original URL and auth into proxy headers so the server-side
+ * route can forward the request without browser CORS restrictions.
+ * Exported for use in llm-client.ts browser streaming path.
+ */
+export function buildProxyInit(
+  url: string,
+  options: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: string;
+    signal?: AbortSignal;
+  } = {}
+): { url: string; init: RequestInit } {
+  const hdrs = options.headers || {};
+  const auth = hdrs['Authorization'] || hdrs['authorization'] || '';
+  const customHeaders: Record<string, string> = {};
+  for (const [k, v] of Object.entries(hdrs)) {
+    const lk = k.toLowerCase();
+    if (lk !== 'content-type' && lk !== 'authorization') {
+      customHeaders[k] = v;
+    }
+  }
+  return {
+    url: '/api/llm',
+    init: {
+      method: options.method ?? 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Target-Url': url,
+        'X-Forwarded-Auth': auth,
+        'X-Forwarded-Headers': JSON.stringify(customHeaders),
+      },
+      body: options.body,
+      signal: options.signal,
+    },
+  };
+}
+
+/**
  * Make a non-streaming HTTP request.
  */
 export async function nativeRequest(
@@ -56,10 +99,10 @@ export async function nativeRequest(
     });
   }
 
-  const res = await fetch(url, {
-    method: options.method ?? 'POST',
-    headers: options.headers ?? {},
-    body: options.body,
+  // Browser: route through /api/llm CORS proxy
+  const { url: proxyUrl, init: proxyInit } = buildProxyInit(url, options);
+  const res = await fetch(proxyUrl, {
+    ...proxyInit,
     signal: AbortSignal.timeout(300_000),
   });
 
@@ -139,7 +182,7 @@ export async function nativeStreamRequest(
     return cleanup;
   }
 
-  // Browser: use fetch with ReadableStream
+  // Browser: route through /api/llm CORS proxy with ReadableStream
   const controller = new AbortController();
 
   // If external signal provided, bridge its abort to our controller
@@ -155,12 +198,13 @@ export async function nativeStreamRequest(
 
   (async () => {
     try {
-      const res = await fetch(url, {
-        method: method ?? 'POST',
-        headers: headers ?? {},
+      const { url: proxyUrl, init: proxyInit } = buildProxyInit(url, {
+        method,
+        headers,
         body,
         signal: controller.signal,
       });
+      const res = await fetch(proxyUrl, proxyInit);
 
       if (!res.ok) {
         const errText = await res.text().catch(() => 'Unknown error');

@@ -1,5 +1,5 @@
 import type { LLMProvider } from './types';
-import { nativeRequest, nativeStreamRequest, isNativePlatform } from './nativeHttp';
+import { nativeRequest, nativeStreamRequest, isNativePlatform, buildProxyInit } from './nativeHttp';
 
 export interface LLMMessage {
   role: 'system' | 'user' | 'assistant';
@@ -338,13 +338,13 @@ export async function callLLMStream(
       });
     }
 
-    // Browser path: fetch() with ReadableStream for true streaming
-    const fetchRes = await fetch(url, {
-      method: 'POST',
+    // Browser path: route through /api/llm CORS proxy for true streaming
+    const { url: proxyUrl, init: proxyInit } = buildProxyInit(url, {
       headers,
       body: JSON.stringify(payload),
       signal,
     });
+    const fetchRes = await fetch(proxyUrl, proxyInit);
 
     if (!fetchRes.ok) {
       const errText = await fetchRes.text().catch(() => 'Unknown error');
