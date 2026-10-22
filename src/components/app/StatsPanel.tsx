@@ -76,6 +76,7 @@ interface QualityFactor {
   icon: React.ElementType;
   actual?: string; // human-readable actual value (e.g. "1000 мл")
   target?: string; // human-readable target value (e.g. "1500 мл")
+  barRatio?: number; // visual fill ratio (actual/target), used for bar width instead of value/max
 }
 
 function calcDayQuality(day: DaySummary, calGoal: number, waterTarget: number, sleepTargetH: number): { score: number; factors: QualityFactor[] } {
@@ -90,7 +91,8 @@ function calcDayQuality(day: DaySummary, calGoal: number, waterTarget: number, s
       : calRatio >= 0.7 && calRatio <= 1.3 ? 20
       : calRatio >= 0.5 ? 10 : 5;
     factors.push({ label: 'Калории', value: calScore, max: 30, icon: Flame,
-      actual: `${day.caloriesIn} ккал`, target: `${Math.round(calGoal)} ккал` });
+      actual: `${day.caloriesIn} ккал`, target: `${Math.round(calGoal)} ккал`,
+      barRatio: Math.min(calGoal > 0 ? day.caloriesIn / calGoal : 0, 1) });
     totalScore += calScore;
     totalMax += 30;
   }
@@ -99,7 +101,8 @@ function calcDayQuality(day: DaySummary, calGoal: number, waterTarget: number, s
   if (day.protein > 0) {
     const protScore = day.protein >= 80 ? 15 : day.protein >= 50 ? 10 : day.protein >= 30 ? 5 : 2;
     factors.push({ label: 'Белок', value: protScore, max: 15, icon: Apple,
-      actual: `${day.protein}г`, target: '80г' });
+      actual: `${day.protein}г`, target: '80г',
+      barRatio: Math.min(day.protein / 80, 1) });
     totalScore += protScore;
     totalMax += 15;
   }
@@ -108,7 +111,8 @@ function calcDayQuality(day: DaySummary, calGoal: number, waterTarget: number, s
   if (day.workoutMin > 0) {
     const workScore = day.workoutMin >= 45 ? 20 : day.workoutMin >= 20 ? 15 : day.workoutMin >= 10 ? 10 : 5;
     factors.push({ label: 'Тренировка', value: workScore, max: 20, icon: Dumbbell,
-      actual: `${day.workoutMin} мин`, target: '45 мин' });
+      actual: `${day.workoutMin} мин`, target: '45 мин',
+      barRatio: Math.min(day.workoutMin / 45, 1) });
     totalScore += workScore;
     totalMax += 20;
   }
@@ -118,7 +122,8 @@ function calcDayQuality(day: DaySummary, calGoal: number, waterTarget: number, s
     const waterRatio = day.waterMl / waterTarget;
     const waterScore = waterRatio >= 1 ? 15 : waterRatio >= 0.7 ? 10 : waterRatio >= 0.4 ? 5 : 2;
     factors.push({ label: 'Вода', value: waterScore, max: 15, icon: Droplets,
-      actual: `${day.waterMl} мл`, target: `${waterTarget} мл` });
+      actual: `${day.waterMl} мл`, target: `${waterTarget} мл`,
+      barRatio: Math.min(waterRatio, 1) });
     totalScore += waterScore;
     totalMax += 15;
   }
@@ -129,7 +134,8 @@ function calcDayQuality(day: DaySummary, calGoal: number, waterTarget: number, s
     const sleepScore = sleepH >= sleepTargetH - 0.5 && sleepH <= sleepTargetH + 1 ? 20
       : sleepH >= sleepTargetH - 1 ? 14 : sleepH >= sleepTargetH - 2 ? 8 : 3;
     factors.push({ label: 'Сон', value: sleepScore, max: 20, icon: BedDouble,
-      actual: `${sleepH.toFixed(1)} ч`, target: `${sleepTargetH} ч` });
+      actual: `${sleepH.toFixed(1)} ч`, target: `${sleepTargetH} ч`,
+      barRatio: Math.min(sleepTargetH > 0 ? sleepH / sleepTargetH : 0, 1) });
     totalScore += sleepScore;
     totalMax += 20;
   }
@@ -185,6 +191,7 @@ export default function StatsPanel() {
         for (const e of evals) {
           if (e.analysis) evalMap[e.date] = e.analysis;
         }
+        console.log('[StatsPanel] Loaded', Object.keys(evalMap).length, 'day evals from DB');
         setDayEvals(evalMap);
       } catch (e) {
         console.warn('[StatsPanel] Failed to load day evals:', e);
@@ -360,14 +367,11 @@ ${sleepH} ч из ${sleepTargetH} ч цели (${sleepPct}%)
       const result = await analyzeWorkoutStream(prompt);
       setDayEvals((prev) => ({ ...prev, [date]: result }));
       setExpandedEvals((prev) => new Set(prev).add(date));
-      // Save to DB
+      // Save to DB (delete-then-add to avoid duplicate/upsert issues)
       try {
-        const existing = await db.dayEvals.where('date').equals(date).first();
-        if (existing) {
-          await db.dayEvals.update(existing.id!, { analysis: result, updatedAt: new Date() });
-        } else {
-          await db.dayEvals.add({ date, analysis: result, updatedAt: new Date() });
-        }
+        await db.dayEvals.where('date').equals(date).delete();
+        await db.dayEvals.add({ date, analysis: result, updatedAt: new Date() });
+        console.log('[StatsPanel] Day eval saved to DB for', date);
       } catch (e) {
         console.warn('[StatsPanel] Failed to save day eval to DB:', e);
       }
@@ -567,7 +571,7 @@ ${sleepH} ч из ${sleepTargetH} ч цели (${sleepPct}%)
                         <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
                           <div
                             className="h-full bg-emerald-500 rounded-full"
-                            style={{ width: `${(f.value / f.max) * 100}%` }}
+                            style={{ width: `${(f.barRatio ?? (f.value / f.max)) * 100}%` }}
                           />
                         </div>
                         <span className="text-[10px] text-muted-foreground w-auto text-right">{f.actual && f.target ? `${f.actual}/${f.target}` : `${f.value}/${f.max}`}</span>
