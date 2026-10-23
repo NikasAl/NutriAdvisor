@@ -192,6 +192,7 @@ interface AppState {
   analyzeFoodText: (description: string, weight?: number, mealType?: string) => Promise<string>;
   analyzeFoodTextStream: (description: string, weight?: number, mealType?: string) => Promise<string>;
   analyzeWorkoutStream: (description: string) => Promise<string>;
+  scanMedTestFromPhoto: (imageBase64: string) => Promise<string>;
   lastAnalysisDebug: { prompt: string; response: string } | null;
   isSending: boolean;
   streamingContent: string;
@@ -1563,6 +1564,93 @@ export const useAppStore = create<AppState>((set, get) => ({
         streamingAnalysis: '',
         lastAnalysisDebug: {
           prompt: `--- Системный промпт ---\n${systemPrompt}\n\n--- Запрос пользователя ---\n${userContent}`,
+          response: finalContent,
+        },
+      });
+      return finalContent;
+    } catch (error) {
+      set({ isSending: false, streamingAnalysis: '' });
+      throw error;
+    }
+  },
+
+  scanMedTestFromPhoto: async (imageBase64: string): Promise<string> => {
+    const provider = get().getActiveProvider();
+    if (!provider || !provider.baseUrl || !provider.model) {
+      throw new Error('Настройте провайдер LLM в настройках');
+    }
+
+    set({ isSending: true, streamingAnalysis: '', lastAnalysisDebug: null });
+
+    try {
+      const systemPrompt = `Ты — медицинский OCR-ассистент. Пользователь отправляет фотографию выписки/результата лабораторных анализов крови или других тестов.
+
+Твоя задача — точно распознать и извлечь ВСЕ параметры анализов из документа.
+
+Возвращай СТРОГО JSON-массив (без markdown, без \`\`\`, просто чистый JSON):
+[
+  {
+    "date": "YYYY-MM-DD",
+    "items": [
+      {
+        "name": "Название параметра на русском",
+        "value": 5.2,
+        "unit": "ммоль/л",
+        "refLow": 3.0,
+        "refHigh": 5.2,
+        "note": "необязательная заметка"
+      }
+    ]
+  }
+]
+
+Правила:
+- date: дата сдачи анализа в формате YYYY-MM-DD. Если несколько дат — несколько объектов в массиве. Если дата не указана — используй пустую строку.
+- name: точное название параметра как в документе (Холестерин общий, ЛПНП, ЛПВП, Глюкоза и т.д.)
+- value: ЧИСЛО (float), не строка. Если значение вроде "<0.1" — value: 0.1, note: "<0.1"
+- unit: единица измерения (ммоль/л, г/л, Ед/л, мкмоль/л, %, нг/мл и т.д.)
+- refLow, refHigh: референсные значения из документа (числа). Если указано "до 5.2" — refLow: null, refHigh: 5.2. Если не указаны — null.
+- note: опционально, если есть пометки (натощак, после нагрузки и т.п.)
+
+Если на фото нет анализов или не удалось распознать — верни пустой массив: []
+
+Будь максимально точным в распознавании чисел и единиц. Не придумывай данные.`;
+
+      const userContent: ContentPart[] = [
+        {
+          type: 'text',
+          text: 'Распознай результаты анализов из этого изображения. Верни JSON-массив.',
+        },
+        {
+          type: 'image_url',
+          image_url: {
+            url: imageBase64.startsWith('data:') ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`,
+          },
+        },
+      ];
+
+      const messages: LLMMessage[] = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userContent },
+      ];
+
+      let finalContent = '';
+      try {
+        await callLLMStream(provider, messages, (text) => {
+          finalContent = text;
+          set({ streamingAnalysis: text });
+        }, 0.3);
+      } catch {
+        const response = await callLLM(provider, messages, 0.3);
+        finalContent = response.content;
+        set({ streamingAnalysis: finalContent });
+      }
+
+      set({
+        isSending: false,
+        streamingAnalysis: '',
+        lastAnalysisDebug: {
+          prompt: `--- Системный промпт ---\n${systemPrompt}\n\n--- Запрос ---\n[фото анализов]`,
           response: finalContent,
         },
       });
