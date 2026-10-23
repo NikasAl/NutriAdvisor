@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Sparkles, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Loader2, Flame, Dumbbell, Droplets, BedDouble, Apple, TrendingUp, Target, Calendar, Activity } from 'lucide-react';
 import type { GoalType, DayEval } from '@/lib/types';
+import { computeTrend } from '@/lib/types';
 import { db } from '@/lib/db';
 import type { WaterLog, SleepLog } from '@/lib/types';
 import MarkdownRenderer from '@/components/ui/markdown-renderer';
@@ -156,6 +157,10 @@ export default function StatsPanel() {
   const analyzeWorkoutStream = useAppStore((s) => s.analyzeWorkoutStream);
   const isSending = useAppStore((s) => s.isSending);
   const streamingAnalysis = useAppStore((s) => s.streamingAnalysis);
+
+  const buildMedTestSummary = useAppStore((s) => s.buildMedTestSummary);
+  const medTestParams = useAppStore((s) => s.medTestParams);
+  const medTestMeasures = useAppStore((s) => s.medTestMeasures);
 
   const [period, setPeriod] = useState<Period>('week');
   const [pageOffset, setPageOffset] = useState(0);
@@ -352,6 +357,9 @@ ${sleepH} ч из ${sleepTargetH} ч цели (${sleepPct}%)
 
 --- ДАВЛЕНИЕ И ПУЛЬС ---${bpSection || '\nНет данных'}
 
+--- МЕДИЦИНСКИЕ ПОКАЗАТЕЛИ ---
+${buildMedTestSummary() || 'Нет данных'}
+
 --- ИТОГО ---
 Оценка качества дня: ${q.score}/100
 
@@ -360,7 +368,8 @@ ${sleepH} ч из ${sleepTargetH} ч цели (${sleepPct}%)
 2. Оцени тренировки и активность: объём, интенсивность, восстановление
 3. Оцени гидратацию и сон
 4. Учитывай давление и пульс если есть
-5. Дай конкретные рекомендации на завтра: что изменить, добавить, на что обратить внимание
+5. Учитывай тренды медицинских анализов — как диета и образ жизни влияют на показатели крови
+6. Дай конкретные рекомендации на завтра: что изменить, добавить, на что обратить внимание
 
 Будь конкретным и практичным. 4-6 предложений.`;
 

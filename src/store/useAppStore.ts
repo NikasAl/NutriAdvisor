@@ -24,7 +24,10 @@ import type {
   ExerciseCategory,
   WorkoutEntry,
   WorkoutSet,
+  MedTestParam,
+  MedTestMeasure,
 } from '@/lib/types';
+import { DEFAULT_MED_TEST_PARAMS, computeTrend } from '@/lib/types';
 import { NutritionPrompts } from '@/lib/prompts';
 import { callLLM, callLLMStream, buildChatMessages } from '@/lib/llm-client';
 import type { LLMMessage, ContentPart } from '@/lib/llm-client';
@@ -167,6 +170,18 @@ interface AppState {
   addWorkoutEntry: (entry: Omit<WorkoutEntry, 'id' | 'createdAt'>) => Promise<void>;
   updateWorkoutEntry: (id: string, updates: Partial<WorkoutEntry>) => Promise<void>;
   deleteWorkoutEntry: (id: string) => Promise<void>;
+
+  // Medical test parameters & measurements
+  medTestParams: MedTestParam[];
+  medTestMeasures: MedTestMeasure[];
+  loadMedTestParams: () => Promise<void>;
+  addMedTestParam: (name: string, unit: string, refLow?: number, refHigh?: number) => Promise<void>;
+  deleteMedTestParam: (id: string) => Promise<void>;
+  loadMedTestMeasures: () => Promise<void>;
+  addMedTestMeasure: (paramId: string, date: string, value: number, note?: string) => Promise<void>;
+  updateMedTestMeasure: (id: string, updates: Partial<MedTestMeasure>) => Promise<void>;
+  deleteMedTestMeasure: (id: string) => Promise<void>;
+  buildMedTestSummary: () => string;
 
   // Streaming abort controller ref
   _abortController: AbortController | null;
@@ -442,6 +457,48 @@ function buildWorkoutSummary(
   }
 
   summary += '--- Конец данных о тренировках ---';
+  return summary;
+}
+
+/** Build a medical test summary with time series and trend for LLM context */
+function buildMedTestSummary(
+  medTestParams: MedTestParam[],
+  medTestMeasures: MedTestMeasure[]
+): string {
+  if (medTestParams.length === 0 || medTestMeasures.length === 0) return '';
+
+  let summary = '\n--- Медицинские показатели (анализы) ---\n';
+
+  for (const param of medTestParams) {
+    const measures = medTestMeasures
+      .filter((m) => m.paramId === param.id)
+      .sort((a, b) => a.date.localeCompare(b.date)); // oldest → newest
+
+    if (measures.length === 0) continue;
+
+    const values = measures.map((m) => m.value);
+    const trend = computeTrend(values);
+    const trendLabel = trend === 'up' ? '↑ растёт' : trend === 'down' ? '↓ снижается' : trend === 'stable' ? '→ стабильно' : '? неизвестно';
+
+    const refRange = (param.refLow != null && param.refHigh != null)
+      ? ` (реф. ${param.refLow}–${param.refHigh} ${param.unit})`
+      : '';
+
+    summary += `${param.name}${refRange}:\n`;
+
+    // Show all measurements (capped at last 10 for brevity)
+    const showMeasures = measures.slice(-10);
+    for (const m of showMeasures) {
+      const isOutOfRange = (param.refLow != null && m.value < param.refLow) || (param.refHigh != null && m.value > param.refHigh);
+      const flag = isOutOfRange ? ' ⚠' : '';
+      const noteStr = m.note ? ` (${m.note})` : '';
+      summary += `  ${m.date}: ${m.value} ${param.unit}${noteStr}${flag}\n`;
+    }
+
+    summary += `  Тренд: ${trendLabel}, последнее: ${values[values.length - 1]} ${param.unit}\n\n`;
+  }
+
+  summary += '--- Конец медицинских показателей ---';
   return summary;
 }
 
@@ -976,6 +1033,84 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((s) => ({ workoutEntries: s.workoutEntries.filter((e) => e.id !== id) }));
   },
 
+  // Medical test parameters & measurements
+  medTestParams: [],
+  medTestMeasures: [],
+
+  loadMedTestParams: async () => {
+    let params = await db.medTestParams.toArray();
+    // Seed default params if DB is empty
+    if (params.length === 0) {
+      const now = new Date();
+      const seeded: MedTestParam[] = DEFAULT_MED_TEST_PARAMS.map((p) => ({
+        ...p,
+        id: uuid(),
+        createdAt: now,
+      }));
+      await db.medTestParams.bulkAdd(seeded);
+      params = seeded;
+    }
+    set({ medTestParams: params });
+  },
+
+  addMedTestParam: async (name, unit, refLow, refHigh) => {
+    const param: MedTestParam = {
+      id: uuid(),
+      name,
+      unit: unit || '',
+      refLow,
+      refHigh,
+      isDefault: false,
+      createdAt: new Date(),
+    };
+    await db.medTestParams.add(param);
+    set((s) => ({ medTestParams: [...s.medTestParams, param] }));
+  },
+
+  deleteMedTestParam: async (id) => {
+    // Delete param and all its measurements
+    await db.medTestMeasures.where('paramId').equals(id).delete();
+    await db.medTestParams.delete(id);
+    set((s) => ({
+      medTestParams: s.medTestParams.filter((p) => p.id !== id),
+      medTestMeasures: s.medTestMeasures.filter((m) => m.paramId !== id),
+    }));
+  },
+
+  loadMedTestMeasures: async () => {
+    const measures = await db.medTestMeasures.toArray();
+    set({ medTestMeasures: measures });
+  },
+
+  addMedTestMeasure: async (paramId, date, value, note) => {
+    const measure: MedTestMeasure = {
+      id: uuid(),
+      paramId,
+      date,
+      value,
+      note: note || undefined,
+      createdAt: new Date(),
+    };
+    await db.medTestMeasures.add(measure);
+    set((s) => ({ medTestMeasures: [...s.medTestMeasures, measure] }));
+  },
+
+  updateMedTestMeasure: async (id, updates) => {
+    await db.medTestMeasures.update(id, updates);
+    set((s) => ({
+      medTestMeasures: s.medTestMeasures.map((m) => (m.id === id ? { ...m, ...updates } : m)),
+    }));
+  },
+
+  deleteMedTestMeasure: async (id) => {
+    await db.medTestMeasures.delete(id);
+    set((s) => ({ medTestMeasures: s.medTestMeasures.filter((m) => m.id !== id) }));
+  },
+
+  buildMedTestSummary: () => {
+    return buildMedTestSummary(get().medTestParams, get().medTestMeasures);
+  },
+
   // Chat
   chatSessions: [],
   currentChatId: null,
@@ -1084,7 +1219,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       const waterSummary = buildWaterSummary(get().waterLog, period);
       const sleepSummary = buildSleepSummaryFromLog(get().sleepLog, period);
       const workoutSummary = buildWorkoutSummary(get().workoutEntries, period);
-      systemPrompt += nutritionSummary + diarySummary + waterSummary + sleepSummary + workoutSummary;
+      const medTestSummary = buildMedTestSummary(get().medTestParams, get().medTestMeasures);
+      systemPrompt += nutritionSummary + diarySummary + waterSummary + sleepSummary + workoutSummary + medTestSummary;
 
       const llmMessages = buildChatMessages(systemPrompt, history, newContent);
 
@@ -1182,7 +1318,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       const waterSummary = buildWaterSummary(get().waterLog, period);
       const sleepSummary = buildSleepSummaryFromLog(get().sleepLog, period);
       const workoutSummary = buildWorkoutSummary(get().workoutEntries, period);
-      systemPrompt += nutritionSummary + diarySummary + waterSummary + sleepSummary + workoutSummary;
+      const medTestSummary = buildMedTestSummary(get().medTestParams, get().medTestMeasures);
+      systemPrompt += nutritionSummary + diarySummary + waterSummary + sleepSummary + workoutSummary + medTestSummary;
 
       // Build history for LLM (limit to last 20 messages)
       const history: LLMMessage[] = chatMessages

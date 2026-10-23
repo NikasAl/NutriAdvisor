@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import type { GoalType, ActivityLevel } from '@/lib/types';
 import { GOAL_LABELS } from '@/lib/types';
+import MedTestsPanel from './MedTestsPanel';
 
 const GOAL_ICONS_MAP: Record<GoalType, React.ElementType> = {
   health: Heart, weight_loss: TrendingDown, weight_gain: TrendingUp,
@@ -341,6 +342,9 @@ export default function ProfilePanel() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Medical test history */}
+          <MedTestsPanel />
         </TabsContent>
       </Tabs>
 

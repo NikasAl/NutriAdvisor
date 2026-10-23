@@ -266,3 +266,65 @@ export interface SleepLog {
   periods: SleepPeriod[];
   updatedAt: Date;
 }
+
+// ─── Medical Test Parameters & Measurements ────────────────────────
+
+/** A medical test parameter definition (e.g. "Холестерин общий", "Глюкоза") */
+export interface MedTestParam {
+  id: string;
+  name: string;
+  unit: string;          // e.g. "ммоль/л", "г/л", "%"
+  refLow?: number;       // reference range low
+  refHigh?: number;      // reference range high
+  isDefault: boolean;    // true = pre-seeded built-in parameter
+  createdAt: Date;
+}
+
+/** A single measurement for a MedTestParam */
+export interface MedTestMeasure {
+  id: string;
+  paramId: string;       // FK → MedTestParam.id
+  date: string;          // ISO date string when test was taken
+  value: number;         // numeric result
+  note?: string;         // optional note (e.g. "натощак", "после еды")
+  createdAt: Date;
+}
+
+/** Pre-seeded default medical test parameters */
+export const DEFAULT_MED_TEST_PARAMS: Omit<MedTestParam, 'id' | 'createdAt'>[] = [
+  { name: 'Холестерин общий', unit: 'ммоль/л', refLow: 3.0, refHigh: 5.2, isDefault: true },
+  { name: 'ЛПНП', unit: 'ммоль/л', refLow: 0, refHigh: 3.0, isDefault: true },
+  { name: 'ЛПВП', unit: 'ммоль/л', refLow: 1.0, refHigh: 2.5, isDefault: true },
+  { name: 'Тироксин Т4', unit: 'пмоль/л', refLow: 9.0, refHigh: 22.0, isDefault: true },
+  { name: 'ТТГ', unit: 'мЕд/л', refLow: 0.4, refHigh: 4.0, isDefault: true },
+  { name: 'Гликированный гемоглобин', unit: '%', refLow: 4.0, refHigh: 6.0, isDefault: true },
+  { name: 'Гемоглобин', unit: 'г/л', refLow: 120, refHigh: 160, isDefault: true },
+  { name: 'Глюкоза', unit: 'ммоль/л', refLow: 3.9, refHigh: 6.1, isDefault: true },
+  { name: 'Креатинин', unit: 'мкмоль/л', refLow: 44, refHigh: 106, isDefault: true },
+  { name: 'Триглицериды', unit: 'ммоль/л', refLow: 0, refHigh: 1.7, isDefault: true },
+  { name: 'Альбумин', unit: 'г/л', refLow: 35, refHigh: 50, isDefault: true },
+  { name: 'АЛТ', unit: 'Ед/л', refLow: 0, refHigh: 40, isDefault: true },
+  { name: 'АСТ', unit: 'Ед/л', refLow: 0, refHigh: 40, isDefault: true },
+  { name: 'Мочевая кислота', unit: 'мкмоль/л', refLow: 150, refHigh: 420, isDefault: true },
+  { name: 'Ферритин', unit: 'мкг/л', refLow: 15, refHigh: 200, isDefault: true },
+  { name: 'Витамин D', unit: 'нг/мл', refLow: 30, refHigh: 100, isDefault: true },
+];
+
+/** Compute trend direction from a series of measurements (sorted oldest→newest) */
+export type TrendDirection = 'up' | 'down' | 'stable' | 'unknown';
+
+export function computeTrend(values: number[]): TrendDirection {
+  if (values.length < 2) return 'unknown';
+  const last = values.slice(-3); // last 3 points
+  let ups = 0, downs = 0;
+  for (let i = 1; i < last.length; i++) {
+    const diff = last[i] - last[i - 1];
+    if (Math.abs(diff) < 0.001) { /* negligible change */ }
+    else if (diff > 0) ups++;
+    else downs++;
+  }
+  if (ups === 0 && downs === 0) return 'stable';
+  if (ups > downs) return 'up';
+  if (downs > ups) return 'down';
+  return 'stable';
+}
