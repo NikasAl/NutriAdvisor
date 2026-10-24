@@ -245,6 +245,7 @@ export interface WorkoutEntry {
   estimatedDuration?: number;
   estimatedCaloriesBurned?: number;
   aiAnalysis?: string;
+  isDraft?: boolean;
   createdAt: Date;
 }
 

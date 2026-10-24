@@ -38,7 +38,7 @@ import {
 import {
   Plus, Loader2, Trash2, ChevronDown, ChevronUp,
   ChevronLeft, ChevronRight, Pencil, Dumbbell, X, Flame, Clock, Sparkles,
-  Activity, Check, Copy, Play, Square, Timer, GripVertical,
+  Activity, Check, Copy, Play, Square, Timer, GripVertical, FileEdit,
 } from 'lucide-react';
 import type { ExerciseCategory, WorkoutEntry, WorkoutSet, DiaryEntry } from '@/lib/types';
 import { EXERCISE_CATEGORY_LABELS } from '@/lib/types';
@@ -313,6 +313,10 @@ export default function WorkoutPanel() {
   const addWorkoutEntry = useAppStore((s) => s.addWorkoutEntry);
   const updateWorkoutEntry = useAppStore((s) => s.updateWorkoutEntry);
   const deleteWorkoutEntry = useAppStore((s) => s.deleteWorkoutEntry);
+  const workoutDraft = useAppStore((s) => s.workoutDraft);
+  const loadWorkoutDraft = useAppStore((s) => s.loadWorkoutDraft);
+  const saveWorkoutDraft = useAppStore((s) => s.saveWorkoutDraft);
+  const clearWorkoutDraft = useAppStore((s) => s.clearWorkoutDraft);
   const addExercise = useAppStore((s) => s.addExercise);
   const deleteExercise = useAppStore((s) => s.deleteExercise);
   const analyzeWorkoutStream = useAppStore((s) => s.analyzeWorkoutStream);
@@ -352,6 +356,11 @@ export default function WorkoutPanel() {
   const [aiAnalysis, setAiAnalysis] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
+  // Draft dialog (continue existing draft or start new)
+  const [isDraftDialogOpen, setIsDraftDialogOpen] = useState(false);
+  const [draftAutosaveEnabled, setDraftAutosaveEnabled] = useState(false);
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Timer tick for live elapsed display (updates every second while any timer is running)
   const [timerTick, setTimerTick] = useState(0);
   useEffect(() => {
@@ -375,7 +384,33 @@ export default function WorkoutPanel() {
     return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   });
 
-  useEffect(() => { loadWorkoutEntries(); }, [loadWorkoutEntries]);
+  useEffect(() => { loadWorkoutEntries(); loadWorkoutDraft(); }, [loadWorkoutEntries, loadWorkoutDraft]);
+
+  // Debounced auto-save draft (1.5s after form changes)
+  useEffect(() => {
+    if (!draftAutosaveEnabled) return;
+    // Only auto-save when the workout dialog is open and we're creating a new (or draft) workout
+    if (!isWorkoutDialogOpen) return;
+    // Don't auto-save while editing an existing saved workout
+    if (editingWorkout && !editingWorkout.isDraft) return;
+
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = setTimeout(() => {
+      const todayStr = new Date().toISOString().split('T')[0];
+      // Save draft even if no valid sets yet (preserve name, date, partial form)
+      saveWorkoutDraft({
+        date: workoutDate || todayStr,
+        name: workoutName.trim() || undefined,
+        sets: workoutSets,
+        estimatedDuration: workoutDuration ? parseFloat(workoutDuration) : undefined,
+        estimatedCaloriesBurned: workoutCalories ? parseFloat(workoutCalories) : undefined,
+        aiAnalysis: aiAnalysis || undefined,
+      });
+    }, 1500);
+    return () => {
+      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    };
+  }, [draftAutosaveEnabled, isWorkoutDialogOpen, editingWorkout, workoutName, workoutDate, workoutSets, workoutDuration, workoutCalories, aiAnalysis, saveWorkoutDraft]);
 
   // Reset page when entries change (derive during render instead of effect)
   const [workoutEntriesAtPage, setWorkoutEntriesAtPage] = useState(workoutEntries);
@@ -386,8 +421,9 @@ export default function WorkoutPanel() {
 
   const today = new Date().toISOString().split('T')[0];
   const todayEntries = workoutEntries.filter((e) => e.date === today);
-  const totalDuration = todayEntries.reduce((sum, e) => sum + (e.estimatedDuration ?? 0), 0);
-  const totalCaloriesBurned = todayEntries.reduce((sum, e) => sum + (e.estimatedCaloriesBurned ?? 0), 0);
+  const todaySavedEntries = todayEntries.filter((e) => !e.isDraft);
+  const totalDuration = todaySavedEntries.reduce((sum, e) => sum + (e.estimatedDuration ?? 0), 0);
+  const totalCaloriesBurned = todaySavedEntries.reduce((sum, e) => sum + (e.estimatedCaloriesBurned ?? 0), 0);
 
   const olderEntries = useMemo(() => {
     const nonToday = workoutEntries.filter((e) => e.date !== today);
@@ -421,8 +457,13 @@ export default function WorkoutPanel() {
     setAddExerciseOpen(false);
   };
 
-  // Open new workout dialog
+  // Open new workout dialog (checks for existing draft)
   const openNewWorkout = () => {
+    if (workoutDraft) {
+      // Draft exists — offer to continue or replace
+      setIsDraftDialogOpen(true);
+      return;
+    }
     setEditingWorkout(null);
     setWorkoutName('');
     setWorkoutDate(today);
@@ -430,6 +471,40 @@ export default function WorkoutPanel() {
     setWorkoutDuration('');
     setWorkoutCalories('');
     setAiAnalysis('');
+    setDraftAutosaveEnabled(true);
+    setIsWorkoutDialogOpen(true);
+  };
+
+  // Continue existing draft
+  const continueDraft = () => {
+    setIsDraftDialogOpen(false);
+    if (!workoutDraft) return;
+    setEditingWorkout(workoutDraft);
+    setWorkoutName(workoutDraft.name || '');
+    setWorkoutDate(workoutDraft.date);
+    const setsWithIds = workoutDraft.sets.length > 0
+      ? workoutDraft.sets.map((s) => ({ ...s, id: s.id || uuid() }))
+      : [makeBlankSet()];
+    setWorkoutSets(setsWithIds);
+    setWorkoutDuration(workoutDraft.estimatedDuration?.toString() || '');
+    setWorkoutCalories(workoutDraft.estimatedCaloriesBurned?.toString() || '');
+    setAiAnalysis(workoutDraft.aiAnalysis || '');
+    setDraftAutosaveEnabled(true);
+    setIsWorkoutDialogOpen(true);
+  };
+
+  // Replace draft: delete old draft, start fresh
+  const replaceDraft = async () => {
+    setIsDraftDialogOpen(false);
+    await clearWorkoutDraft();
+    setEditingWorkout(null);
+    setWorkoutName('');
+    setWorkoutDate(today);
+    setWorkoutSets([makeBlankSet()]);
+    setWorkoutDuration('');
+    setWorkoutCalories('');
+    setAiAnalysis('');
+    setDraftAutosaveEnabled(true);
     setIsWorkoutDialogOpen(true);
   };
 
@@ -446,6 +521,8 @@ export default function WorkoutPanel() {
     setWorkoutDuration(entry.estimatedDuration?.toString() || '');
     setWorkoutCalories(entry.estimatedCaloriesBurned?.toString() || '');
     setAiAnalysis(entry.aiAnalysis || '');
+    // Enable autosave only when editing a draft
+    setDraftAutosaveEnabled(!!entry.isDraft);
     setIsWorkoutDialogOpen(true);
   };
 
@@ -461,6 +538,7 @@ export default function WorkoutPanel() {
     setWorkoutDuration('');
     setWorkoutCalories('');
     setAiAnalysis('');
+    setDraftAutosaveEnabled(true);
     setIsWorkoutDialogOpen(true);
   };
 
@@ -468,6 +546,10 @@ export default function WorkoutPanel() {
   const handleSaveWorkout = async () => {
     const validSets = workoutSets.filter((s) => s.exerciseId && s.exerciseName);
     if (validSets.length === 0) return;
+
+    // Disable auto-save before saving
+    setDraftAutosaveEnabled(false);
+    if (draftTimerRef.current) { clearTimeout(draftTimerRef.current); draftTimerRef.current = null; }
 
     const entryData = {
       date: workoutDate || today,
@@ -479,9 +561,18 @@ export default function WorkoutPanel() {
     };
 
     if (editingWorkout?.id) {
-      await updateWorkoutEntry(editingWorkout.id, entryData);
+      if (editingWorkout.isDraft) {
+        // Convert draft → real workout (remove isDraft flag)
+        await updateWorkoutEntry(editingWorkout.id, { ...entryData, isDraft: false });
+        // Clear draft state since it's now a real workout
+        await clearWorkoutDraft();
+      } else {
+        await updateWorkoutEntry(editingWorkout.id, entryData);
+      }
     } else {
       await addWorkoutEntry(entryData);
+      // If we had a draft (shouldn't normally reach here, but safety), clear it
+      if (workoutDraft) await clearWorkoutDraft();
     }
     setIsWorkoutDialogOpen(false);
     // Reset form fields after save
@@ -718,7 +809,7 @@ export default function WorkoutPanel() {
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold">Сегодня</h3>
-            <span className="text-xs text-muted-foreground">{todayEntries.length} тренировок{todayActivityEntries.length > 0 ? `, ${todayActivityEntries.length} активностей` : ''}</span>
+            <span className="text-xs text-muted-foreground">{todaySavedEntries.length} тренировок{workoutDraft && workoutDraft.date === today ? ' + черновик' : ''}{todayActivityEntries.length > 0 ? `, ${todayActivityEntries.length} активностей` : ''}</span>
           </div>
           {todayEntries.length > 0 || todayActivityEntries.length > 0 ? (
             <div className="grid grid-cols-3 gap-2 text-center">
@@ -832,6 +923,11 @@ export default function WorkoutPanel() {
                       <span className="text-sm font-medium truncate">
                         {entry.name || 'Тренировка'}
                       </span>
+                      {entry.isDraft && (
+                        <Badge className="text-[9px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 ml-1 shrink-0">
+                          <FileEdit className="h-2.5 w-2.5 mr-0.5" /> Черновик
+                        </Badge>
+                      )}
                     </div>
                     <div className="text-xs text-muted-foreground space-y-0.5">
                       {entry.sets.slice(0, isExpanded ? undefined : 2).map((set, i) => {
@@ -905,7 +1001,7 @@ export default function WorkoutPanel() {
                         <AlertDialogFooter>
                           <AlertDialogCancel>Отмена</AlertDialogCancel>
                           <AlertDialogAction
-                            onClick={() => deleteWorkoutEntry(entry.id!)}
+                            onClick={async () => { await deleteWorkoutEntry(entry.id!); if (entry.isDraft) await clearWorkoutDraft(); }}
                             className="bg-destructive text-destructive-foreground"
                           >
                             Удалить
@@ -1002,6 +1098,11 @@ export default function WorkoutPanel() {
                           <span className="text-sm font-medium truncate">
                             {entry.name || 'Тренировка'}
                           </span>
+                          {entry.isDraft && (
+                            <Badge className="text-[9px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 ml-1 shrink-0">
+                              <FileEdit className="h-2.5 w-2.5 mr-0.5" /> Черновик
+                            </Badge>
+                          )}
                         </div>
                         <div className="text-xs text-muted-foreground space-y-0.5">
                           {entry.sets.slice(0, isExpanded ? undefined : 2).map((set, i) => {
@@ -1075,7 +1176,7 @@ export default function WorkoutPanel() {
                             <AlertDialogFooter>
                               <AlertDialogCancel>Отмена</AlertDialogCancel>
                               <AlertDialogAction
-                                onClick={() => deleteWorkoutEntry(entry.id!)}
+                                onClick={async () => { await deleteWorkoutEntry(entry.id!); if (entry.isDraft) await clearWorkoutDraft(); }}
                                 className="bg-destructive text-destructive-foreground"
                               >
                                 Удалить
@@ -1243,10 +1344,22 @@ export default function WorkoutPanel() {
       </Dialog>
 
       {/* Add/Edit Workout Dialog */}
-      <Dialog open={isWorkoutDialogOpen} onOpenChange={setIsWorkoutDialogOpen}>
+      <Dialog open={isWorkoutDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          // Closing dialog: disable autosave but preserve draft in DB
+          setDraftAutosaveEnabled(false);
+          if (draftTimerRef.current) { clearTimeout(draftTimerRef.current); draftTimerRef.current = null; }
+        }
+        setIsWorkoutDialogOpen(open);
+      }}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingWorkout ? 'Редактировать тренировку' : 'Новая тренировка'}</DialogTitle>
+            <DialogTitle>{editingWorkout?.isDraft ? 'Черновик тренировки' : editingWorkout ? 'Редактировать тренировку' : 'Новая тренировка'}</DialogTitle>
+            {draftAutosaveEnabled && (editingWorkout?.isDraft || !editingWorkout) && (
+              <span className="text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1 ml-2">
+                <FileEdit className="h-3 w-3" /> автосохранение
+              </span>
+            )}
           </DialogHeader>
           <div className="space-y-4">
             {/* Workout name */}
@@ -1436,6 +1549,37 @@ export default function WorkoutPanel() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Draft-or-New AlertDialog */}
+      <AlertDialog open={isDraftDialogOpen} onOpenChange={setIsDraftDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Незаконченная тренировка</AlertDialogTitle>
+            <AlertDialogDescription>
+              У вас есть незаконченная тренировка-черновик
+              {workoutDraft?.name ? ` «${workoutDraft.name}»` : ''}
+              {workoutDraft?.date ? ` от ${workoutDraft.date}` : ''}.
+              Продолжить черновик или начать новую тренировку?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={replaceDraft}
+              className="sm:w-auto w-full"
+            >
+              Начать новую
+            </Button>
+            <AlertDialogAction
+              onClick={continueDraft}
+              className="bg-emerald-600 hover:bg-emerald-700 sm:w-auto w-full"
+            >
+              Продолжить черновик
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

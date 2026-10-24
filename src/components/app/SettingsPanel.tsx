@@ -68,6 +68,8 @@ export default function SettingsPanel() {
   const loadDishes = useAppStore((s) => s.loadDishes);
   const loadCustomGoals = useAppStore((s) => s.loadCustomGoals);
   const loadExercises = useAppStore((s) => s.loadExercises);
+  const loadWorkoutEntries = useAppStore((s) => s.loadWorkoutEntries);
+  const loadWorkoutDraft = useAppStore((s) => s.loadWorkoutDraft);
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
   const loadWaterLog = useAppStore((s) => s.loadWaterLog);
@@ -169,7 +171,7 @@ export default function SettingsPanel() {
     setExportStatus('Экспорт...');
     try {
       const data = {
-        version: 4,
+        version: 5,
         exportedAt: new Date().toISOString(),
         app: 'Дневник Здоровья',
         providers: await db.providers.toArray(),
@@ -183,6 +185,7 @@ export default function SettingsPanel() {
         foodProducts: await db.foodProducts.toArray(),
         dishes: await db.dishes.toArray(),
         exercises: await db.exercises.toArray(),
+        workoutEntries: await db.workoutEntries.toArray(),
         waterLogs: await db.waterLogs.toArray(),
         sleepLogs: await db.sleepLogs.toArray(),
       };
@@ -194,6 +197,7 @@ export default function SettingsPanel() {
         `${data.foodProducts.length} продуктов`,
         `${data.dishes.length} блюд`,
         `${data.exercises.length} упражнений`,
+        `${data.workoutEntries.length} тренировок`,
         `${data.diaryEntries.length} записей дневника`,
         `${data.waterLogs.length} записей воды`,
         `${data.sleepLogs.length} записей сна`,
@@ -371,6 +375,14 @@ export default function SettingsPanel() {
         }
       }
 
+      // Import workout entries
+      if (Array.isArray(data.workoutEntries)) {
+        await db.workoutEntries.clear();
+        for (const w of data.workoutEntries) {
+          await db.workoutEntries.put({ ...w, createdAt: new Date(w.createdAt) });
+        }
+      }
+
       // Import water logs
       if (Array.isArray(data.waterLogs)) {
         await db.waterLogs.clear();
@@ -393,6 +405,7 @@ export default function SettingsPanel() {
       if (data.foodProducts) parts.push(`${data.foodProducts.length} продуктов`);
       if (data.dishes) parts.push(`${data.dishes.length} блюд`);
       if (data.exercises) parts.push(`${data.exercises.length} упражнений`);
+      if (data.workoutEntries) parts.push(`${data.workoutEntries.length} тренировок`);
       if (data.diaryEntries) parts.push(`${data.diaryEntries.length} записей дневника`);
       if (data.waterLogs) parts.push(`${data.waterLogs.length} записей воды`);
       if (data.sleepLogs) parts.push(`${data.sleepLogs.length} записей сна`);
@@ -411,6 +424,8 @@ export default function SettingsPanel() {
         loadFoodProducts(),
         loadDishes(),
         loadExercises(),
+        loadWorkoutEntries(),
+        loadWorkoutDraft(),
         loadCustomGoals(),
         loadWaterLog(today),
         loadSleepLog(today),

@@ -171,6 +171,12 @@ interface AppState {
   updateWorkoutEntry: (id: string, updates: Partial<WorkoutEntry>) => Promise<void>;
   deleteWorkoutEntry: (id: string) => Promise<void>;
 
+  // Workout draft (single draft, auto-saved)
+  workoutDraft: WorkoutEntry | null;
+  loadWorkoutDraft: () => Promise<void>;
+  saveWorkoutDraft: (draft: Omit<WorkoutEntry, 'id' | 'createdAt'>) => Promise<void>;
+  clearWorkoutDraft: () => Promise<void>;
+
   // Medical test parameters & measurements
   medTestParams: MedTestParam[];
   medTestMeasures: MedTestMeasure[];
@@ -997,6 +1003,71 @@ export const useAppStore = create<AppState>((set, get) => ({
   deleteWorkoutEntry: async (id) => {
     await db.workoutEntries.delete(id);
     set((s) => ({ workoutEntries: s.workoutEntries.filter((e) => e.id !== id) }));
+  },
+
+  // Workout draft
+  workoutDraft: null,
+
+  loadWorkoutDraft: async () => {
+    const drafts = await db.workoutEntries.filter((e) => e.isDraft === true).toArray();
+    // Enforce single draft: if multiple drafts exist, keep only the newest
+    if (drafts.length > 1) {
+      drafts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      for (let i = 1; i < drafts.length; i++) {
+        await db.workoutEntries.delete(drafts[i].id!);
+      }
+      // Remove extras from workoutEntries state as well
+      set((s) => ({
+        workoutEntries: s.workoutEntries.filter((e) => !e.isDraft || e.id === drafts[0].id),
+        workoutDraft: drafts[0],
+      }));
+    } else {
+      set({ workoutDraft: drafts[0] ?? null });
+    }
+  },
+
+  saveWorkoutDraft: async (draft) => {
+    const current = get().workoutDraft;
+    const draftData = { ...draft, isDraft: true };
+    if (current?.id) {
+      // Update existing draft
+      await db.workoutEntries.update(current.id, draftData);
+      const updated = { ...current, ...draftData };
+      set((s) => ({
+        workoutDraft: updated,
+        workoutEntries: s.workoutEntries.map((e) => (e.id === current.id ? updated : e)),
+      }));
+    } else {
+      // Create new draft (ensure no other drafts exist)
+      const existingDrafts = await db.workoutEntries.filter((e) => e.isDraft === true).toArray();
+      if (existingDrafts.length > 0) {
+        // Clear stale drafts first
+        for (const d of existingDrafts) {
+          await db.workoutEntries.delete(d.id!);
+        }
+      }
+      const id = uuid();
+      const now = new Date();
+      const full: WorkoutEntry = { ...draftData, id, createdAt: now };
+      await db.workoutEntries.add(full);
+      set((s) => ({
+        workoutDraft: full,
+        workoutEntries: [full, ...s.workoutEntries.filter((e) => !e.isDraft)],
+      }));
+    }
+  },
+
+  clearWorkoutDraft: async () => {
+    const draft = get().workoutDraft;
+    if (draft?.id) {
+      await db.workoutEntries.delete(draft.id);
+      set((s) => ({
+        workoutDraft: null,
+        workoutEntries: s.workoutEntries.filter((e) => e.id !== draft.id),
+      }));
+    } else {
+      set({ workoutDraft: null });
+    }
   },
 
   // Medical test parameters & measurements
