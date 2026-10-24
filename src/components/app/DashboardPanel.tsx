@@ -432,7 +432,7 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
         <CardContent className="px-4 pb-4 grid grid-cols-2 gap-2">
           <Button
             variant="outline"
-            className="h-auto gap-2 py-2.5"
+            className="h-auto min-h-[67px] gap-2 py-2.5"
             onClick={() => setActiveTab('catalog')}
           >
             <UtensilsCrossed className="h-4 w-4 shrink-0" />
@@ -440,7 +440,7 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
           </Button>
           <Button
             variant="outline"
-            className="h-auto gap-2 py-2.5"
+            className="h-auto min-h-[67px] gap-2 py-2.5"
             onClick={() => setActiveTab('diary')}
           >
             <Heart className="h-4 w-4 shrink-0" />
@@ -448,7 +448,7 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
           </Button>
           <Button
             variant="outline"
-            className="h-auto gap-2 py-2.5"
+            className="h-auto min-h-[67px] gap-2 py-2.5"
             onClick={() => setActiveTab('workout')}
           >
             <Dumbbell className="h-4 w-4 shrink-0" />
@@ -456,7 +456,7 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
           </Button>
           <Button
             variant="outline"
-            className="h-auto gap-2 py-2.5"
+            className="h-auto min-h-[67px] gap-2 py-2.5"
             onClick={() => setActiveTab('stats')}
           >
             <BarChart className="h-4 w-4 shrink-0" />
@@ -464,7 +464,7 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
           </Button>
           <Button
             variant="outline"
-            className="h-auto gap-2 py-2.5"
+            className="h-auto min-h-[67px] gap-2 py-2.5"
             onClick={() => setActiveTab('chat')}
           >
             <MessageSquare className="h-4 w-4 shrink-0" />
@@ -472,7 +472,7 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
           </Button>
           <Button
             variant="outline"
-            className="h-auto gap-2 py-2.5"
+            className="h-auto min-h-[67px] gap-2 py-2.5"
             onClick={() => setActiveTab('profile')}
           >
             <Settings2 className="h-4 w-4 shrink-0" />
