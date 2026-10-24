@@ -38,7 +38,7 @@ import {
 import {
   Plus, Loader2, Trash2, ChevronDown, ChevronUp,
   ChevronLeft, ChevronRight, Pencil, Dumbbell, X, Flame, Clock, Sparkles,
-  Activity, Check, Copy, Play, Square, Timer, GripVertical, FileEdit,
+  Activity, Check, Copy, Play, Square, Timer, GripVertical, FileEdit, Pause, RotateCcw,
 } from 'lucide-react';
 import type { ExerciseCategory, WorkoutEntry, WorkoutSet, DiaryEntry } from '@/lib/types';
 import { EXERCISE_CATEGORY_LABELS } from '@/lib/types';
@@ -108,6 +108,7 @@ interface SortableExerciseCardProps {
   exercisesByCategory: Map<ExerciseCategory, { id: string; name: string; category: ExerciseCategory }[]>;
   isOnlySet: boolean;
   onToggleTimer: () => void;
+  onResetTimer: () => void;
   onDuplicate: () => void;
   onRemove: () => void;
   onUpdateField: (field: keyof WorkoutSet, value: string | number | undefined) => void;
@@ -116,7 +117,7 @@ interface SortableExerciseCardProps {
 
 function SortableExerciseCard({
   set, index, exercises, exercisesByCategory, isOnlySet,
-  onToggleTimer, onDuplicate, onRemove, onUpdateField, onSelectExercise,
+  onToggleTimer, onResetTimer, onDuplicate, onRemove, onUpdateField, onSelectExercise,
 }: SortableExerciseCardProps) {
   const {
     attributes,
@@ -138,12 +139,16 @@ function SortableExerciseCard({
   const isCardio = exercise?.category === 'cardio';
 
   // Timer state for this exercise
+  // Running: startTime set, endTime undefined → counting up
+  // Paused:  startTime set, endTime set   → held at pause point
+  // Idle:    startTime undefined           → not started
   const isTimerRunning = !!(set.startTime && !set.endTime);
-  const isTimerDone = !!(set.startTime && set.endTime);
+  const isTimerPaused = !!(set.startTime && set.endTime);
+  const isTimerActive = isTimerRunning || isTimerPaused;
   const elapsedMs = isTimerRunning
-    ? Date.now() - set.startTime!
-    : isTimerDone
-      ? set.endTime! - set.startTime!
+    ? (set.pausedElapsed ?? 0) + (Date.now() - set.startTime!)
+    : isTimerPaused
+      ? (set.pausedElapsed ?? 0) + (set.endTime! - set.startTime!)
       : 0;
   const elapsedSec = Math.floor(elapsedMs / 1000);
   const elapsedMin = Math.floor(elapsedSec / 60);
@@ -168,14 +173,24 @@ function SortableExerciseCard({
           <span className="text-[10px] font-medium text-muted-foreground">Упражнение {index + 1}</span>
         </div>
         <div className="flex items-center gap-1">
-          {/* Timer button */}
+          {/* Timer Play/Pause button */}
           <button
-            className={`rounded p-1 ${isTimerRunning ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : isTimerDone ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'hover:bg-muted text-muted-foreground'}`}
+            className={`rounded p-1 ${isTimerRunning ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : isTimerPaused ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'hover:bg-muted text-muted-foreground'}`}
             onClick={onToggleTimer}
-            title={isTimerRunning ? 'Остановить' : isTimerDone ? 'Сбросить таймер' : 'Начать таймер'}
+            title={isTimerRunning ? 'Пауза' : isTimerPaused ? 'Продолжить' : 'Начать таймер'}
           >
-            {isTimerRunning ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+            {isTimerRunning ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
           </button>
+          {/* Timer Reset button (only when paused) */}
+          {isTimerPaused && (
+            <button
+              className="rounded p-1 hover:bg-destructive/10 text-destructive"
+              onClick={onResetTimer}
+              title="Сбросить таймер"
+            >
+              <RotateCcw className="h-3 w-3" />
+            </button>
+          )}
           {/* Copy button */}
           <button
             className="rounded p-1 hover:bg-muted text-muted-foreground"
@@ -197,10 +212,10 @@ function SortableExerciseCard({
       </div>
 
       {/* Timer display */}
-      {(isTimerRunning || isTimerDone) && (
-        <div className={`flex items-center gap-1 text-[10px] font-medium ${isTimerRunning ? 'text-emerald-600 dark:text-emerald-400' : 'text-blue-600 dark:text-blue-400'}`}>
+      {isTimerActive && (
+        <div className={`flex items-center gap-1 text-[10px] font-medium ${isTimerRunning ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
           <Timer className="h-3 w-3" />
-          <span>{isTimerRunning ? `${elapsedDisplay} (идёт)` : `${elapsedDisplay}`}</span>
+          <span>{isTimerRunning ? `${elapsedDisplay} (идёт)` : `${elapsedDisplay} (пауза)`}</span>
         </div>
       )}
 
@@ -623,13 +638,14 @@ export default function WorkoutPanel() {
     }
   };
 
-  // Auto-calculate total duration from exercise start/end times
+  // Auto-calculate total duration from exercise timers (supports pause/resume)
   const calcDurationFromTimers = () => {
-    const setsWithTime = workoutSets.filter((s) => s.startTime && s.endTime);
+    const setsWithTime = workoutSets.filter((s) => s.startTime);
     if (setsWithTime.length === 0) return;
-    // Find earliest start and latest end
-    const earliestStart = Math.min(...setsWithTime.map((s) => s.startTime!));
-    const latestEnd = Math.max(...setsWithTime.map((s) => s.endTime!));
+    // Earliest original start: startTime - pausedElapsed (accounts for previous segments)
+    const earliestStart = Math.min(...setsWithTime.map((s) => s.startTime! - (s.pausedElapsed ?? 0)));
+    // Latest end: endTime if paused, otherwise Date.now() if running
+    const latestEnd = Math.max(...setsWithTime.map((s) => s.endTime ?? Date.now()));
     const durationMin = Math.round((latestEnd - earliestStart) / 60000);
     if (durationMin > 0) setWorkoutDuration(String(durationMin));
   };
@@ -656,6 +672,7 @@ export default function WorkoutPanel() {
     notes: '',
     startTime: undefined,
     endTime: undefined,
+    pausedElapsed: undefined,
   });
 
   // Add empty set
@@ -677,6 +694,7 @@ export default function WorkoutPanel() {
         id: uuid(),
         startTime: undefined,
         endTime: undefined,
+        pausedElapsed: undefined,
       };
       const next = [...prev];
       next.splice(index + 1, 0, copy);
@@ -702,21 +720,36 @@ export default function WorkoutPanel() {
     });
   };
 
-  // Start/stop timer for an exercise
+  // Toggle timer: start / pause / resume
   const toggleTimer = (index: number) => {
     setWorkoutSets((prev) => {
       const next = [...prev];
       const set = next[index];
       if (!set.startTime) {
-        // Start timer
-        next[index] = { ...set, startTime: Date.now(), endTime: undefined };
+        // Idle → Start: begin timing from now
+        next[index] = { ...set, startTime: Date.now(), endTime: undefined, pausedElapsed: 0 };
       } else if (!set.endTime) {
-        // Stop timer
+        // Running → Pause: record current elapsed, set endTime
         next[index] = { ...set, endTime: Date.now() };
       } else {
-        // Reset timer
-        next[index] = { ...set, startTime: undefined, endTime: undefined };
+        // Paused → Resume: accumulate elapsed, start new segment
+        const segmentElapsed = set.endTime - set.startTime;
+        next[index] = {
+          ...set,
+          startTime: Date.now(),
+          endTime: undefined,
+          pausedElapsed: (set.pausedElapsed ?? 0) + segmentElapsed,
+        };
       }
+      return next;
+    });
+  };
+
+  // Reset timer to idle (zero)
+  const resetTimer = (index: number) => {
+    setWorkoutSets((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], startTime: undefined, endTime: undefined, pausedElapsed: undefined };
       return next;
     });
   };
@@ -1412,6 +1445,7 @@ export default function WorkoutPanel() {
                       exercisesByCategory={exercisesByCategory}
                       isOnlySet={workoutSets.length === 1}
                       onToggleTimer={() => toggleTimer(index)}
+                      onResetTimer={() => resetTimer(index)}
                       onDuplicate={() => duplicateSet(index)}
                       onRemove={() => removeSet(index)}
                       onUpdateField={(field, value) => updateSet(index, field, value)}
@@ -1446,7 +1480,7 @@ export default function WorkoutPanel() {
                   />
                 </div>
               </div>
-              {workoutSets.some((s) => s.startTime && s.endTime) && (
+              {workoutSets.some((s) => s.startTime) && (
                 <Button
                   variant="ghost"
                   size="sm"

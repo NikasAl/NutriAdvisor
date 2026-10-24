@@ -233,8 +233,9 @@ export interface WorkoutSet {
   duration?: number;
   distance?: number;
   notes?: string;
-  startTime?: number; // ms timestamp when exercise started
-  endTime?: number;   // ms timestamp when exercise ended
+  startTime?: number; // ms timestamp when current run segment started
+  endTime?: number;   // ms timestamp when timer was paused
+  pausedElapsed?: number; // ms accumulated from previous run segments
 }
 
 export interface WorkoutEntry {
