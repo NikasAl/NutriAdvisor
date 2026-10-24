@@ -170,7 +170,7 @@ export default function SettingsPanel() {
       const data = {
         version: 4,
         exportedAt: new Date().toISOString(),
-        app: 'NutriAdvisor',
+        app: 'Дневник Здоровья',
         providers: await db.providers.toArray(),
         userProfile: await db.userProfile.toArray(),
         foodEntries: await db.foodEntries.toArray(),
@@ -217,8 +217,8 @@ export default function SettingsPanel() {
 
         const uri = result.uri;
         await Share.share({
-          title: 'NutriAdvisor — резервная копия',
-          text: `Бэкап NutriAdvisor от ${new Date().toLocaleDateString('ru-RU')}`,
+          title: 'Дневник Здоровья — резервная копия',
+          text: `Бэкап Дневника Здоровья от ${new Date().toLocaleDateString('ru-RU')}`,
           url: uri,
         });
 
@@ -255,7 +255,7 @@ export default function SettingsPanel() {
       const data = JSON.parse(text);
 
       // Validate structure
-      if (!data.app || data.app !== 'NutriAdvisor' || !data.version) {
+      if (!data.app || (data.app !== 'Дневник Здоровья' && data.app !== 'NutriAdvisor') || !data.version) {
         throw new Error('Неверный формат файла резервной копии');
       }
 

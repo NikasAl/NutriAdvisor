@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'ru.kreagenium.nuadvi',
-  appName: 'NutriAdvisor',
+  appName: 'Дневник Здоровья',
   webDir: 'out',
   server: {
     androidScheme: 'https',

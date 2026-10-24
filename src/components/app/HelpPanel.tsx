@@ -128,7 +128,7 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
       {/* Section 1: Purpose */}
       <Section
         icon={Heart}
-        title="Цель NutriAdvisor"
+        title="Цель Дневника Здоровья"
         defaultOpen={true}
         illustration={{
           src: '/help/purpose.png',
@@ -136,7 +136,7 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
         }}
       >
         <p>
-          <strong>NutriAdvisor</strong> — ваш персональный AI-помощник в поддержании здорового
+          <strong>Дневник Здоровья</strong> — ваш персональный AI-помощник в поддержании здорового
           образа жизни. Приложение объединяет контроль питания, физической активности, сна
           и гидратации в единый удобный дневник.
         </p>
@@ -162,7 +162,7 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
         }}
       >
         <p>
-          Для анализа ваших данных NutriAdvisor использует современные языковые модели (LLM).
+          Для анализа ваших данных Дневник Здоровья использует современные языковые модели (LLM).
           Вы фотографируете приём пищи или описываете его текстом, а модель анализирует состав,
           рассчитывает калорийность и даёт рекомендации с учётом вашего профиля и целей.
         </p>
@@ -246,7 +246,7 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
         }}
       >
         <p>
-          NutriAdvisor позволяет задать любого провайдера нейросетей, который поддерживает протокол OpenAI API. Перейдите в раздел
+          Дневник Здоровья позволяет задать любого провайдера нейросетей, который поддерживает протокол OpenAI API. Перейдите в раздел
           «Настройки» → «Провайдеры LLM» для добавления и управления подключениями.
         </p>
 
@@ -710,7 +710,7 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
 
       {/* Version */}
       <p className="text-center text-[10px] text-muted-foreground pt-2">
-        NutriAdvisor v1.0 · Сделано с 💚
+        Дневник Здоровья v1.0 · Сделано с 💚
       </p>
     </div>
   );

@@ -32,7 +32,7 @@ export default function PrivacyPolicyPanel({ onBack }: { onBack: () => void }) {
               <h2 className="text-sm font-semibold">1. Общие положения</h2>
             </div>
             <p>
-              NutriAdvisor (далее — «Приложение») является клиентским приложением для контроля
+              Дневник Здоровья (далее — «Приложение») является клиентским приложением для контроля
               питания, тренировок, активности, воды и сна с использованием искусственного интеллекта.
               Приложение разработано с приоритетом конфиденциальности пользователя.
             </p>
@@ -78,7 +78,7 @@ export default function PrivacyPolicyPanel({ onBack }: { onBack: () => void }) {
               (OpenAI, Google, OpenRouter и др.).
             </p>
             <p>
-              <strong>Разработчик NutriAdvisor не контролирует</strong> обработку данных на серверах
+              <strong>Разработчик Дневника Здоровья не контролирует</strong> обработку данных на серверах
               третьих провайдеров. Передача данных происходит по инициативе и с согласия
               пользователя при использовании функций анализа.
             </p>
@@ -215,7 +215,7 @@ export default function PrivacyPolicyPanel({ onBack }: { onBack: () => void }) {
             <h2 className="text-sm font-semibold">11. Связь с разработчиком</h2>
             <p>
               По вопросам, связанным с конфиденциальностью и обработкой данных,
-              обращайтесь через email: nikita_avdonin@mail.ru или на GitHub-странице проекта: <a href='https://github.com/NikasAl/NutriAdvisor'>NutriAdvisor</a>
+              обращайтесь через email: nikita_avdonin@mail.ru или на GitHub-странице проекта: <a href='https://github.com/NikasAl/NutriAdvisor'>Дневник Здоровья</a>
             </p>
           </section>
         </CardContent>

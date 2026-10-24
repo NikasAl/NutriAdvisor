@@ -17,13 +17,13 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
-  Plus, Send, Loader2, Trash2, PenLine, History, PanelLeftClose, PanelLeft,
-  Check, X, Pencil, Square, Sparkles,
+  Plus, Send, Loader2, Trash2, PenLine, PanelLeftClose, PanelLeft,
+  Check, X, Pencil, Square, Sparkles, Calendar,
 } from 'lucide-react';
 import MarkdownRenderer from '@/components/ui/markdown-renderer';
 import type { ChatSession } from '@/lib/types';
 
-type NutritionPeriod = 'today' | 'week' | 'month';
+const MAX_CONTEXT_CHARS = 10000;
 
 /** Group sessions by exact date */
 function groupSessionsByDate(sessions: ChatSession[]): { label: string; date: string; sessions: ChatSession[] }[] {
@@ -81,10 +81,13 @@ export default function ChatAssistantPanel() {
   const sendChatMessage = useAppStore((s) => s.sendChatMessage);
   const stopStreaming = useAppStore((s) => s.stopStreaming);
   const streamingContent = useAppStore((s) => s.streamingContent);
+  const computeContextSize = useAppStore((s) => s.computeContextSize);
 
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
-  const [nutritionPeriod, setNutritionPeriod] = useState<NutritionPeriod>('today');
+  const today = new Date().toISOString().split('T')[0];
+  const [contextDateFrom, setContextDateFrom] = useState(today);
+  const [contextDateTo, setContextDateTo] = useState(today);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -127,13 +130,20 @@ export default function ChatAssistantPanel() {
     if (window.innerWidth < 768) setSidebarOpen(false);
   };
 
+  // Context size computation
+  const contextSize = useMemo(
+    () => computeContextSize(contextDateFrom, contextDateTo),
+    [computeContextSize, contextDateFrom, contextDateTo]
+  );
+  const contextOverLimit = contextSize > MAX_CONTEXT_CHARS;
+
   const handleSend = async () => {
     const msg = input.trim();
     if (!msg || isSending) return;
     setInput('');
     setError('');
     try {
-      await sendChatMessage(msg, nutritionPeriod);
+      await sendChatMessage(msg, contextDateFrom, contextDateTo);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Произошла ошибка');
     }
@@ -163,7 +173,7 @@ export default function ChatAssistantPanel() {
     setEditingText('');
     setError('');
     try {
-      await resendFromMessage(editingMsgId, text, nutritionPeriod);
+      await resendFromMessage(editingMsgId, text, contextDateFrom, contextDateTo);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Произошла ошибка');
     }
@@ -362,27 +372,36 @@ export default function ChatAssistantPanel() {
               </Button>
             )}
             <div className="flex items-center gap-1.5">
-              <History className="h-3.5 w-3.5 text-muted-foreground" />
+              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="text-[10px] text-muted-foreground">Контекст:</span>
             </div>
-            <div className="flex gap-1">
-              {([
-                { value: 'today' as const, label: 'Сегодня' },
-                { value: 'week' as const, label: 'Неделя' },
-                { value: 'month' as const, label: 'Месяц' },
-              ]).map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setNutritionPeriod(opt.value)}
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                    nutritionPeriod === opt.value
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+            <div className="flex items-center gap-1">
+              <input
+                type="date"
+                value={contextDateFrom}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setContextDateFrom(v);
+                  if (v > contextDateTo) setContextDateTo(v);
+                }}
+                max={contextDateTo}
+                className="h-6 rounded border border-border bg-background px-1.5 text-[10px] text-foreground"
+              />
+              <span className="text-[10px] text-muted-foreground">–</span>
+              <input
+                type="date"
+                value={contextDateTo}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setContextDateTo(v);
+                  if (v < contextDateFrom) setContextDateFrom(v);
+                }}
+                min={contextDateFrom}
+                className="h-6 rounded border border-border bg-background px-1.5 text-[10px] text-foreground"
+              />
+              <span className={`text-[10px] font-medium ${contextOverLimit ? 'text-destructive' : 'text-muted-foreground'}`}>
+                {contextSize}/{MAX_CONTEXT_CHARS}
+              </span>
             </div>
           </div>
           {currentSession && (
@@ -559,7 +578,7 @@ export default function ChatAssistantPanel() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Опишите, что ели, или задайте вопрос..."
+              placeholder="Задайте ваш вопрос по питанию, тренировкам, здоровью"
               rows={1}
               className="min-h-[44px] max-h-24 resize-none flex-1"
             />

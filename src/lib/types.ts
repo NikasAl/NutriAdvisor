@@ -25,7 +25,10 @@ export type GoalType =
   | 'wellbeing'
   | 'mental_clarity'
   | 'energy'
-  | 'maintenance';
+  | 'maintenance'
+  | 'more_walking'
+  | 'reduce_ldl'
+  | 'logic_tasks';
 
 export const GOAL_LABELS: Record<GoalType, string> = {
   health: 'Здоровье',
@@ -38,6 +41,9 @@ export const GOAL_LABELS: Record<GoalType, string> = {
   mental_clarity: 'Бодрость ума',
   energy: 'Энергия',
   maintenance: 'Поддержание веса',
+  more_walking: 'Больше ходить',
+  reduce_ldl: 'Уменьшить ЛПНП',
+  logic_tasks: 'Решать логические задачи',
 };
 
 export const GOAL_ICONS: Record<GoalType, string> = {
@@ -51,6 +57,9 @@ export const GOAL_ICONS: Record<GoalType, string> = {
   mental_clarity: 'Brain',
   energy: 'Zap',
   maintenance: 'Target',
+  more_walking: 'Footprints',
+  reduce_ldl: 'HeartPulse',
+  logic_tasks: 'Puzzle',
 };
 
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';

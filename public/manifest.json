@@ -1,6 +1,6 @@
 {
-  "name": "NutriAdvisor",
-  "short_name": "NutriAdvisor",
+  "name": "Дневник Здоровья",
+  "short_name": "Дневник Здоровья",
   "description": "AI Помощник по питанию — анализ еды, рекомендации, трекинг",
   "start_url": "/",
   "display": "standalone",

@@ -153,7 +153,7 @@ interface AppState {
   deleteChatSession: (id: string) => Promise<void>;
   renameChatSession: (id: string, title: string) => Promise<void>;
   updateChatMessage: (id: string, content: string) => Promise<void>;
-  resendFromMessage: (messageId: string, newContent: string, nutritionPeriod?: string) => Promise<void>;
+  resendFromMessage: (messageId: string, newContent: string, dateFrom: string, dateTo: string) => Promise<void>;
   loadChatMessages: () => Promise<void>;
 
   // Exercises (like foodProducts)
@@ -187,7 +187,8 @@ interface AppState {
   _abortController: AbortController | null;
 
   // LLM interaction
-  sendChatMessage: (content: string, nutritionPeriod?: string) => Promise<string>;
+  sendChatMessage: (content: string, dateFrom: string, dateTo: string) => Promise<string>;
+  computeContextSize: (dateFrom: string, dateTo: string) => number;
   analyzeFoodStream: (description?: string, imageBase64?: string, weight?: number, mealType?: string) => Promise<string>;
   analyzeFoodText: (description: string, weight?: number, mealType?: string) => Promise<string>;
   analyzeFoodTextStream: (description: string, weight?: number, mealType?: string) => Promise<string>;
@@ -219,9 +220,12 @@ function buildProfileInfoForAnalysis(profile: UserProfile, customGoals: CustomGo
   return parts.length > 0 ? `Информация о пациенте:\n${parts.join('\n')}` : undefined;
 }
 
-/** Build a sleep summary string for a given period */
-function buildSleepSummaryFromLog(sleepLog: SleepLog | null, period: 'today' | 'week' | 'month'): string {
-  if (!sleepLog || period !== 'today') return '';
+/** Build a sleep summary string for a given date range */
+function buildSleepSummaryFromLog(sleepLog: SleepLog | null, dateFrom: string, dateTo: string): string {
+  if (!sleepLog) return '';
+  // Sleep log is only for today in current data model; show only if today is in range
+  const today = new Date().toISOString().split('T')[0];
+  if (today < dateFrom || today > dateTo) return '';
   if (sleepLog.periods.length === 0) return '';
 
   const parts: string[] = [];
@@ -248,40 +252,29 @@ function calcSleepDuration(start: string, end: string): number {
   return endMin - startMin;
 }
 
-/** Build a water summary string for a given period */
-function buildWaterSummary(waterLog: WaterLog | null, period: 'today' | 'week' | 'month'): string {
+/** Build a water summary string for a given date range */
+function buildWaterSummary(waterLog: WaterLog | null, dateFrom: string, dateTo: string): string {
   if (!waterLog) return '';
-  if (period !== 'today') return ''; // Only show today's water for now
+  // Water log is only for today in current data model; show only if today is in range
+  const today = new Date().toISOString().split('T')[0];
+  if (today < dateFrom || today > dateTo) return '';
   const totalMl = waterLog.glasses * waterLog.glassMl;
   return `\n--- Вода за сегодня ---\nВыпито: ${waterLog.glasses} стаканов (${totalMl} мл, по ${waterLog.glassMl} мл/стакан)\n--- Конец данных о воде ---`;
 }
 
-/** Build a diary summary string from diary entries for a given period */
+/** Build a diary summary string from diary entries for a given date range */
 function buildDiarySummary(
   diaryEntries: DiaryEntry[],
-  period: 'today' | 'week' | 'month'
+  dateFrom: string,
+  dateTo: string
 ): string {
-  const now = new Date();
-  const periodStart = new Date();
-  if (period === 'today') {
-    periodStart.setHours(0, 0, 0, 0);
-  } else if (period === 'week') {
-    periodStart.setDate(periodStart.getDate() - 7);
-    periodStart.setHours(0, 0, 0, 0);
-  } else {
-    periodStart.setDate(periodStart.getDate() - 30);
-    periodStart.setHours(0, 0, 0, 0);
-  }
-
-  const filtered = diaryEntries.filter((e) => new Date(e.date) >= periodStart);
+  const filtered = diaryEntries.filter((e) => e.date >= dateFrom && e.date <= dateTo);
 
   if (filtered.length === 0) {
-    const label = period === 'today' ? 'за сегодня' : period === 'week' ? 'за последнюю неделю' : 'за последний месяц';
-    return `\n--- Записи дневника ${label} ---\nНет записей.\n--- Конец записей дневника ---`;
+    return `\n--- Записи дневника за ${dateFrom}–${dateTo} ---\nНет записей.\n--- Конец записей дневника ---`;
   }
 
-  const label = period === 'today' ? 'за сегодня' : period === 'week' ? 'за последнюю неделю' : 'за последний месяц';
-  let summary = `\n--- Записи дневника ${label} ---\n`;
+  let summary = `\n--- Записи дневника за ${dateFrom}–${dateTo} ---\n`;
 
   for (const e of filtered) {
     const time = e.time ? ` ${e.time}` : '';
@@ -298,47 +291,30 @@ function buildDiarySummary(
   return summary;
 }
 
-/** Build a nutrition summary string from food entries for a given period */
+/** Build a nutrition summary string from food entries for a given date range */
 function buildNutritionSummary(
   foodEntries: FoodEntry[],
-  period: 'today' | 'week' | 'month',
+  dateFrom: string,
+  dateTo: string,
   expandItems?: (items: FoodEntryItem[]) => string
 ): string {
-  const now = new Date();
-  const today = now.toISOString().split('T')[0];
+  const today = new Date().toISOString().split('T')[0];
 
-  // Determine date range
-  const periodStart = new Date();
-  if (period === 'today') {
-    periodStart.setHours(0, 0, 0, 0);
-  } else if (period === 'week') {
-    periodStart.setDate(periodStart.getDate() - 7);
-    periodStart.setHours(0, 0, 0, 0);
-  } else {
-    periodStart.setDate(periodStart.getDate() - 30);
-    periodStart.setHours(0, 0, 0, 0);
-  }
-
-  const filtered = foodEntries.filter((e) => {
-    const entryDate = new Date(e.date);
-    return entryDate >= periodStart;
-  });
+  const filtered = foodEntries.filter((e) => e.date >= dateFrom && e.date <= dateTo);
 
   if (filtered.length === 0) {
-    return period === 'today'
-      ? '\n--- Данные о питании за сегодня ---\nНет записей о приёмах пищи за сегодня.\n--- Конец данных о питании ---'
-      : `\n--- Данные о питании за ${period === 'week' ? 'последнюю неделю' : 'последний месяц'} ---\nНет записей о приёмах пищи за указанный период.\n--- Конец данных о питании ---`;
+    return `\n--- Данные о питании за ${dateFrom}–${dateTo} ---\nНет записей о приёмах пищи за указанный период.\n--- Конец данных о питании ---`;
   }
 
-  const periodLabel = period === 'today' ? 'сегодня' : period === 'week' ? 'за последнюю неделю' : 'за последний месяц';
+  const isSingleDay = dateFrom === dateTo;
+  const periodLabel = isSingleDay ? (dateFrom === today ? 'сегодня' : dateFrom) : `${dateFrom}–${dateTo}`;
 
   const desc = (e: FoodEntry) =>
     e.items && expandItems ? expandItems(e.items) : e.description;
 
   let summary = `\n--- Данные о питании ${periodLabel} ---\n`;
 
-  // Group by date for today; aggregate for week/month
-  if (period === 'today') {
+  if (isSingleDay) {
     summary += `Количество приёмов пищи: ${filtered.length}\n\n`;
     for (const entry of filtered) {
       summary += `• [${entry.date} ${new Date(entry.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}] `;
@@ -358,7 +334,7 @@ function buildNutritionSummary(
     const totalProt = filtered.reduce((s, e) => s + (e.estimatedProtein ?? 0), 0);
     const totalFat = filtered.reduce((s, e) => s + (e.estimatedFat ?? 0), 0);
     const totalCarbs = filtered.reduce((s, e) => s + (e.estimatedCarbs ?? 0), 0);
-    summary += `\nИтого за сегодня: ${totalCal} ккал | Б: ${totalProt.toFixed(0)}г | Ж: ${totalFat.toFixed(0)}г | У: ${totalCarbs.toFixed(0)}г\n`;
+    summary += `\nИтого за ${periodLabel}: ${totalCal} ккал | Б: ${totalProt.toFixed(0)}г | Ж: ${totalFat.toFixed(0)}г | У: ${totalCarbs.toFixed(0)}г\n`;
   } else {
     // Aggregate by date
     const byDate: Record<string, FoodEntry[]> = {};
@@ -408,31 +384,19 @@ function buildNutritionSummary(
   return summary;
 }
 
-/** Build a workout summary string from workout entries for a given period */
+/** Build a workout summary string from workout entries for a given date range */
 function buildWorkoutSummary(
   workoutEntries: WorkoutEntry[],
-  period: 'today' | 'week' | 'month'
+  dateFrom: string,
+  dateTo: string
 ): string {
-  const periodStart = new Date();
-  if (period === 'today') {
-    periodStart.setHours(0, 0, 0, 0);
-  } else if (period === 'week') {
-    periodStart.setDate(periodStart.getDate() - 7);
-    periodStart.setHours(0, 0, 0, 0);
-  } else {
-    periodStart.setDate(periodStart.getDate() - 30);
-    periodStart.setHours(0, 0, 0, 0);
-  }
-
-  const filtered = workoutEntries.filter((e) => new Date(e.date) >= periodStart);
+  const filtered = workoutEntries.filter((e) => e.date >= dateFrom && e.date <= dateTo);
 
   if (filtered.length === 0) {
-    const label = period === 'today' ? 'за сегодня' : period === 'week' ? 'за последнюю неделю' : 'за последний месяц';
-    return `\n--- Тренировки ${label} ---\nНет тренировок.\n--- Конец данных о тренировках ---`;
+    return `\n--- Тренировки за ${dateFrom}–${dateTo} ---\nНет тренировок.\n--- Конец данных о тренировках ---`;
   }
 
-  const periodLabel = period === 'today' ? 'сегодня' : period === 'week' ? 'за последнюю неделю' : 'за последний месяц';
-  let summary = `\n--- Тренировки ${periodLabel} ---\n`;
+  let summary = `\n--- Тренировки за ${dateFrom}–${dateTo} ---\n`;
   summary += `Количество тренировок: ${filtered.length}\n\n`;
 
   for (const entry of filtered) {
@@ -819,7 +783,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   buildSleepSummary: () => {
-    return buildSleepSummaryFromLog(get().sleepLog, 'today');
+    const today = new Date().toISOString().split('T')[0];
+    return buildSleepSummaryFromLog(get().sleepLog, today, today);
   },
 
   // Food Products
@@ -1172,7 +1137,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
   },
 
-  resendFromMessage: async (messageId: string, newContent: string, nutritionPeriod: string = 'today') => {
+  resendFromMessage: async (messageId: string, newContent: string, dateFrom: string, dateTo: string) => {
     const { currentChatId, chatMessages, profile, foodEntries, customGoals, diaryEntries } = get();
     const provider = get().getActiveProvider();
 
@@ -1214,14 +1179,20 @@ export const useAppStore = create<AppState>((set, get) => ({
       const contextType = NutritionPrompts.detectContextFromMessage(newContent);
       const activeGoalNames = customGoals.filter((g) => g.isActive).map((g) => g.name);
       let systemPrompt = NutritionPrompts.getContextualPrompt(contextType, profile, activeGoalNames);
-      const period = nutritionPeriod as 'today' | 'week' | 'month';
-      const nutritionSummary = buildNutritionSummary(foodEntries, period, get().expandEntryItemsToText);
-      const diarySummary = buildDiarySummary(diaryEntries, period);
-      const waterSummary = buildWaterSummary(get().waterLog, period);
-      const sleepSummary = buildSleepSummaryFromLog(get().sleepLog, period);
-      const workoutSummary = buildWorkoutSummary(get().workoutEntries, period);
+      systemPrompt += NutritionPrompts.getTimeOfDayContext();
+      const nutritionSummary = buildNutritionSummary(foodEntries, dateFrom, dateTo, get().expandEntryItemsToText);
+      const diarySummary = buildDiarySummary(diaryEntries, dateFrom, dateTo);
+      const waterSummary = buildWaterSummary(get().waterLog, dateFrom, dateTo);
+      const sleepSummary = buildSleepSummaryFromLog(get().sleepLog, dateFrom, dateTo);
+      const workoutSummary = buildWorkoutSummary(get().workoutEntries, dateFrom, dateTo);
       const medTestSummary = buildMedTestSummary(get().medTestParams, get().medTestMeasures);
-      systemPrompt += nutritionSummary + diarySummary + waterSummary + sleepSummary + workoutSummary + medTestSummary;
+      const dataContext = nutritionSummary + diarySummary + waterSummary + sleepSummary + workoutSummary + medTestSummary;
+      // Apply 10k char limit to data context
+      const MAX_CONTEXT = 10000;
+      const trimmedContext = dataContext.length > MAX_CONTEXT
+        ? dataContext.slice(0, MAX_CONTEXT) + '\n...[контекст обрезан — слишком много данных]'
+        : dataContext;
+      systemPrompt += trimmedContext;
 
       const llmMessages = buildChatMessages(systemPrompt, history, newContent);
 
@@ -1279,7 +1250,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ chatMessages: messages });
   },
 
-  sendChatMessage: async (content: string, nutritionPeriod: string = 'today'): Promise<string> => {
+  sendChatMessage: async (content: string, dateFrom: string, dateTo: string): Promise<string> => {
     const { currentChatId, chatMessages, profile, foodEntries, customGoals, diaryEntries } = get();
     const provider = get().getActiveProvider();
 
@@ -1311,16 +1282,22 @@ export const useAppStore = create<AppState>((set, get) => ({
       const contextType = NutritionPrompts.detectContextFromMessage(content);
       const activeGoalNames = customGoals.filter((g) => g.isActive).map((g) => g.name);
       let systemPrompt = NutritionPrompts.getContextualPrompt(contextType, profile, activeGoalNames);
+      systemPrompt += NutritionPrompts.getTimeOfDayContext();
 
-      // Add nutrition context based on selected period
-      const period = nutritionPeriod as 'today' | 'week' | 'month';
-      const nutritionSummary = buildNutritionSummary(foodEntries, period, get().expandEntryItemsToText);
-      const diarySummary = buildDiarySummary(diaryEntries, period);
-      const waterSummary = buildWaterSummary(get().waterLog, period);
-      const sleepSummary = buildSleepSummaryFromLog(get().sleepLog, period);
-      const workoutSummary = buildWorkoutSummary(get().workoutEntries, period);
+      // Add data context based on selected date range
+      const nutritionSummary = buildNutritionSummary(foodEntries, dateFrom, dateTo, get().expandEntryItemsToText);
+      const diarySummary = buildDiarySummary(diaryEntries, dateFrom, dateTo);
+      const waterSummary = buildWaterSummary(get().waterLog, dateFrom, dateTo);
+      const sleepSummary = buildSleepSummaryFromLog(get().sleepLog, dateFrom, dateTo);
+      const workoutSummary = buildWorkoutSummary(get().workoutEntries, dateFrom, dateTo);
       const medTestSummary = buildMedTestSummary(get().medTestParams, get().medTestMeasures);
-      systemPrompt += nutritionSummary + diarySummary + waterSummary + sleepSummary + workoutSummary + medTestSummary;
+      const dataContext = nutritionSummary + diarySummary + waterSummary + sleepSummary + workoutSummary + medTestSummary;
+      // Apply 10k char limit to data context
+      const MAX_CONTEXT = 10000;
+      const trimmedContext = dataContext.length > MAX_CONTEXT
+        ? dataContext.slice(0, MAX_CONTEXT) + '\n...[контекст обрезан — слишком много данных]'
+        : dataContext;
+      systemPrompt += trimmedContext;
 
       // Build history for LLM (limit to last 20 messages)
       const history: LLMMessage[] = chatMessages
@@ -1376,6 +1353,17 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ isSending: false, streamingContent: '', _abortController: null });
       throw error;
     }
+  },
+
+  computeContextSize: (dateFrom: string, dateTo: string): number => {
+    const { foodEntries, diaryEntries } = get();
+    const nutritionSummary = buildNutritionSummary(foodEntries, dateFrom, dateTo, get().expandEntryItemsToText);
+    const diarySummary = buildDiarySummary(diaryEntries, dateFrom, dateTo);
+    const waterSummary = buildWaterSummary(get().waterLog, dateFrom, dateTo);
+    const sleepSummary = buildSleepSummaryFromLog(get().sleepLog, dateFrom, dateTo);
+    const workoutSummary = buildWorkoutSummary(get().workoutEntries, dateFrom, dateTo);
+    const medTestSummary = buildMedTestSummary(get().medTestParams, get().medTestMeasures);
+    return (nutritionSummary + diarySummary + waterSummary + sleepSummary + workoutSummary + medTestSummary).length;
   },
 
   analyzeFoodStream: async (description?: string, imageBase64?: string, weight?: number, mealType?: string): Promise<string> => {

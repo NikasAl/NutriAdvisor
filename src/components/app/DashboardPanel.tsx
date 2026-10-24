@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
-  UtensilsCrossed, MessageSquare, Target, TrendingUp, Zap, Moon, Brain, Heart, Flame, Plus, Minus, Droplets, Settings2, BedDouble, Trash2, CircleHelp, Dumbbell, BarChart,
+  UtensilsCrossed, MessageSquare, Target, TrendingUp, Zap, Moon, Brain, Heart, Flame, Plus, Minus, Droplets, Settings2, BedDouble, Trash2, CircleHelp, Dumbbell, BarChart, Footprints, HeartPulse, Puzzle,
 } from 'lucide-react';
 import { GOAL_LABELS } from '@/lib/types';
 import type { GoalType, SleepPeriod } from '@/lib/types';
@@ -32,6 +32,7 @@ const GOAL_ICONS: Record<GoalType, React.ElementType> = {
   health: Heart, weight_loss: TrendingUp, weight_gain: TrendingUp,
   muscle_gain: Flame, cutting: Flame, better_sleep: Moon,
   wellbeing: Zap, mental_clarity: Brain, energy: Zap, maintenance: Target,
+  more_walking: Footprints, reduce_ldl: HeartPulse, logic_tasks: Puzzle,
 };
 
 export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpenHelp?: () => void; onOpenWidgetHelp?: (section: HelpSection) => void }) {

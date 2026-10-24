@@ -18,7 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Heart, TrendingDown, TrendingUp, Dumbbell, Flame, Moon, Smile, Brain, Zap, Target, Check,
-  Plus, Trash2, Star, Droplets, BedDouble,
+  Plus, Trash2, Star, Droplets, BedDouble, Footprints, HeartPulse, Puzzle,
 } from 'lucide-react';
 import type { GoalType, ActivityLevel } from '@/lib/types';
 import { GOAL_LABELS } from '@/lib/types';
@@ -28,11 +28,13 @@ const GOAL_ICONS_MAP: Record<GoalType, React.ElementType> = {
   health: Heart, weight_loss: TrendingDown, weight_gain: TrendingUp,
   muscle_gain: Dumbbell, cutting: Flame, better_sleep: Moon,
   wellbeing: Smile, mental_clarity: Brain, energy: Zap, maintenance: Target,
+  more_walking: Footprints, reduce_ldl: HeartPulse, logic_tasks: Puzzle,
 };
 
 const ALL_GOALS: GoalType[] = [
   'health', 'weight_loss', 'weight_gain', 'muscle_gain', 'cutting',
   'better_sleep', 'wellbeing', 'mental_clarity', 'energy', 'maintenance',
+  'more_walking', 'reduce_ldl', 'logic_tasks',
 ];
 
 const ACTIVITY_OPTIONS: { value: ActivityLevel; label: string }[] = [

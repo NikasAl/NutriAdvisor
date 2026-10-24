@@ -250,6 +250,26 @@ export class NutritionPrompts {
 Будь максимально детальным в описании еды.`;
   }
 
+  static getTimeOfDayContext(): string {
+    const hour = new Date().getHours();
+    let timeOfDay: string;
+    let note: string;
+    if (hour >= 5 && hour < 12) {
+      timeOfDay = 'утро';
+      note = 'Сейчас утро — данные за сегодня могут быть неполными: завтрак может быть ещё не добавлен, а обед и ужин точно предстоят.';
+    } else if (hour >= 12 && hour < 17) {
+      timeOfDay = 'день';
+      note = 'Сейчас день — данные за сегодня могут быть неполными: обед мог быть добавлен не полностью, ужин и вечерний перекус ещё предстоят.';
+    } else if (hour >= 17 && hour < 21) {
+      timeOfDay = 'вечер';
+      note = 'Сейчас вечер — ужин и вечерний перекус могут быть ещё не добавлены. Полный итог дня подводится позже.';
+    } else {
+      timeOfDay = 'ночь/поздний вечер';
+      note = 'Сейчас поздний вечер или ночь — данные за сегодня, скорее всего, полные. Можно подводить итог дня.';
+    }
+    return `\n--- Время суток ---\nСейчас: ${timeOfDay} (${hour}:00)\n${note}\n--- Конец времени суток ---`;
+  }
+
   static getContextualPrompt(
     contextType: string,
     profile: UserProfile | null,
@@ -344,6 +364,9 @@ export class NutritionPrompts {
       mental_clarity: 'бодрость ума',
       energy: 'повышение энергии',
       maintenance: 'поддержание веса',
+      more_walking: 'больше ходить',
+      reduce_ldl: 'уменьшение ЛПНП',
+      logic_tasks: 'решение логических задач',
     };
     return labels[goal] || goal;
   }

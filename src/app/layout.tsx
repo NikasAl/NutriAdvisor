@@ -14,14 +14,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NutriAdvisor — AI Помощник по питанию",
+  title: "Дневник Здоровья — AI Помощник по питанию",
   description:
     "Персональный AI-ассистент для коррекции питания. Анализ еды по фото, рекомендации по целям, трекинг питания. Все данные хранятся локально.",
   keywords: [
-    "NutriAdvisor", "питание", "диета", "AI", "нутрициолог",
+    "Дневник Здоровья", "питание", "диета", "AI", "нутрициолог",
     "здоровое питание", "похудение", "набор массы", "трекинг питания",
   ],
-  authors: [{ name: "NutriAdvisor" }],
+  authors: [{ name: "Дневник Здоровья" }],
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: "NutriAdvisor — AI Помощник по питанию",
+    title: "Дневник Здоровья — AI Помощник по питанию",
     description: "Персональный AI-ассистент для коррекции питания",
     type: "website",
   },
