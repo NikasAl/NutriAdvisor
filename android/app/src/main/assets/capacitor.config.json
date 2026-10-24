@@ -1,6 +1,6 @@
 {
 	"appId": "ru.kreagenium.nuadvi",
-	"appName": "NutriAdvisor",
+	"appName": "Дневник Здоровья",
 	"webDir": "out",
 	"server": {
 		"androidScheme": "https"
