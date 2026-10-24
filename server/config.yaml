@@ -12,6 +12,186 @@ auth:
 # Провайдеры LLM
 # ---------------------------------------------------------------------------
 providers:
+  - name: agnes
+    type: openai_compatible
+    base_url: "https://apihub.agnes-ai.com/v1"
+    api_key: "${AGNES_API_KEY}"
+    max_concurrency: 3
+    priority: 1
+    timeout: 600s
+    proxy_required: false
+    models:
+      - name: "agnes-3.0-flash"
+        alias: "mindvector"
+        priority: 1             
+        input_price: 0.0
+        output_price: 0.0
+        max_tokens: 32768
+
+      - name: "agnes-3.0-flash"
+        alias: "edugame"
+        priority: 1             
+        input_price: 0.0
+        output_price: 0.0
+        max_tokens: 128000
+
+  - name: dahl
+    type: openai_compatible
+    base_url: "https://inference.dahl.global/v1"
+    api_key: "${DAHL_API_KEY}"
+    max_concurrency: 3
+    priority: 1
+    timeout: 600s
+    proxy_required: false
+    models:
+      - name: "zai-org/GLM-5.3-Flash"
+        alias: "dahl"
+        priority: 1             
+        input_price: 0.0
+        output_price: 0.0
+        max_tokens: 16384
+
+
+  - name: requesty
+    type: openai_compatible
+    base_url: "https://router.requesty.ai/v1"
+    api_key: "${REQ_API_KEY}"
+    max_concurrency: 2
+    priority: 1
+    timeout: 600s
+    proxy_required: false
+    models:
+      - name: "gemma-4-31b-it"
+        alias: "gemma-4"
+        priority: 1             
+        input_price: 0.0
+        output_price: 0.0
+        max_tokens: 32768
+
+
+  - name: tokenharbor
+    type: openai_compatible
+    base_url: "https://tokenharbor.ai/v1"
+    api_key: "${THARBOR_API_KEY}"
+    max_concurrency: 2
+    priority: 1
+    timeout: 540s
+    proxy_required: true
+    models:
+      # - name: "qwen3.8-flash:free"
+      - name: "deepseek-v4.1-flash:free"
+        alias: "gemma-4"
+        priority: 2             
+        input_price: 0.0
+        output_price: 0.0
+        max_tokens: 32768
+
+
+  # - name: toptools
+  #   type: openai_compatible
+  #   base_url: "https://top-tools-ai.com/api/v1"
+  #   api_key: "${TOPTOOLS_API_KEY}"
+  #   max_concurrency: 2
+  #   priority: 1
+  #   timeout: 540s
+  #   proxy_required: false
+  #   models:
+  #     - name: "glm-5.3-flash"
+  #       alias: "gemma-4"
+  #       priority: 3             
+  #       input_price: 0.0
+  #       output_price: 0.0
+  #       max_tokens: 32768
+
+
+  - name: apmix
+    type: openai_compatible
+    base_url: "https://api.apmix.ai/v1"
+    api_key: "${APMIX_API_KEY}"
+    max_concurrency: 2
+    priority: 1
+    timeout: 540s
+    proxy_required: false
+    models:
+      - name: "claude-sonnet-4-6-free"
+        alias: "apmix-m"
+        priority: 1             
+        input_price: 0.0
+        output_price: 0.0
+        max_tokens: 65536
+
+      - name: "claude-sonnet-4-6-free"
+        alias: "gemma-4"
+        priority: 3             
+        input_price: 0.0
+        output_price: 0.0
+        max_tokens: 16384
+
+
+  - name: openrouter
+    type: openai_compatible
+    base_url: "https://openrouter.ai/api"
+    api_key: "${OPENROUTER_API_KEY}"
+    max_concurrency: 5
+    priority: 5
+    timeout: 120s
+    proxy_required: true
+    models:
+      # --- gemma-4 alias (все варианты одной модели) ---
+      # Порядок: modal → бесплатные openrouter → локальный → платные openrouter
+      # - name: "google/gemma-4-31b-it:free"
+      #   alias: "gemma-4"
+      #   priority: 1             # самый высокий — бесплатная 31b
+      #   input_price: 0.0
+      #   output_price: 0.0
+      #   max_tokens: 16384
+
+      # - name: "google/gemma-4-26b-a4b-it:free"
+      #   alias: "gemma-4"
+      #   priority: 2             # второй — бесплатная 26b
+      #   input_price: 0.0
+      #   output_price: 0.0
+      #   max_tokens: 16384
+
+      # - name: "z-ai/glm-5.2:free" # нет vision
+      #   alias: "gemma-4"
+      #   priority: 3             
+      #   input_price: 0.0
+      #   output_price: 0.0
+      #   max_tokens: 16384
+
+      - name: "google/gemma-4-26b-a4b-it"
+        alias: "gemma-4"
+        priority: 4             
+        input_price: 6.75
+        output_price: 27.0
+        max_tokens: 16384
+
+      - name: "google/gemma-4-31b-it"
+        alias: "gemma-4"
+        priority: 5             
+        input_price: 6.75
+        output_price: 27.0
+        max_tokens: 16384
+
+
+  - name: b
+    type: openai_compatible
+    base_url: "https://api.b.ai/v1"
+    api_key: "${B_API_KEY}"
+    max_concurrency: 3
+    priority: 1
+    timeout: 240s
+    proxy_required: false
+    models:
+      - name: "glm-5.3-flash"
+        alias: "gemma-4"
+        priority: 6
+        input_price: 0.0
+        output_price: 0.0
+        max_tokens: 16384
+
+
   - name: llama-local
     type: llamacpp
     base_url: "http://localhost:8080"
@@ -21,87 +201,8 @@ providers:
     models:
       - name: "gemma-4"
         alias: "gemma-4"
-        priority: 4             # после бесплатных, но до платных
+        priority: 7             # после бесплатных, но до платных
         input_price: 0.0      # бесплатно (свой сервер)
-        output_price: 0.0
-        max_tokens: 8192
-
-  - name: modal
-    type: openai_compatible
-    base_url: "https://nikita-avdonin--ep-glm-5-3-flash-server.us-west.modal.direct/v1"
-    api_key: "${MODAL_API_KEY}"
-    max_concurrency: 2
-    priority: 1
-    timeout: 120s
-    proxy_required: false
-    models:
-      - name: "zai-org/GLM-5.3-Flash"
-        alias: "gemma-4"
-        priority: 0             # самый высокий приоритет
-        input_price: 0.0
-        output_price: 0.0
-        max_tokens: 8192
-
-  - name: openrouter
-    type: openai_compatible
-    base_url: "https://openrouter.ai/api"
-    api_key: "${OPENROUTER_API_KEY}"
-    max_concurrency: 2
-    priority: 5
-    timeout: 120s
-    proxy_required: true
-    models:
-      # --- gemma-4 alias (все варианты одной модели) ---
-      # Порядок: modal → бесплатные openrouter → локальный → платные openrouter
-      - name: "google/gemma-4-31b-it:free"
-        alias: "gemma-4"
-        priority: 1             # самый высокий — бесплатная 31b
-        input_price: 0.0
-        output_price: 0.0
-        max_tokens: 8192
-
-      - name: "google/gemma-4-26b-a4b-it:free"
-        alias: "gemma-4"
-        priority: 2             # второй — бесплатная 26b
-        input_price: 0.0
-        output_price: 0.0
-        max_tokens: 8192
-
-      - name: "z-ai/glm-5.2:free"
-        alias: "gemma-4"
-        priority: 3             
-        input_price: 0.0
-        output_price: 0.0
-        max_tokens: 8192
-
-
-      - name: "google/gemma-4-26b-a4b-it"
-        alias: "gemma-4"
-        priority: 5             
-        input_price: 6.75
-        output_price: 27.0
-        max_tokens: 8192
-
-      - name: "google/gemma-4-31b-it"
-        alias: "gemma-4"
-        priority: 6             
-        input_price: 6.75
-        output_price: 27.0
-        max_tokens: 8192
-
-      # --- отдельный алиас для flash-preview ---
-      - name: "google/gemini-2.5-flash"
-        alias: "gemini-2.5-fp"
-        priority: 1
-        input_price: 6.75
-        output_price: 27.0
-        max_tokens: 8192
-      
-      # --- отдельный алиас для glm-5.2 ---
-      - name: "z-ai/glm-5.2:free"
-        alias: "glm-5.2-free"
-        priority: 1
-        input_price: 0.0
         output_price: 0.0
         max_tokens: 8192
 
@@ -122,22 +223,51 @@ providers:
         output_price: 150.0
         max_tokens: 8192
 
+  - name: modal
+    type: openai_compatible
+    base_url: "https://nikita-avdonin--ep-glm-5-3-flash-server.us-west.modal.direct/v1"
+    api_key: "${MODAL_API_KEY}"
+    max_concurrency: 2
+    priority: 1
+    timeout: 120s
+    proxy_required: false
+    models:
+      - name: "zai-org/GLM-5.3-Flash"
+        alias: "gemma-4"
+        priority: 1
+        input_price: 0.0
+        output_price: 0.0
+        max_tokens: 16384
+
+
 # ---------------------------------------------------------------------------
 # Алиасы моделей (маршрутизация)
 # ---------------------------------------------------------------------------
 model_aliases:
   - name: gemma-4
-    fallback_chain: [modal, openrouter, llama-local]   # modal → free → local → paid
+    fallback_chain: [requesty, tokenharbor, apmix, openrouter, b, llama-local]
     strategy: priority
-  - name: glm-5.2-free
-    fallback_chain: [openrouter]
+  
+  - name: apmix-m
+    fallback_chain: [apmix]
     strategy: priority
-  - name: gemini-2.5-fp
-    fallback_chain: [openrouter]
-    strategy: priority
+
   - name: gigachat
     fallback_chain: [gigachat]
     strategy: priority
+  
+  - name: mindvector
+    fallback_chain: [agnes]
+    strategy: priority
+
+  - name: edugame
+    fallback_chain: [agnes]
+    strategy: priority
+
+  # - name: eduocr
+  #   fallback_chain: [llama-local]
+  #   strategy: priority
+
 
 # ---------------------------------------------------------------------------
 # Внешние SOCKS5-прокси (SSH-туннели через vpnjantit)
@@ -148,20 +278,40 @@ model_aliases:
 # При падении туннеля — автоперезапуск (auto_restart: true)
 # ---------------------------------------------------------------------------
 external_proxies:
-  - id: proxy-am2
+  - id: proxy-md1
     enabled: false
     socks5_addr: "127.0.0.1:10801"
-    ssh_login: "am2kwlelw2-vpnjantit.com@am2.vpnjantit.com"
+    ssh_login: "md1dslrq1-vpnjantit.com@md1.vpnjantit.com"
+    ssh_port: 22
+    auto_restart: true
+    health_check_interval: 180s
+    restart_delay: 30s
+    tags: ["moldova"]
+
+  - id: proxy-kz1
+    enabled: true
+    socks5_addr: "0.0.0.0:10801"
+    ssh_login: "kz1ldsjfslk1-vpnjantit.com@kz1.vpnjantit.com"
+    ssh_port: 22
+    auto_restart: true
+    health_check_interval: 180s
+    restart_delay: 30s
+    tags: ["kazakhstan"]
+
+  - id: proxy-am1
+    enabled: false
+    socks5_addr: "127.0.0.1:10801"
+    ssh_login: "am1gggkkr1-vpnjantit.com@am1.vpnjantit.com"
     ssh_port: 22
     auto_restart: true
     health_check_interval: 180s
     restart_delay: 30s
     tags: ["armenia"]
 
-  - id: proxy-az2
-    enabled: true
+  - id: proxy-az1
+    enabled: false
     socks5_addr: "127.0.0.1:10802"
-    ssh_login: "az1rrkrlew1-vpnjantit.com@az1.vpnjantit.com"
+    ssh_login: "az1kellkkr1-vpnjantit.com@az1.vpnjantit.com"
     ssh_port: 22
     auto_restart: true
     health_check_interval: 180s
