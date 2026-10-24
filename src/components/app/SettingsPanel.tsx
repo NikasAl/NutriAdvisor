@@ -219,7 +219,11 @@ export default function SettingsPanel() {
         const { Filesystem, Directory } = await import('@capacitor/filesystem');
         const { Share } = await import('@capacitor/share');
 
-        const zipBase64 = await zip.generateAsync({ type: 'base64' });
+        const zipBase64 = await zip.generateAsync({
+          type: 'base64',
+          compression: 'DEFLATE',
+          compressionOptions: { level: 9 },
+        });
 
         const result = await Filesystem.writeFile({
           path: zipName,
@@ -240,7 +244,11 @@ export default function SettingsPanel() {
         setExportStatus(`Отправлено! ${counts}`);
       } else {
         // Browser: download zip via <a> trick
-        const blob = await zip.generateAsync({ type: 'blob' });
+        const blob = await zip.generateAsync({
+          type: 'blob',
+          compression: 'DEFLATE',
+          compressionOptions: { level: 9 },
+        });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
