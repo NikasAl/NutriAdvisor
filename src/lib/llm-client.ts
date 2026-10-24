@@ -44,12 +44,39 @@ export function buildVisionMessages(imageBase64: string): LLMMessage[] {
 export function buildChatMessages(
   systemPrompt: string,
   history: LLMMessage[],
-  userMessage: string
+  userMessage: string | ContentPart[]
 ): LLMMessage[] {
   const messages: LLMMessage[] = [{ role: 'system', content: systemPrompt }];
   messages.push(...history);
   messages.push({ role: 'user', content: userMessage });
   return messages;
+}
+
+/**
+ * Build user message content with optional image attachments.
+ * If images are present, returns a ContentPart[] payload with the text
+ * followed by image_url parts (data-URLs). Otherwise returns plain text.
+ * Never returns an empty user message: when text is missing, a placeholder
+ * is used so the request stays valid (e.g. images dropped for non-vision
+ * providers must not produce an empty user turn).
+ */
+export function buildUserContentWithImages(
+  text: string,
+  images?: string[]
+): string | ContentPart[] {
+  if (!images || images.length === 0) {
+    return text.trim() || '(сообщение с изображением)';
+  }
+  const parts: ContentPart[] = [
+    { type: 'text', text: text.trim() || 'Посмотри на прикреплённые изображения и ответь по существу.' },
+  ];
+  for (const img of images) {
+    parts.push({
+      type: 'image_url',
+      image_url: { url: img.startsWith('data:') ? img : `data:image/jpeg;base64,${img}` },
+    });
+  }
+  return parts;
 }
 
 function buildHeaders(provider: LLMProvider): Record<string, string> {

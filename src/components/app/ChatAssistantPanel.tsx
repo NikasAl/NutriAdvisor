@@ -18,9 +18,10 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   Plus, Send, Loader2, Trash2, PenLine, PanelLeftClose, PanelLeft,
-  Check, X, Pencil, Square, Sparkles, Calendar,
+  Check, X, Pencil, Square, Sparkles, Calendar, Paperclip,
 } from 'lucide-react';
 import MarkdownRenderer from '@/components/ui/markdown-renderer';
+import { compressImageFile } from '@/lib/image-utils';
 import type { ChatSession } from '@/lib/types';
 
 const MAX_CONTEXT_CHARS = 10000;
@@ -101,6 +102,28 @@ export default function ChatAssistantPanel() {
   const [renameText, setRenameText] = useState('');
   const renameInputRef = useRef<HTMLInputElement>(null);
 
+  // Image attachments
+  const [attachedImages, setAttachedImages] = useState<string[]>([]);
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAttachFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = ''; // allow re-selecting the same file
+    if (files.length === 0) return;
+    setError('');
+    try {
+      const compressed = await Promise.all(files.map((f) => compressImageFile(f)));
+      setAttachedImages((prev) => [...prev, ...compressed]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось обработать изображение');
+    }
+  };
+
+  const removeAttachedImage = (idx: number) => {
+    setAttachedImages((prev) => prev.filter((_, i) => i !== idx));
+  };
+
   useEffect(() => {
     loadChatSessions();
   }, [loadChatSessions]);
@@ -139,11 +162,13 @@ export default function ChatAssistantPanel() {
 
   const handleSend = async () => {
     const msg = input.trim();
-    if (!msg || isSending) return;
+    if ((!msg && attachedImages.length === 0) || isSending) return;
+    const images = attachedImages.length > 0 ? [...attachedImages] : undefined;
     setInput('');
+    setAttachedImages([]);
     setError('');
     try {
-      await sendChatMessage(msg, contextDateFrom, contextDateTo);
+      await sendChatMessage(msg, contextDateFrom, contextDateTo, images);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Произошла ошибка');
     }
@@ -491,7 +516,22 @@ export default function ChatAssistantPanel() {
                       }`}
                     >
                       {msg.role === 'user' ? (
-                        <div className="whitespace-pre-wrap leading-relaxed pr-4">{msg.content}</div>
+                        <div className="whitespace-pre-wrap leading-relaxed pr-4">
+                          {msg.imagesBase64 && msg.imagesBase64.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mb-1.5">
+                              {msg.imagesBase64.map((img, i) => (
+                                <img
+                                  key={i}
+                                  src={img}
+                                  alt={`Вложение ${i + 1}`}
+                                  className="max-h-44 max-w-[200px] rounded-lg object-cover cursor-pointer"
+                                  onClick={() => setViewingImage(img)}
+                                />
+                              ))}
+                            </div>
+                          )}
+                          {msg.content}
+                        </div>
                       ) : (
                         <MarkdownRenderer content={msg.content} className="text-foreground" />
                       )}
@@ -571,9 +611,50 @@ export default function ChatAssistantPanel() {
           ))}
         </div>
 
+        {/* Attachment previews (before sending) */}
+        {attachedImages.length > 0 && (
+          <div className="shrink-0 flex gap-2 overflow-x-auto px-0 pb-1 scrollbar-none">
+            {attachedImages.map((img, idx) => (
+              <div key={idx} className="relative shrink-0">
+                <img
+                  src={img}
+                  alt={`Вложение ${idx + 1}`}
+                  className="h-16 w-16 rounded-md object-cover cursor-pointer border border-border"
+                  onClick={() => setViewingImage(img)}
+                />
+                <button
+                  onClick={() => removeAttachedImage(idx)}
+                  className="absolute -right-1.5 -top-1.5 rounded-full bg-destructive text-white p-0.5 shadow"
+                  title="Удалить вложение"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Input bar */}
         <div className="shrink-0 border-t bg-background px-0 pt-2 pb-2">
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-end">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleAttachFiles}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-11 w-11 shrink-0 rounded-full text-muted-foreground hover:text-foreground"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isSending}
+              title="Прикрепить изображение"
+            >
+              <Paperclip className="h-5 w-5" />
+            </Button>
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -594,7 +675,7 @@ export default function ChatAssistantPanel() {
             ) : (
               <Button
                 onClick={handleSend}
-                disabled={!input.trim()}
+                disabled={(!input.trim() && attachedImages.length === 0)}
                 size="icon"
                 className="h-11 w-11 shrink-0 rounded-full"
               >
@@ -604,6 +685,28 @@ export default function ChatAssistantPanel() {
           </div>
         </div>
       </div>
+
+      {/* Fullscreen image viewer */}
+      {viewingImage && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setViewingImage(null)}
+        >
+          <img
+            src={viewingImage}
+            alt="Просмотр"
+            className="max-h-full max-w-full object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            className="absolute top-3 right-3 rounded-full bg-white/10 text-white p-2 hover:bg-white/20"
+            onClick={() => setViewingImage(null)}
+            title="Закрыть"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

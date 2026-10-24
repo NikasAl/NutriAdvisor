@@ -29,7 +29,7 @@ import type {
 } from '@/lib/types';
 import { DEFAULT_MED_TEST_PARAMS, computeTrend } from '@/lib/types';
 import { NutritionPrompts } from '@/lib/prompts';
-import { callLLM, callLLMStream, buildChatMessages } from '@/lib/llm-client';
+import { callLLM, callLLMStream, buildChatMessages, buildUserContentWithImages } from '@/lib/llm-client';
 import type { LLMMessage, ContentPart } from '@/lib/llm-client';
 import { SEED_PRODUCTS, SEED_DISHES, SEED_EXERCISES } from '@/data/seed-data';
 
@@ -187,7 +187,7 @@ interface AppState {
   _abortController: AbortController | null;
 
   // LLM interaction
-  sendChatMessage: (content: string, dateFrom: string, dateTo: string) => Promise<string>;
+  sendChatMessage: (content: string, dateFrom: string, dateTo: string, images?: string[]) => Promise<string>;
   computeContextSize: (dateFrom: string, dateTo: string) => number;
   analyzeFoodStream: (description?: string, imageBase64?: string, weight?: number, mealType?: string) => Promise<string>;
   analyzeFoodText: (description: string, weight?: number, mealType?: string) => Promise<string>;
@@ -1169,10 +1169,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       );
       set({ chatMessages: keptMessages });
 
-      // Build history from kept messages (exclude system)
-      const history: LLMMessage[] = keptMessages
-        .filter((m) => m.role !== 'system')
-        .slice(-20)
+      // Build history from kept messages (exclude system). The last kept message
+      // is the edited one — it goes as the current user message (with images if any).
+      const allNonSystem = keptMessages.filter((m) => m.role !== 'system');
+      const editedMsg = allNonSystem[allNonSystem.length - 1];
+      const history: LLMMessage[] = allNonSystem
+        .slice(0, -1)
+        .slice(-19)
         .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
       // Build system prompt
@@ -1194,7 +1197,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         : dataContext;
       systemPrompt += trimmedContext;
 
-      const llmMessages = buildChatMessages(systemPrompt, history, newContent);
+      // Pass images only when the provider supports vision — otherwise plain text
+      const editedImages = provider.supportsVision ? editedMsg?.imagesBase64 : undefined;
+      const userContent = buildUserContentWithImages(newContent, editedImages);
+      const llmMessages = buildChatMessages(systemPrompt, history, userContent);
 
       // Use streaming
       let finalContent = '';
@@ -1250,7 +1256,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ chatMessages: messages });
   },
 
-  sendChatMessage: async (content: string, dateFrom: string, dateTo: string): Promise<string> => {
+  sendChatMessage: async (content: string, dateFrom: string, dateTo: string, images?: string[]): Promise<string> => {
     const { currentChatId, chatMessages, profile, foodEntries, customGoals, diaryEntries } = get();
     const provider = get().getActiveProvider();
 
@@ -1267,12 +1273,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isSending: true, streamingContent: '', _abortController: abort });
 
     try {
-      // Save user message to DB and immediately show in chat
+      // Save user message to DB and immediately show in chat (images included)
       const userMsg: ChatMessage = {
         id: uuid(),
         sessionId,
         role: 'user',
         content,
+        imagesBase64: images && images.length > 0 ? images : undefined,
         createdAt: new Date(),
       };
       await db.chatMessages.add(userMsg);
@@ -1304,7 +1311,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         .slice(-20)
         .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
-      const llmMessages = buildChatMessages(systemPrompt, history, content);
+      // Pass images to LLM only when the provider supports vision — otherwise
+      // send plain text so non-vision providers are not broken
+      const imagesForLLM = provider.supportsVision ? images : undefined;
+      const userContent = buildUserContentWithImages(content, imagesForLLM);
+
+      const llmMessages = buildChatMessages(systemPrompt, history, userContent);
 
       // Use streaming
       let finalContent = '';
@@ -1332,10 +1344,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       };
       await db.chatMessages.add(assistantMsg);
 
-      // Update session
+      // Update session (fallback title when only an image was sent)
       await db.chatSessions.update(sessionId, {
         lastActivity: new Date(),
-        title: content.slice(0, 50),
+        title: (content.trim() || 'Изображение').slice(0, 50),
       });
 
       set((s) => ({

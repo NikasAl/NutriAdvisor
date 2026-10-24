@@ -150,6 +150,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   imageBase64?: string;
+  imagesBase64?: string[]; // chat attachments: compressed image data-URLs
   metadata?: Record<string, unknown>;
   createdAt: Date;
 }
