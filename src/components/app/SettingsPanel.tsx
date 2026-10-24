@@ -45,6 +45,7 @@ import type { LLMProvider, ProviderType } from '@/lib/types';
 import { testProvider } from '@/lib/llm-client';
 import { db } from '@/lib/db';
 import { isNativePlatform } from '@/lib/nativeHttp';
+import JSZip from 'jszip';
 
 const PRESETS: Record<ProviderType, { name: string; baseUrl: string; model: string; supportsVision: boolean; needsKey: boolean }> = {
   nuadvi: { name: 'NuAdvi Proxy', baseUrl: 'https://kreagenium.ru/nuadvi/v1', model: 'gemma-4', supportsVision: true, needsKey: false },
@@ -201,18 +202,25 @@ export default function SettingsPanel() {
         `${data.customGoals.length} целей`,
       ];
       const counts = parts.join(', ');
-      const fileName = `nutriadvisor-backup-${new Date().toISOString().split('T')[0]}.json`;
+      const dateStr = new Date().toISOString().split('T')[0];
+      const jsonName = `nutriadvisor-backup-${dateStr}.json`;
+      const zipName = `nutriadvisor-backup-${dateStr}.zip`;
+
+      // Pack JSON into zip
+      const zip = new JSZip();
+      zip.file(jsonName, json);
 
       if (isNativePlatform()) {
-        // Native: save file then share via Android share sheet
-        const { Filesystem, Directory, Encoding } = await import('@capacitor/filesystem');
+        // Native: generate zip as base64, save then share via Android share sheet
+        const { Filesystem, Directory } = await import('@capacitor/filesystem');
         const { Share } = await import('@capacitor/share');
 
+        const zipBase64 = await zip.generateAsync({ type: 'base64' });
+
         const result = await Filesystem.writeFile({
-          path: fileName,
-          data: json,
+          path: zipName,
+          data: zipBase64,
           directory: Directory.Cache,
-          encoding: Encoding.UTF8,
         });
 
         const uri = result.uri;
@@ -223,16 +231,16 @@ export default function SettingsPanel() {
         });
 
         // Clean up cached file after sharing
-        try { await Filesystem.deleteFile({ path: fileName, directory: Directory.Cache }); } catch {}
+        try { await Filesystem.deleteFile({ path: zipName, directory: Directory.Cache }); } catch {}
 
         setExportStatus(`Отправлено! ${counts}`);
       } else {
-        // Browser: download via <a> trick
-        const blob = new Blob([json], { type: 'application/json' });
+        // Browser: download zip via <a> trick
+        const blob = await zip.generateAsync({ type: 'blob' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = fileName;
+        a.download = zipName;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -251,8 +259,24 @@ export default function SettingsPanel() {
 
     setImportStatus('Импорт...');
     try {
-      const text = await file.text();
-      const data = JSON.parse(text);
+      let data: any;
+      const lowerName = file.name.toLowerCase();
+
+      if (lowerName.endsWith('.zip')) {
+        // Zip archive: extract JSON inside
+        const zip = await JSZip.loadAsync(file);
+        const jsonFiles = Object.keys(zip.files).filter(f => f.endsWith('.json') && !zip.files[f].dir);
+        if (jsonFiles.length === 0) {
+          throw new Error('В zip-архиве не найден JSON-файл');
+        }
+        // Use the first .json file found in the archive
+        const jsonText = await zip.files[jsonFiles[0]].async('string');
+        data = JSON.parse(jsonText);
+      } else {
+        // Plain JSON (backward compatibility)
+        const text = await file.text();
+        data = JSON.parse(text);
+      }
 
       // Validate structure
       if (!data.app || (data.app !== 'Дневник Здоровья' && data.app !== 'NutriAdvisor') || !data.version) {
@@ -803,7 +827,7 @@ export default function SettingsPanel() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".json"
+            accept=".json,.zip"
             className="hidden"
             onChange={handleImport}
           />
