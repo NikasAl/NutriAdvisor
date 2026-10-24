@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
-  UtensilsCrossed, MessageSquare, Target, TrendingUp, Zap, Moon, Brain, Heart, Flame, Plus, Minus, Droplets, Settings2, BedDouble, Trash2, CircleHelp,
+  UtensilsCrossed, MessageSquare, Target, TrendingUp, Zap, Moon, Brain, Heart, Flame, Plus, Minus, Droplets, Settings2, BedDouble, Trash2, CircleHelp, Dumbbell, BarChart,
 } from 'lucide-react';
 import { GOAL_LABELS } from '@/lib/types';
 import type { GoalType, SleepPeriod } from '@/lib/types';
@@ -432,18 +432,50 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
           <Button
             variant="outline"
             className="h-auto gap-2 py-3"
-            onClick={() => setActiveTab('food')}
+            onClick={() => setActiveTab('catalog')}
           >
             <UtensilsCrossed className="h-4 w-4 shrink-0" />
-            <span className="text-xs text-center leading-tight">Записать<br/>приём пищи</span>
+            <span className="text-xs text-center leading-tight">Добавить<br/>продукты и блюда</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="h-auto gap-2 py-3"
+            onClick={() => setActiveTab('diary')}
+          >
+            <Heart className="h-4 w-4 shrink-0" />
+            <span className="text-xs text-center leading-tight">Записать<br/>самочувствие/давление</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="h-auto gap-2 py-3"
+            onClick={() => setActiveTab('workout')}
+          >
+            <Dumbbell className="h-4 w-4 shrink-0" />
+            <span className="text-xs text-center leading-tight">Записать<br/>тренировку</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="h-auto gap-2 py-3"
+            onClick={() => setActiveTab('stats')}
+          >
+            <BarChart className="h-4 w-4 shrink-0" />
+            <span className="text-xs text-center leading-tight">Статистика<br/>по дням</span>
           </Button>
           <Button
             variant="outline"
             className="h-auto gap-2 py-3"
             onClick={() => setActiveTab('chat')}
           >
-            <MessageSquare className="h-4 w-4" />
-            <span className="text-xs">Спросить AI</span>
+            <MessageSquare className="h-4 w-4 shrink-0" />
+            <span className="text-xs text-center leading-tight">Спросить ИИ</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="h-auto gap-2 py-3"
+            onClick={() => setActiveTab('profile')}
+          >
+            <Settings2 className="h-4 w-4 shrink-0" />
+            <span className="text-xs text-center leading-tight">Заполнить<br/>профиль и цели</span>
           </Button>
         </CardContent>
       </Card>
