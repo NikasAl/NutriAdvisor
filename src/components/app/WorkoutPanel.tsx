@@ -484,6 +484,14 @@ export default function WorkoutPanel() {
       await addWorkoutEntry(entryData);
     }
     setIsWorkoutDialogOpen(false);
+    // Reset form fields after save
+    setEditingWorkout(null);
+    setWorkoutName('');
+    setWorkoutDate(today);
+    setWorkoutSets([makeBlankSet()]);
+    setWorkoutDuration('');
+    setWorkoutCalories('');
+    setAiAnalysis('');
   };
 
   // AI analysis
@@ -694,6 +702,13 @@ export default function WorkoutPanel() {
       await addDiaryEntry(data as Omit<DiaryEntry, 'id' | 'createdAt'>);
     }
     setIsActivityDialogOpen(false);
+    // Reset form fields after save
+    setEditingActivityId(null);
+    setActivityDesc('');
+    setActivityDuration('');
+    setActivityDate(today);
+    const now = new Date();
+    setActivityTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
   };
 
   return (

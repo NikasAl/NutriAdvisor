@@ -154,6 +154,7 @@ export default function DiaryPanel() {
       }
     }
     resetForm();
+    setIsAddOpen(false);
   };
 
   const handleEdit = (entry: DiaryEntry) => {
