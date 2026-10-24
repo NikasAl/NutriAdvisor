@@ -66,6 +66,7 @@ export default function SettingsPanel() {
   const loadFoodProducts = useAppStore((s) => s.loadFoodProducts);
   const loadDishes = useAppStore((s) => s.loadDishes);
   const loadCustomGoals = useAppStore((s) => s.loadCustomGoals);
+  const loadExercises = useAppStore((s) => s.loadExercises);
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
   const loadWaterLog = useAppStore((s) => s.loadWaterLog);
@@ -167,7 +168,7 @@ export default function SettingsPanel() {
     setExportStatus('Экспорт...');
     try {
       const data = {
-        version: 3,
+        version: 4,
         exportedAt: new Date().toISOString(),
         app: 'NutriAdvisor',
         providers: await db.providers.toArray(),
@@ -180,6 +181,7 @@ export default function SettingsPanel() {
         diaryEntries: await db.diaryEntries.toArray(),
         foodProducts: await db.foodProducts.toArray(),
         dishes: await db.dishes.toArray(),
+        exercises: await db.exercises.toArray(),
         waterLogs: await db.waterLogs.toArray(),
         sleepLogs: await db.sleepLogs.toArray(),
       };
@@ -190,6 +192,7 @@ export default function SettingsPanel() {
         `${data.foodEntries.length} записей еды`,
         `${data.foodProducts.length} продуктов`,
         `${data.dishes.length} блюд`,
+        `${data.exercises.length} упражнений`,
         `${data.diaryEntries.length} записей дневника`,
         `${data.waterLogs.length} записей воды`,
         `${data.sleepLogs.length} записей сна`,
@@ -336,6 +339,14 @@ export default function SettingsPanel() {
         }
       }
 
+      // Import exercises
+      if (Array.isArray(data.exercises)) {
+        await db.exercises.clear();
+        for (const e of data.exercises) {
+          await db.exercises.put({ ...e, createdAt: new Date(e.createdAt) });
+        }
+      }
+
       // Import water logs
       if (Array.isArray(data.waterLogs)) {
         await db.waterLogs.clear();
@@ -357,6 +368,7 @@ export default function SettingsPanel() {
       if (data.foodEntries) parts.push(`${data.foodEntries.length} записей еды`);
       if (data.foodProducts) parts.push(`${data.foodProducts.length} продуктов`);
       if (data.dishes) parts.push(`${data.dishes.length} блюд`);
+      if (data.exercises) parts.push(`${data.exercises.length} упражнений`);
       if (data.diaryEntries) parts.push(`${data.diaryEntries.length} записей дневника`);
       if (data.waterLogs) parts.push(`${data.waterLogs.length} записей воды`);
       if (data.sleepLogs) parts.push(`${data.sleepLogs.length} записей сна`);
@@ -374,6 +386,7 @@ export default function SettingsPanel() {
         loadDiaryEntries(),
         loadFoodProducts(),
         loadDishes(),
+        loadExercises(),
         loadCustomGoals(),
         loadWaterLog(today),
         loadSleepLog(today),
