@@ -24,7 +24,6 @@ function Illustration({
 }) {
   return (
     <div className={`relative w-full rounded-xl overflow-hidden ${className}`}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src}
         alt={alt}

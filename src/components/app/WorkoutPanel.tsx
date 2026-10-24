@@ -377,8 +377,12 @@ export default function WorkoutPanel() {
 
   useEffect(() => { loadWorkoutEntries(); }, [loadWorkoutEntries]);
 
-  // Reset page when entries change
-  useEffect(() => { setPage(0); }, [workoutEntries]);
+  // Reset page when entries change (derive during render instead of effect)
+  const [workoutEntriesAtPage, setWorkoutEntriesAtPage] = useState(workoutEntries);
+  if (workoutEntriesAtPage !== workoutEntries) {
+    setWorkoutEntriesAtPage(workoutEntries);
+    setPage(0);
+  }
 
   const today = new Date().toISOString().split('T')[0];
   const todayEntries = workoutEntries.filter((e) => e.date === today);

@@ -36,14 +36,17 @@ export default function Home() {
   const loadExercises = useAppStore((s) => s.loadExercises);
   const loadWorkoutEntries = useAppStore((s) => s.loadWorkoutEntries);
   const seedExerciseCatalog = useAppStore((s) => s.seedExerciseCatalog);
-  const [showHelp, setShowHelp] = useState<HelpSection | false>(false);
+  const [showHelp, setShowHelp] = useState<HelpSection | false>(() => {
+    if (typeof window !== 'undefined' && !localStorage.getItem('nutri-help-shown')) return 'about';
+    return false;
+  });
 
-  // Show help on first launch (after hydration)
-  useEffect(() => {
-    if (!localStorage.getItem('nutri-help-shown')) {
-      setShowHelp('about');
-    }
-  }, []);
+  // Close help when switching tabs (derive during render instead of effect)
+  const [helpTab, setHelpTab] = useState(activeTab);
+  if (showHelp && helpTab !== activeTab) {
+    setShowHelp(false);
+    setHelpTab(activeTab);
+  }
 
   useEffect(() => {
     loadProviders();
@@ -120,11 +123,6 @@ export default function Home() {
       window.removeEventListener('focus', onFocus);
     };
   }, [loadWaterLog, loadSleepLog]);
-
-  // Close help/privacy overlay when switching tabs
-  useEffect(() => {
-    if (showHelp) setShowHelp(false);
-  }, [activeTab]);
 
   const openHelp = (section: HelpSection = 'about') => {
     setShowHelp(section);

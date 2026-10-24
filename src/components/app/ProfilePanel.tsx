@@ -64,9 +64,12 @@ export default function ProfilePanel() {
     loadCustomGoals();
   }, [loadProfile, loadCustomGoals]);
 
-  useEffect(() => {
+  // Sync local profile when store profile changes (derive during render instead of effect)
+  const [profileAtLocal, setProfileAtLocal] = useState(profile);
+  if (profileAtLocal !== profile) {
+    setProfileAtLocal(profile);
     setLocalProfile(profile);
-  }, [profile]);
+  }
 
   const toggleGoal = (goal: GoalType) => {
     const goals = [...localProfile.goals];

@@ -114,8 +114,12 @@ export default function DiaryPanel() {
   const totalPages = Math.max(1, Math.ceil(olderEntries.length / PAGE_SIZE));
   const paginatedGroups = useMemo(() => olderEntries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [olderEntries, page]);
 
-  // Reset page when entries change
-  useMemo(() => { setPage(0); }, [visibleEntries.length]);
+  // Reset page when entries change (derive during render instead of useMemo)
+  const [entriesLenAtPage, setEntriesLenAtPage] = useState(visibleEntries.length);
+  if (entriesLenAtPage !== visibleEntries.length) {
+    setEntriesLenAtPage(visibleEntries.length);
+    setPage(0);
+  }
 
   const resetForm = () => {
     setEditingId(null);

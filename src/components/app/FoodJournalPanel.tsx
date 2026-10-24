@@ -201,12 +201,14 @@ export default function FoodJournalPanel() {
     return expandDishItems(entryItems);
   }, [expandDishItems]);
 
-  // Update description when items change
-  React.useEffect(() => {
+  // Update description when items change (derive during render instead of effect)
+  const [itemsAtDesc, setItemsAtDesc] = useState(items);
+  if (itemsAtDesc !== items) {
+    setItemsAtDesc(items);
     if (items.length > 0) {
       setDescription(generateDescription(items));
     }
-  }, [items, generateDescription]);
+  }
 
   const addItem = (productId: string, productName: string) => {
     setItems([...items, { productId, name: productName, weightGrams: 100 }]);

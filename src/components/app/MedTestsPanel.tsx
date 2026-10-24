@@ -215,12 +215,10 @@ export default function MedTestsPanel() {
     loadMedTestMeasures();
   }, [loadMedTestParams, loadMedTestMeasures]);
 
-  // Auto-select first param
-  useEffect(() => {
-    if (!selectedParamId && medTestParams.length > 0) {
-      setSelectedParamId(medTestParams[0].id);
-    }
-  }, [medTestParams, selectedParamId]);
+  // Auto-select first param (derive during render instead of effect)
+  if (!selectedParamId && medTestParams.length > 0) {
+    setSelectedParamId(medTestParams[0].id);
+  }
 
   const selectedParam = medTestParams.find((p) => p.id === selectedParamId) ?? null;
 
