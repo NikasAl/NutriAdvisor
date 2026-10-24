@@ -429,7 +429,7 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
         <CardHeader className="pb-2 pt-4 px-4">
           <CardTitle className="text-sm">Быстрые действия</CardTitle>
         </CardHeader>
-        <CardContent className="px-4 pb-4 grid grid-cols-2 gap-2 items-center">
+        <CardContent className="px-4 pb-4 grid grid-cols-2 gap-2">
           <Button
             variant="outline"
             className="h-auto gap-2 py-2.5"
