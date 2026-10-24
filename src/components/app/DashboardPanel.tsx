@@ -432,51 +432,51 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
         <CardContent className="px-4 pb-4 grid grid-cols-2 gap-2">
           <Button
             variant="outline"
-            className="h-auto gap-2 py-4"
+            className="h-auto gap-2 py-2.5"
             onClick={() => setActiveTab('catalog')}
           >
             <UtensilsCrossed className="h-4 w-4 shrink-0" />
-            <span className="flex flex-1 flex-col items-center justify-center break-words min-h-[45px] text-xs leading-tight">Добавить<br/>продукты и блюда</span>
+            <span className="flex flex-1 flex-col items-center justify-center break-words text-xs leading-tight whitespace-normal min-w-0">Добавить продукты и блюда</span>
           </Button>
           <Button
             variant="outline"
-            className="h-auto gap-2 py-4"
+            className="h-auto gap-2 py-2.5"
             onClick={() => setActiveTab('diary')}
           >
             <Heart className="h-4 w-4 shrink-0" />
-            <span className="flex flex-1 flex-col items-center justify-center break-words min-h-[45px] text-xs leading-tight">Записать<br/>самочувствие/давление</span>
+            <span className="flex flex-1 flex-col items-center justify-center break-words text-xs leading-tight whitespace-normal min-w-0">Записать самочувствие/давление</span>
           </Button>
           <Button
             variant="outline"
-            className="h-auto gap-2 py-4"
+            className="h-auto gap-2 py-2.5"
             onClick={() => setActiveTab('workout')}
           >
             <Dumbbell className="h-4 w-4 shrink-0" />
-            <span className="flex flex-1 flex-col items-center justify-center break-words min-h-[45px] text-xs leading-tight">Записать<br/>тренировку</span>
+            <span className="flex flex-1 flex-col items-center justify-center break-words text-xs leading-tight whitespace-normal min-w-0">Записать тренировку</span>
           </Button>
           <Button
             variant="outline"
-            className="h-auto gap-2 py-4"
+            className="h-auto gap-2 py-2.5"
             onClick={() => setActiveTab('stats')}
           >
             <BarChart className="h-4 w-4 shrink-0" />
-            <span className="flex flex-1 flex-col items-center justify-center break-words min-h-[45px] text-xs leading-tight">Статистика<br/>по дням</span>
+            <span className="flex flex-1 flex-col items-center justify-center break-words text-xs leading-tight whitespace-normal min-w-0">Статистика по дням</span>
           </Button>
           <Button
             variant="outline"
-            className="h-auto gap-2 py-4"
+            className="h-auto gap-2 py-2.5"
             onClick={() => setActiveTab('chat')}
           >
             <MessageSquare className="h-4 w-4 shrink-0" />
-            <span className="flex flex-1 flex-col items-center justify-center break-words min-h-[45px] text-xs leading-tight">Спросить ИИ</span>
+            <span className="flex flex-1 flex-col items-center justify-center break-words text-xs leading-tight whitespace-normal min-w-0">Спросить ИИ</span>
           </Button>
           <Button
             variant="outline"
-            className="h-auto gap-2 py-4"
+            className="h-auto gap-2 py-2.5"
             onClick={() => setActiveTab('profile')}
           >
             <Settings2 className="h-4 w-4 shrink-0" />
-            <span className="flex flex-1 flex-col items-center justify-center break-words min-h-[45px] text-xs leading-tight">Заполнить<br/>профиль и цели</span>
+            <span className="flex flex-1 flex-col items-center justify-center break-words text-xs leading-tight whitespace-normal min-w-0">Заполнить профиль и цели</span>
           </Button>
         </CardContent>
       </Card>
