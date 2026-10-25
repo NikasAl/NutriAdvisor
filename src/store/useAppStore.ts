@@ -66,6 +66,10 @@ interface AppState {
   theme: 'light' | 'dark' | 'system';
   setTheme: (theme: 'light' | 'dark' | 'system') => void;
 
+  // TTS (text-to-speech)
+  ttsEnabled: boolean;
+  setTtsEnabled: (enabled: boolean) => void;
+
   // Providers
   providers: LLMProvider[];
   activeProviderId: string | null;
@@ -495,6 +499,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (meta) {
       meta.setAttribute('content', isDark ? '#171717' : '#059669');
     }
+  },
+
+  // TTS — read from localStorage, default false (off)
+  ttsEnabled: typeof window !== 'undefined' ? localStorage.getItem('nutri-tts-enabled') === 'true' : false,
+  setTtsEnabled: (enabled) => {
+    set({ ttsEnabled: enabled });
+    localStorage.setItem('nutri-tts-enabled', String(enabled));
   },
 
   // Providers

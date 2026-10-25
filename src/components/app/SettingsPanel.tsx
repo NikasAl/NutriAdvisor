@@ -40,12 +40,13 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Pencil, Key, Zap, Eye, Loader2, CheckCircle2, XCircle, Wifi, Download, Upload, X, ListChecks, Share2, Sun, Moon, Monitor } from 'lucide-react';
+import { Plus, Trash2, Pencil, Key, Zap, Eye, Loader2, CheckCircle2, XCircle, Wifi, Download, Upload, X, ListChecks, Share2, Sun, Moon, Monitor, Volume2, VolumeX } from 'lucide-react';
 import type { LLMProvider, ProviderType } from '@/lib/types';
 import { testProvider } from '@/lib/llm-client';
 import { db } from '@/lib/db';
 import { isNativePlatform } from '@/lib/nativeHttp';
 import JSZip from 'jszip';
+import { isTTSAvailable, testTTS, cancel as ttsCancel } from '@/lib/tts';
 
 const PRESETS: Record<ProviderType, { name: string; baseUrl: string; model: string; supportsVision: boolean; needsKey: boolean }> = {
   nuadvi: { name: 'NuAdvi Proxy', baseUrl: 'https://kreagenium.ru/nuadvi/v1', model: 'gemma-4', supportsVision: true, needsKey: false },
@@ -72,6 +73,8 @@ export default function SettingsPanel() {
   const loadWorkoutDraft = useAppStore((s) => s.loadWorkoutDraft);
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
+  const ttsEnabled = useAppStore((s) => s.ttsEnabled);
+  const setTtsEnabled = useAppStore((s) => s.setTtsEnabled);
   const loadWaterLog = useAppStore((s) => s.loadWaterLog);
   const loadSleepLog = useAppStore((s) => s.loadSleepLog);
   const addProvider = useAppStore((s) => s.addProvider);
@@ -85,6 +88,10 @@ export default function SettingsPanel() {
   // Test provider state
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ providerId: string; ok: boolean; message: string } | null>(null);
+
+  // TTS test state
+  const [ttsTesting, setTtsTesting] = useState(false);
+  const [ttsTestResult, setTtsTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   // Export / Import state
   const [exportStatus, setExportStatus] = useState('');
@@ -816,6 +823,94 @@ export default function SettingsPanel() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* TTS (Text-to-Speech) */}
+      <div className="border-t pt-4 mt-6">
+        <h2 className="text-lg font-semibold">Озвучивание (TTS)</h2>
+        <p className="text-sm text-muted-foreground mt-1 mb-3">
+          Синтез речи для ИИ-анализов. Позволяет прослушивать текст анализа вслух.
+        </p>
+
+        <div className="flex items-center gap-3 mb-3">
+          <Switch
+            checked={ttsEnabled}
+            onCheckedChange={(checked) => {
+              setTtsEnabled(checked);
+              if (!checked) {
+                ttsCancel();
+                setTtsTestResult(null);
+              }
+            }}
+          />
+          <Label className="text-sm">
+            {ttsEnabled ? 'Включено' : 'Выключено'}
+          </Label>
+          {ttsEnabled ? (
+            <Volume2 className="h-4 w-4 text-emerald-600" />
+          ) : (
+            <VolumeX className="h-4 w-4 text-muted-foreground" />
+          )}
+        </div>
+
+        {ttsEnabled && (
+          <div className="space-y-2">
+            {!isTTSAvailable() ? (
+              <div className="flex items-start gap-2 rounded-md p-2 bg-destructive/10 text-destructive text-xs">
+                <XCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <span>Web Speech API недоступен в этом браузере. Озвучивание работать не будет.</span>
+              </div>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={async () => {
+                    setTtsTesting(true);
+                    setTtsTestResult(null);
+                    const result = await testTTS();
+                    setTtsTestResult(result);
+                    setTtsTesting(false);
+                  }}
+                  disabled={ttsTesting}
+                >
+                  {ttsTesting ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Проверяю…
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="h-3.5 w-3.5" />
+                      Проверить синтез речи
+                    </>
+                  )}
+                </Button>
+
+                {ttsTestResult && (
+                  <div className={`flex items-start gap-2 rounded-md p-2 text-xs ${
+                    ttsTestResult.ok
+                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
+                      : 'bg-destructive/10 text-destructive'
+                  }`}>
+                    {ttsTestResult.ok
+                      ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      : <XCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                    }
+                    <span>{ttsTestResult.message}</span>
+                  </div>
+                )}
+
+                {!ttsTestResult && !ttsTesting && (
+                  <p className="text-xs text-muted-foreground">
+                    Нажмите «Проверить» для проверки доступности русского голоса и тестового воспроизведения.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Data Export / Import */}

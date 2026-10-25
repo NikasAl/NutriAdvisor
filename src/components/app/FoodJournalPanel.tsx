@@ -41,6 +41,7 @@ import {
 import type { MealType, FoodEntry, FoodEntryItem } from '@/lib/types';
 import { MEAL_LABELS } from '@/lib/types';
 import MarkdownRenderer from '@/components/ui/markdown-renderer';
+import TTSButton from '@/components/ui/TTSButton';
 
 /** Parse numeric KBJU from AI analysis text */
 function parseNutritionFromText(text: string) {
@@ -100,6 +101,7 @@ export default function FoodJournalPanel() {
   const waterLog = useAppStore((s) => s.waterLog);
   const waterGlassMl = useAppStore((s) => s.waterGlassMl);
   const addWaterGlass = useAppStore((s) => s.addWaterGlass);
+  const ttsEnabled = useAppStore((s) => s.ttsEnabled);
   const removeWaterGlass = useAppStore((s) => s.removeWaterGlass);
   const sleepLog = useAppStore((s) => s.sleepLog);
   const activeProvider = useAppStore((s) => {
@@ -392,7 +394,10 @@ export default function FoodJournalPanel() {
           </div>
           {isExpanded && entry.aiAnalysis && (
             <div className="mt-3 rounded-md bg-muted/50 p-3 text-xs leading-relaxed border border-border/50">
-              <p className="mb-1 font-semibold text-muted-foreground">Анализ AI:</p>
+              <div className="flex items-center gap-1.5 mb-1">
+                <p className="font-semibold text-muted-foreground">Анализ AI:</p>
+                <TTSButton text={entry.aiAnalysis} enabled={ttsEnabled} />
+              </div>
               <MarkdownRenderer content={entry.aiAnalysis} className="text-foreground" />
             </div>
           )}
@@ -607,7 +612,10 @@ export default function FoodJournalPanel() {
             </Button>
             {(streamingAnalysis || analysisResult) && (
               <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 p-3 text-xs">
-                <p className="mb-1 font-semibold text-emerald-700 dark:text-emerald-400">{isSending ? 'Анализ AI (стриминг):' : 'Результат анализа:'}</p>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <p className="font-semibold text-emerald-700 dark:text-emerald-400">{isSending ? 'Анализ AI (стриминг):' : 'Результат анализа:'}</p>
+                  {!isSending && <TTSButton text={analysisResult} enabled={ttsEnabled} />}
+                </div>
                 <MarkdownRenderer content={streamingAnalysis || analysisResult} className="text-foreground" />
               </div>
             )}

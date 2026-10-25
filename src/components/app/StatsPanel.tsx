@@ -11,6 +11,7 @@ import { computeTrend } from '@/lib/types';
 import { db } from '@/lib/db';
 import type { WaterLog, SleepLog } from '@/lib/types';
 import MarkdownRenderer from '@/components/ui/markdown-renderer';
+import TTSButton from '@/components/ui/TTSButton';
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -157,6 +158,7 @@ export default function StatsPanel() {
   const analyzeWorkoutStream = useAppStore((s) => s.analyzeWorkoutStream);
   const isSending = useAppStore((s) => s.isSending);
   const streamingAnalysis = useAppStore((s) => s.streamingAnalysis);
+  const ttsEnabled = useAppStore((s) => s.ttsEnabled);
 
   const buildMedTestSummary = useAppStore((s) => s.buildMedTestSummary);
   const medTestParams = useAppStore((s) => s.medTestParams);
@@ -639,6 +641,10 @@ ${buildMedTestSummary() || 'Нет данных'}
                     </button>
                     {isEvalExpanded && (
                       <div className="mt-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 p-2 border border-emerald-200 dark:border-emerald-800/40 text-xs">
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="font-medium text-emerald-700 dark:text-emerald-400">Оценка дня</span>
+                          <TTSButton text={dayEvals[day.date]} enabled={ttsEnabled} />
+                        </div>
                         <MarkdownRenderer content={dayEvals[day.date]} className="text-xs" />
                       </div>
                     )}

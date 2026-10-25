@@ -43,6 +43,7 @@ import {
 import type { ExerciseCategory, WorkoutEntry, WorkoutSet, DiaryEntry } from '@/lib/types';
 import { EXERCISE_CATEGORY_LABELS } from '@/lib/types';
 import MarkdownRenderer from '@/components/ui/markdown-renderer';
+import TTSButton from '@/components/ui/TTSButton';
 import {
   DndContext,
   closestCenter,
@@ -338,6 +339,7 @@ export default function WorkoutPanel() {
   const isSending = useAppStore((s) => s.isSending);
   const streamingAnalysis = useAppStore((s) => s.streamingAnalysis);
   const profile = useAppStore((s) => s.profile);
+  const ttsEnabled = useAppStore((s) => s.ttsEnabled);
 
   // Activity diary entries (moved from Diary page)
   const diaryEntries = useAppStore((s) => s.diaryEntries);
@@ -1051,6 +1053,7 @@ export default function WorkoutPanel() {
                     <div className="flex items-center gap-1 mb-1.5">
                       <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
                       <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">ИИ-анализ</span>
+                      <TTSButton text={entry.aiAnalysis} enabled={ttsEnabled} />
                     </div>
                     <MarkdownRenderer content={entry.aiAnalysis} className="text-xs" />
                   </div>
@@ -1226,6 +1229,7 @@ export default function WorkoutPanel() {
                         <div className="flex items-center gap-1 mb-1.5">
                           <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
                           <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">ИИ-анализ</span>
+                          <TTSButton text={entry.aiAnalysis} enabled={ttsEnabled} />
                         </div>
                         <MarkdownRenderer content={entry.aiAnalysis} className="text-xs" />
                       </div>
@@ -1520,6 +1524,10 @@ export default function WorkoutPanel() {
               )}
               {aiAnalysis && !isAnalyzing && !isSending && (
                 <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 p-2 border border-emerald-200 dark:border-emerald-800/40 text-xs">
+                  <div className="flex items-center gap-1 mb-1">
+                    <span className="font-medium text-emerald-700 dark:text-emerald-400">ИИ-анализ</span>
+                    <TTSButton text={aiAnalysis} enabled={ttsEnabled} />
+                  </div>
                   <MarkdownRenderer content={aiAnalysis} />
                 </div>
               )}
