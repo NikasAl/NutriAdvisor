@@ -4,7 +4,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Volume2, VolumeX, Pause } from 'lucide-react';
 import { useTTS } from '@/hooks/useTTS';
-import type { TTSState } from '@/lib/tts';
+import { getSourceId as ttsGetSourceId, type TTSState } from '@/lib/tts';
 
 export interface TTSButtonProps {
   /** Markdown text to speak */
@@ -13,6 +13,10 @@ export interface TTSButtonProps {
   rate?: number;
   /** Whether TTS is enabled in settings (controls disabled state) */
   enabled?: boolean;
+  /** Optional identity of this button (e.g. message id). When several
+   *  TTS buttons are visible at once (chat), only the button that owns
+   *  the current speech shows play/pause state; all others stay idle. */
+  sourceId?: string;
   /** Additional className for the button */
   className?: string;
 }
@@ -20,7 +24,7 @@ export interface TTSButtonProps {
 const BTN_CLASSES = 'h-6 w-6 p-0';
 
 /**
- * Compact TTS toggle button for AI analysis blocks.
+ * Compact TTS toggle button for AI analysis blocks and chat messages.
  *
  * Icons:
  * - idle → Volume2 (click to play)
@@ -29,8 +33,13 @@ const BTN_CLASSES = 'h-6 w-6 p-0';
  *
  * When disabled (TTS off in settings), shows VolumeX with tooltip.
  */
-export default function TTSButton({ text, rate, enabled = true, className }: TTSButtonProps) {
-  const { state, toggle } = useTTS(text, { rate });
+export default function TTSButton({ text, rate, enabled = true, sourceId, className }: TTSButtonProps) {
+  const { state, play, toggle } = useTTS(text, { rate, sourceId });
+
+  // With sourceId set, reflect the global TTS state only when this button
+  // owns the current speech; otherwise always show the idle (play) icon.
+  const ownsSpeech = !sourceId || ttsGetSourceId() === sourceId;
+  const effectiveState: TTSState = ownsSpeech ? state : 'idle';
 
   if (!enabled) {
     return (
@@ -67,7 +76,7 @@ export default function TTSButton({ text, rate, enabled = true, className }: TTS
   };
 
   const titleMap: Record<TTSState, string> = {
-    idle: 'Озвучить анализ',
+    idle: 'Озвучить',
     playing: 'Пауза',
     paused: 'Продолжить озвучивание',
   };
@@ -82,11 +91,11 @@ export default function TTSButton({ text, rate, enabled = true, className }: TTS
     <Button
       variant="ghost"
       size="sm"
-      className={`${BTN_CLASSES} ${colorClass[state]} ${className ?? ''}`}
-      onClick={toggle}
-      title={titleMap[state]}
+      className={`${BTN_CLASSES} ${colorClass[effectiveState]} ${className ?? ''}`}
+      onClick={() => (ownsSpeech ? toggle() : play())}
+      title={titleMap[effectiveState]}
     >
-      {iconMap[state]}
+      {iconMap[effectiveState]}
     </Button>
   );
 }

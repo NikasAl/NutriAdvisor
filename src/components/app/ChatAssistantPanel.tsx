@@ -21,6 +21,7 @@ import {
   Check, X, Pencil, Square, Sparkles, Calendar, Paperclip,
 } from 'lucide-react';
 import MarkdownRenderer from '@/components/ui/markdown-renderer';
+import TTSButton from '@/components/ui/TTSButton';
 import { compressImageFile } from '@/lib/image-utils';
 import type { ChatSession } from '@/lib/types';
 
@@ -83,6 +84,7 @@ export default function ChatAssistantPanel() {
   const stopStreaming = useAppStore((s) => s.stopStreaming);
   const streamingContent = useAppStore((s) => s.streamingContent);
   const computeContextSize = useAppStore((s) => s.computeContextSize);
+  const ttsEnabled = useAppStore((s) => s.ttsEnabled);
 
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
@@ -554,6 +556,13 @@ export default function ChatAssistantPanel() {
                           >
                             <Pencil className="h-3 w-3" />
                           </button>
+                        )}
+                        {msg.role === 'assistant' && (
+                          <TTSButton
+                            text={msg.content}
+                            enabled={ttsEnabled}
+                            sourceId={msg.id}
+                          />
                         )}
                       </div>
                     </div>

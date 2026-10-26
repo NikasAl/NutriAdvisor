@@ -26,6 +26,10 @@ export type TTSState = 'idle' | 'playing' | 'paused';
 
 export interface TTSOptions {
   rate?: number;          // 0.1 – 10, default 1
+  /** Optional identity of the speech initiator (e.g. message id).
+   *  When several TTS buttons are visible at once (chat), each button can
+   *  ask getSourceId() to know whether the current speech is its own. */
+  sourceId?: string;
   onFragmentStart?: (index: number, total: number, text: string) => void;
   onStateChange?: (state: TTSState) => void;
 }
@@ -45,6 +49,7 @@ export interface TTSEnvironment {
 let _state: TTSState = 'idle';
 let _currentText: string = '';
 let _options: TTSOptions = {};
+let _sourceId: string | null = null;
 let _fragments: string[] = [];
 let _currentFragmentIdx = 0;
 let _listeners: Array<() => void> = [];
@@ -394,6 +399,7 @@ export function speak(text: string, options?: TTSOptions): void {
 
   _currentText = text;
   _options = options ?? {};
+  _sourceId = _options.sourceId ?? null;
   const plainText = stripMarkdown(text);
   _fragments = splitForSpeech(plainText);
 
@@ -557,6 +563,7 @@ export function cancel(): void {
     _currentText = '';
     _fragments = [];
     _currentFragmentIdx = 0;
+    _sourceId = null;
     setState('idle');
     return;
   }
@@ -565,6 +572,7 @@ export function cancel(): void {
   _currentText = '';
   _fragments = [];
   _currentFragmentIdx = 0;
+  _sourceId = null;
   setState('idle');
 }
 
@@ -573,6 +581,15 @@ export function cancel(): void {
  */
 export function getState(): TTSState {
   return _state;
+}
+
+/**
+ * Get the sourceId of the current speech (who initiated it), or null.
+ * Lets multiple visible TTS buttons (e.g. chat messages) show the
+ * play/pause state only on the button that owns the current speech.
+ */
+export function getSourceId(): string | null {
+  return _sourceId;
 }
 
 /**
