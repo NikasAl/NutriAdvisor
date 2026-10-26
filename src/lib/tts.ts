@@ -152,6 +152,51 @@ export function isTTSAvailable(): boolean {
 }
 
 /**
+ * Detect the runtime environment for TTS diagnostics.
+ * Returns an object with platform info and a hint for the user.
+ */
+export function detectTTSEnvironment(): {
+  platform: string;
+  isCapacitor: boolean;
+  hint: string;
+} {
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+  const isCapacitor = typeof window !== 'undefined' && !!(window as any).Capacitor?.isNativePlatform?.();
+  const isAndroid = /Android/i.test(ua);
+  const isIOS = /iPhone|iPad|iPod/i.test(ua);
+  const isFirefox = /Firefox/i.test(ua);
+  const isChrome = /Chrome/i.test(ua) && !/Edge|OPR/i.test(ua);
+
+  let platform: string;
+  let hint: string;
+
+  if (isCapacitor && isAndroid) {
+    platform = 'Android (Capacitor)';
+    hint = 'Откройте настройки устройства → Язык и ввод → Синтез речи → убедитесь, что движок Google выбран и данные русского языка скачаны.';
+  } else if (isCapacitor && isIOS) {
+    platform = 'iOS (Capacitor)';
+    hint = 'iOS поддерживает синтез речи встроенно. Если голос не работает, проверьте Настройки → Универсальный доступ → Произносимый контент.';
+  } else if (isAndroid) {
+    platform = 'Android (браузер)';
+    hint = 'Убедитесь, что в настройках устройства выбран TTS-движок (Google) и скачаны данные русского языка: Настройки → Язык и ввод → Синтез речи.';
+  } else if (isIOS) {
+    platform = 'iOS (браузер)';
+    hint = 'iOS Safari поддерживает синтез речи. Проверьте Настройки → Универсальный доступ → Произносимый контент.';
+  } else if (isFirefox) {
+    platform = 'Firefox';
+    hint = 'Firefox поддерживает синтез речи, но голоса зависят от ОС. Убедитесь, что в системе установлен русский голос.';
+  } else if (isChrome) {
+    platform = 'Chrome';
+    hint = 'Chrome поддерживает синтез речи через системный TTS-движок. Убедитесь, что в ОС доступен русский голос.';
+  } else {
+    platform = 'Неизвестный';
+    hint = 'Проверьте, поддерживает ли ваш браузер Web Speech API (speechSynthesis).';
+  }
+
+  return { platform, isCapacitor, hint };
+}
+
+/**
  * Check if a Russian voice is available.
  * Voices may load asynchronously, so this can return false initially
  * and become true later. Use waitForVoices() for a reliable check.
@@ -214,17 +259,22 @@ export function waitForRussianVoice(timeoutMs = 2000): Promise<boolean> {
  */
 export async function testTTS(): Promise<{ ok: boolean; message: string }> {
   if (!isTTSAvailable()) {
-    return { ok: false, message: 'Web Speech API недоступен в этом браузере' };
+    const env = detectTTSEnvironment();
+    return { ok: false, message: `Синтез речи недоступен. Окружение: ${env.platform}. ${env.hint}` };
   }
 
   const hasRu = await waitForRussianVoice(1500);
   if (!hasRu) {
     const voices = window.speechSynthesis.getVoices();
+    const env = detectTTSEnvironment();
+    const androidHint = env.isCapacitor || /Android/i.test(navigator.userAgent)
+      ? ' На Android: Настройки → Язык и ввод → Синтез речи → скачайте данные русского языка.'
+      : '';
     return {
       ok: false,
       message: voices.length === 0
-        ? 'Голоса не загружены. Проверьте настройки TTS устройства.'
-        : `Русский голос не найден. Доступны: ${voices.slice(0, 3).map((v) => v.lang).join(', ')}${voices.length > 3 ? '...' : ''}`,
+        ? `Голоса не загружены.${androidHint || ' Проверьте настройки TTS устройства.'}`
+        : `Русский голос не найден. Доступны: ${voices.slice(0, 3).map((v) => v.lang).join(', ')}${voices.length > 3 ? '...' : ''}${androidHint}`,
     };
   }
 

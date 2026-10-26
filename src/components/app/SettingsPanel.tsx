@@ -46,7 +46,7 @@ import { testProvider } from '@/lib/llm-client';
 import { db } from '@/lib/db';
 import { isNativePlatform } from '@/lib/nativeHttp';
 import JSZip from 'jszip';
-import { isTTSAvailable, testTTS, cancel as ttsCancel } from '@/lib/tts';
+import { isTTSAvailable, testTTS, cancel as ttsCancel, detectTTSEnvironment } from '@/lib/tts';
 
 const PRESETS: Record<ProviderType, { name: string; baseUrl: string; model: string; supportsVision: boolean; needsKey: boolean }> = {
   nuadvi: { name: 'NuAdvi Proxy', baseUrl: 'https://kreagenium.ru/nuadvi/v1', model: 'gemma-4', supportsVision: true, needsKey: false },
@@ -92,6 +92,17 @@ export default function SettingsPanel() {
   // TTS test state
   const [ttsTesting, setTtsTesting] = useState(false);
   const [ttsTestResult, setTtsTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  // Client-only TTS info (null = not yet resolved, avoids SSR false-negative)
+  const [ttsClientInfo, setTtsClientInfo] = useState<{
+    avail: boolean;
+    env: { platform: string; isCapacitor: boolean; hint: string };
+  } | null>(null);
+
+  // Detect TTS availability on client (after mount) — avoids SSR false-negative
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- legitimate SSR hydration: must detect window APIs after mount
+    setTtsClientInfo({ avail: isTTSAvailable(), env: detectTTSEnvironment() });
+  }, []);
 
   // Export / Import state
   const [exportStatus, setExportStatus] = useState('');
@@ -855,12 +866,18 @@ export default function SettingsPanel() {
 
         {ttsEnabled && (
           <div className="space-y-2">
-            {!isTTSAvailable() ? (
-              <div className="flex items-start gap-2 rounded-md p-2 bg-destructive/10 text-destructive text-xs">
-                <XCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                <span>Web Speech API недоступен в этом браузере. Озвучивание работать не будет.</span>
+            {ttsClientInfo && !ttsClientInfo.avail ? (
+              <div className="space-y-2">
+                <div className="flex items-start gap-2 rounded-md p-2 bg-destructive/10 text-destructive text-xs">
+                  <XCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <span>Синтез речи (Web Speech API) недоступен в этом окружении.</span>
+                    <span className="block text-muted-foreground">Окружение: {ttsClientInfo.env.platform}</span>
+                    <span className="block">{ttsClientInfo.env.hint}</span>
+                  </div>
+                </div>
               </div>
-            ) : (
+            ) : ttsClientInfo && ttsClientInfo.avail ? (
               <>
                 <Button
                   variant="outline"
@@ -908,7 +925,7 @@ export default function SettingsPanel() {
                   </p>
                 )}
               </>
-            )}
+            ) : null}
           </div>
         )}
       </div>
