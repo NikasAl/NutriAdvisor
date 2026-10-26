@@ -332,14 +332,18 @@ public class NativeTTSPlugin extends Plugin {
     /**
      * List installed TTS engines on the device.
      * Each engine has: name (package name), label (human-readable).
+     *
+     * Note: getEngines() is an INSTANCE method on TextToSpeech (not static),
+     * so we go through withTts() to ensure a TTS instance is available.
+     * The returned list is the same regardless of which engine the instance
+     * is connected to — it enumerates all installed TTS engines on the device.
      */
     @PluginMethod()
     public void getEngines(final PluginCall call) {
-        getActivity().runOnUiThread(() -> {
+        withTts(call, engine -> {
             JSArray engines = new JSArray();
             try {
-                // TextToSpeech.engines() is a static method available since API 14.
-                List<TextToSpeech.EngineInfo> engineList = TextToSpeech.engines();
+                List<TextToSpeech.EngineInfo> engineList = engine.getEngines();
                 if (engineList != null) {
                     for (TextToSpeech.EngineInfo info : engineList) {
                         JSObject o = new JSObject();
