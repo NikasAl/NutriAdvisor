@@ -69,6 +69,12 @@ interface AppState {
   // TTS (text-to-speech)
   ttsEnabled: boolean;
   setTtsEnabled: (enabled: boolean) => void;
+  /** Selected TTS engine name (null = system default). Android native only. */
+  ttsEngineName: string | null;
+  setTtsEngineName: (name: string | null) => void;
+  /** Selected TTS voice name (null = engine default). */
+  ttsVoiceName: string | null;
+  setTtsVoiceName: (name: string | null) => void;
 
   // Providers
   providers: LLMProvider[];
@@ -506,6 +512,26 @@ export const useAppStore = create<AppState>((set, get) => ({
   setTtsEnabled: (enabled) => {
     set({ ttsEnabled: enabled });
     localStorage.setItem('nutri-tts-enabled', String(enabled));
+  },
+  // TTS engine — persisted to localStorage, null = system default
+  ttsEngineName: typeof window !== 'undefined' ? localStorage.getItem('nutri-tts-engine') || null : null,
+  setTtsEngineName: (name) => {
+    set({ ttsEngineName: name });
+    if (name) {
+      localStorage.setItem('nutri-tts-engine', name);
+    } else {
+      localStorage.removeItem('nutri-tts-engine');
+    }
+  },
+  // TTS voice — persisted to localStorage, null = engine default
+  ttsVoiceName: typeof window !== 'undefined' ? localStorage.getItem('nutri-tts-voice') || null : null,
+  setTtsVoiceName: (name) => {
+    set({ ttsVoiceName: name });
+    if (name) {
+      localStorage.setItem('nutri-tts-voice', name);
+    } else {
+      localStorage.removeItem('nutri-tts-voice');
+    }
   },
 
   // Providers

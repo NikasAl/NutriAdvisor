@@ -12,7 +12,11 @@
  * This module is therefore the read-aloud backend inside the Android APK:
  * - speak(): resolves when the utterance finishes (or is stopped)
  * - stop(): stops current speech
- * - getVoices(): voices of the active system TTS engine
+ * - getVoices(): voices of the active TTS engine
+ * - getEngines(): list of installed TTS engines
+ * - setEngine(): switch to a different TTS engine (or back to default)
+ * - setVoice(): select a specific voice on the current engine
+ * - getCurrentConfig(): read the current engine + voice selection
  * - openSettings(): opens the system "Text-to-speech output" screen
  *
  * In browsers (PWA) this backend is never called — tts.ts routes to the
@@ -24,6 +28,14 @@ import { registerPlugin } from '@capacitor/core';
 export interface NativeTTSVoice {
   name: string;
   lang: string;
+  quality?: number;
+}
+
+export interface NativeTTSEngine {
+  /** Engine package name (e.g. "com.google.android.tts") */
+  name: string;
+  /** Human-readable label (e.g. "Google текст-речь") */
+  label: string;
 }
 
 export interface NativeTTSSpeakOptions {
@@ -32,12 +44,18 @@ export interface NativeTTSSpeakOptions {
   rate?: number;
   pitch?: number;
   volume?: number;
+  /** Voice name to use for this utterance (overrides stored selection). */
+  voiceName?: string;
 }
 
 export interface NativeTTSPluginInterface {
   speak(options: NativeTTSSpeakOptions): Promise<void>;
   stop(): Promise<void>;
   getVoices(): Promise<{ voices: NativeTTSVoice[] }>;
+  getEngines(): Promise<{ engines: NativeTTSEngine[] }>;
+  setEngine(options: { engineName: string | null }): Promise<{ engineName: string }>;
+  setVoice(options: { voiceName: string | null }): Promise<{ voiceName: string }>;
+  getCurrentConfig(): Promise<{ engineName: string | null; voiceName: string | null }>;
   openSettings(): Promise<void>;
 }
 

@@ -12,6 +12,9 @@
  * - Splits long text into fragments (≤180 chars → further split by sentence).
  * - Provides speak / pause / resume / cancel / getState.
  * - Single-voice policy: starting a new speak cancels any ongoing speech.
+ * - Engine and voice selection: on Android the user can pick a specific TTS
+ *   engine and voice from settings; in browsers they can pick a Web Speech
+ *   voice. Changes apply immediately without restarting the app.
  *
  * Android note: android.speech.tts has no native pause/resume — pause() stops
  * the engine and remembers the fragment index; resume() re-issues remaining
@@ -53,6 +56,15 @@ let _sourceId: string | null = null;
 let _fragments: string[] = [];
 let _currentFragmentIdx = 0;
 let _listeners: Array<() => void> = [];
+
+/** Preferred voice name for native Android backend (null = engine default). */
+let _nativeVoiceName: string | null = null;
+
+/** Preferred voice for Web Speech API backend (null = auto-select Russian). */
+let _webVoice: SpeechSynthesisVoice | null = null;
+
+/** Preferred engine name for native Android backend (null = system default). */
+let _nativeEngineName: string | null = null;
 
 function setState(s: TTSState) {
   _state = s;
@@ -211,7 +223,7 @@ export function detectTTSEnvironment(): TTSEnvironment {
   if (isCapacitor && isAndroid) {
     platform = 'Android (Capacitor)';
     hint = nativeBridge
-      ? 'Озвучивание идёт через нативный мост к системному TTS (Android WebView не поддерживает Web Speech API). Движок и голоса берутся из настроек устройства: Настройки → Язык и ввод → Синтез речи.'
+      ? 'Озвучивание идёт через нативный мост к системному TTS (Android WebView не поддерживает Web Speech API). Движок и голос можно выбрать в настройках ниже.'
       : 'Нативный TTS-мост не найден в этой сборке приложения — пересоберите APK и установите заново.';
   } else if (isCapacitor && isIOS) {
     platform = 'iOS (Capacitor)';
@@ -256,6 +268,14 @@ export function getRussianVoices(): SpeechSynthesisVoice[] {
 }
 
 /**
+ * Get all available voices (Web Speech API backend only).
+ */
+export function getAllVoices(): SpeechSynthesisVoice[] {
+  if (!isWebSpeechAvailable()) return [];
+  return window.speechSynthesis.getVoices();
+}
+
+/**
  * Wait for voices to load (they load asynchronously in some browsers).
  * Returns true if a Russian voice is available within the timeout.
  * Web Speech API backend only.
@@ -295,6 +315,150 @@ export function waitForRussianVoice(timeoutMs = 2000): Promise<boolean> {
 }
 
 /**
+ * Wait for any voices to load (not just Russian). Returns the full voice
+ * list when voices become available or on timeout.
+ * Web Speech API backend only.
+ */
+export function waitForVoices(timeoutMs = 2000): Promise<SpeechSynthesisVoice[]> {
+  return new Promise((resolve) => {
+    if (!isWebSpeechAvailable()) {
+      resolve([]);
+      return;
+    }
+
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      resolve(voices);
+      return;
+    }
+
+    let resolved = false;
+    const timer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        resolve(window.speechSynthesis.getVoices());
+      }
+    }, timeoutMs);
+
+    const onVoicesChanged = () => {
+      const v = window.speechSynthesis.getVoices();
+      if (v.length > 0 && !resolved) {
+        resolved = true;
+        clearTimeout(timer);
+        window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
+        resolve(v);
+      }
+    };
+
+    window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
+  });
+}
+
+// ─── Engine / Voice configuration ────────────────────────────────────
+
+/**
+ * Switch the native Android TTS engine. Cancels any ongoing speech.
+ * Pass null to use the system default engine.
+ * Must be called only on Android (isNativeAndroid() === true).
+ * Returns the engine name that was set.
+ */
+export async function setTTSEngine(engineName: string | null): Promise<string> {
+  // Cancel ongoing speech first
+  cancel();
+
+  if (isNativeAndroid()) {
+    const result = await NativeTTS.setEngine({ engineName });
+    _nativeEngineName = engineName;
+    _nativeVoiceName = null; // voices are engine-specific
+    return result.engineName;
+  }
+
+  // Web Speech API doesn't have engine selection
+  _nativeEngineName = null;
+  return 'default';
+}
+
+/**
+ * Set the preferred voice for speech.
+ * - On Android (native): voiceName is the Voice.getName() identifier.
+ * - On browser (Web Speech API): voiceName is matched against available
+ *   SpeechSynthesisVoice objects by name.
+ * Pass null to reset to the default voice for the current engine.
+ */
+export async function setTTSVoice(voiceName: string | null): Promise<void> {
+  if (isNativeAndroid()) {
+    await NativeTTS.setVoice({ voiceName });
+    _nativeVoiceName = voiceName;
+    return;
+  }
+
+  // Web Speech API: find the matching voice object
+  if (voiceName && isWebSpeechAvailable()) {
+    const voices = window.speechSynthesis.getVoices();
+    _webVoice = voices.find((v) => v.name === voiceName) ?? null;
+  } else {
+    _webVoice = null;
+  }
+}
+
+/**
+ * Get the currently configured engine name (native Android only).
+ * Returns null for system default or when not on Android.
+ */
+export function getTTSEngineName(): string | null {
+  return isNativeAndroid() ? _nativeEngineName : null;
+}
+
+/**
+ * Get the currently configured voice name.
+ * - On Android: returns the native voice name (or null for default).
+ * - On browser: returns the Web Speech voice name (or null for auto).
+ */
+export function getTTSVoiceName(): string | null {
+  if (isNativeAndroid()) {
+    return _nativeVoiceName;
+  }
+  return _webVoice?.name ?? null;
+}
+
+/**
+ * Apply persisted engine and voice settings on app start.
+ * Call this once after the store has loaded from localStorage.
+ * On Android it initialises the native engine; on browser it finds the
+ * Web Speech voice object by name.
+ */
+export async function applyTTSPersistedConfig(engineName: string | null, voiceName: string | null): Promise<void> {
+  if (isNativeAndroid()) {
+    if (engineName) {
+      try {
+        await NativeTTS.setEngine({ engineName });
+        _nativeEngineName = engineName;
+      } catch (err) {
+        console.warn('[tts] Failed to set persisted engine:', err);
+        _nativeEngineName = null;
+      }
+    }
+    if (voiceName) {
+      try {
+        await NativeTTS.setVoice({ voiceName });
+        _nativeVoiceName = voiceName;
+      } catch (err) {
+        console.warn('[tts] Failed to set persisted voice:', err);
+        _nativeVoiceName = null;
+      }
+    }
+    return;
+  }
+
+  // Web Speech API: resolve voice by name
+  if (voiceName && isWebSpeechAvailable()) {
+    // Voices may load async — wait briefly
+    const voices = await waitForVoices(1500);
+    _webVoice = voices.find((v) => v.name === voiceName) ?? null;
+  }
+}
+
+/**
  * Perform a quick test: speak a short phrase to verify TTS actually works.
  * Returns a result object indicating success/failure and details.
  */
@@ -317,7 +481,13 @@ export async function testTTS(): Promise<{ ok: boolean; message: string }> {
         // ignore — diagnostic only
       }
 
-      await NativeTTS.speak({ text: 'Синтез речи включён', lang: 'ru-RU', rate: 1, volume: 1 });
+      await NativeTTS.speak({
+        text: 'Синтез речи включён',
+        lang: 'ru-RU',
+        rate: 1,
+        volume: 1,
+        voiceName: _nativeVoiceName ?? undefined,
+      });
 
       return {
         ok: true,
@@ -357,8 +527,10 @@ export async function testTTS(): Promise<{ ok: boolean; message: string }> {
   return new Promise((resolve) => {
     try {
       const utterance = new SpeechSynthesisUtterance('Синтез речи включён');
-      const ruVoice = getRussianVoices()[0];
-      if (ruVoice) utterance.voice = ruVoice;
+      // Use selected voice or fall back to first Russian voice
+      const voice = _webVoice ?? getRussianVoices()[0];
+      if (voice) utterance.voice = voice;
+      utterance.lang = voice?.lang ?? 'ru-RU';
       utterance.rate = 1;
       utterance.volume = 0.5; // quieter for test
 
@@ -421,8 +593,9 @@ export function speak(text: string, options?: TTSOptions): void {
 
 function queueFragments(): void {
   const synth = window.speechSynthesis;
-  const ruVoices = getRussianVoices();
-  const preferredVoice = ruVoices[0] ?? null;
+
+  // Use selected voice, or fall back to first Russian voice
+  const preferredVoice = _webVoice ?? getRussianVoices()[0] ?? null;
   const rate = _options.rate ?? 1;
 
   for (let i = 0; i < _fragments.length; i++) {
@@ -430,7 +603,7 @@ function queueFragments(): void {
     const utterance = new SpeechSynthesisUtterance(fragment);
 
     if (preferredVoice) utterance.voice = preferredVoice;
-    utterance.lang = 'ru-RU';
+    utterance.lang = preferredVoice?.lang ?? 'ru-RU';
     utterance.rate = rate;
     utterance.volume = 1;
 
@@ -490,6 +663,7 @@ async function runNativeQueue(session: number, startIdx: number): Promise<void> 
         lang: 'ru-RU',
         rate: _options.rate ?? 1,
         volume: 1,
+        voiceName: _nativeVoiceName ?? undefined,
       });
     } catch (err) {
       if (session !== _nativeSession) return; // superseded by cancel()/new speak()

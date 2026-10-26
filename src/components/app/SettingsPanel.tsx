@@ -46,8 +46,8 @@ import { testProvider } from '@/lib/llm-client';
 import { db } from '@/lib/db';
 import { isNativePlatform } from '@/lib/nativeHttp';
 import JSZip from 'jszip';
-import { isTTSAvailable, testTTS, cancel as ttsCancel, detectTTSEnvironment, type TTSEnvironment } from '@/lib/tts';
-import NativeTTS from '@/lib/native-tts';
+import { isTTSAvailable, testTTS, cancel as ttsCancel, detectTTSEnvironment, setTTSEngine, setTTSVoice, applyTTSPersistedConfig, getAllVoices, type TTSEnvironment } from '@/lib/tts';
+import NativeTTS, { isNativeAndroid, type NativeTTSEngine, type NativeTTSVoice } from '@/lib/native-tts';
 
 const PRESETS: Record<ProviderType, { name: string; baseUrl: string; model: string; supportsVision: boolean; needsKey: boolean }> = {
   nuadvi: { name: 'NuAdvi Proxy', baseUrl: 'https://kreagenium.ru/nuadvi/v1', model: 'gemma-4', supportsVision: true, needsKey: false },
@@ -76,6 +76,10 @@ export default function SettingsPanel() {
   const setTheme = useAppStore((s) => s.setTheme);
   const ttsEnabled = useAppStore((s) => s.ttsEnabled);
   const setTtsEnabled = useAppStore((s) => s.setTtsEnabled);
+  const ttsEngineName = useAppStore((s) => s.ttsEngineName);
+  const setTtsEngineName = useAppStore((s) => s.setTtsEngineName);
+  const ttsVoiceName = useAppStore((s) => s.ttsVoiceName);
+  const setTtsVoiceName = useAppStore((s) => s.setTtsVoiceName);
   const loadWaterLog = useAppStore((s) => s.loadWaterLog);
   const loadSleepLog = useAppStore((s) => s.loadSleepLog);
   const addProvider = useAppStore((s) => s.addProvider);
@@ -90,20 +94,70 @@ export default function SettingsPanel() {
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ providerId: string; ok: boolean; message: string } | null>(null);
 
-  // TTS test state
-  const [ttsTesting, setTtsTesting] = useState(false);
-  const [ttsTestResult, setTtsTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   // Client-only TTS info (null = not yet resolved, avoids SSR false-negative)
   const [ttsClientInfo, setTtsClientInfo] = useState<{
     avail: boolean;
     env: TTSEnvironment;
   } | null>(null);
 
+  // TTS engine/voice selection state
+  const [nativeEngines, setNativeEngines] = useState<NativeTTSEngine[]>([]);
+  const [nativeVoices, setNativeVoices] = useState<NativeTTSVoice[]>([]);
+  const [webVoices, setWebVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [ttsEnginesLoading, setTtsEnginesLoading] = useState(false);
+  const [ttsVoicesLoading, setTtsVoicesLoading] = useState(false);
+  const [ttsVoiceTesting, setTtsVoiceTesting] = useState(false);
+  const [ttsVoiceTestResult, setTtsVoiceTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
   // Detect TTS availability on client (after mount) — avoids SSR false-negative
   useEffect(() => {
+    const env = detectTTSEnvironment();
     // eslint-disable-next-line react-hooks/set-state-in-effect -- legitimate SSR hydration: must detect window APIs after mount
-    setTtsClientInfo({ avail: isTTSAvailable(), env: detectTTSEnvironment() });
+    setTtsClientInfo({ avail: isTTSAvailable(), env });
   }, []);
+
+  // Apply persisted TTS config on mount
+  useEffect(() => {
+    if (isTTSAvailable()) {
+      void applyTTSPersistedConfig(ttsEngineName, ttsVoiceName);
+    }
+    // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Load engines (native Android only)
+  useEffect(() => {
+    if (!ttsEnabled || !isNativeAndroid() || !ttsClientInfo?.avail) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async data loading: set loading flag before fetch
+    setTtsEnginesLoading(true);
+    NativeTTS.getEngines()
+      .then(({ engines }) => setNativeEngines(engines))
+      .catch(() => setNativeEngines([]))
+      .finally(() => setTtsEnginesLoading(false));
+  }, [ttsEnabled, ttsClientInfo?.avail]);
+
+  // Load voices for current engine (native) or browser voices (web)
+  useEffect(() => {
+    if (!ttsEnabled || !ttsClientInfo?.avail) return;
+
+    if (isNativeAndroid()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- async data loading: set loading flag before fetch
+      setTtsVoicesLoading(true);
+      NativeTTS.getVoices()
+        .then(({ voices }) => setNativeVoices(voices))
+        .catch(() => setNativeVoices([]))
+        .finally(() => setTtsVoicesLoading(false));
+    } else if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      // Web Speech API: voices may load async
+      const loadWebVoices = () => {
+        const v = window.speechSynthesis.getVoices();
+        if (v.length > 0) setWebVoices(v);
+      };
+      loadWebVoices();
+      window.speechSynthesis.addEventListener('voiceschanged', loadWebVoices);
+      return () => window.speechSynthesis.removeEventListener('voiceschanged', loadWebVoices);
+    }
+  }, [ttsEnabled, ttsClientInfo?.avail, ttsEngineName]); // reload voices when engine changes
 
   // Export / Import state
   const [exportStatus, setExportStatus] = useState('');
@@ -841,7 +895,7 @@ export default function SettingsPanel() {
       <div className="border-t pt-4 mt-6">
         <h2 className="text-lg font-semibold">Озвучивание (TTS)</h2>
         <p className="text-sm text-muted-foreground mt-1 mb-3">
-          Синтез речи для ИИ-анализов. Позволяет прослушивать текст анализа вслух.
+          Синтез речи для ИИ-анализов и чата. Позволяет прослушивать текст вслух.
         </p>
 
         <div className="flex items-center gap-3 mb-3">
@@ -851,7 +905,7 @@ export default function SettingsPanel() {
               setTtsEnabled(checked);
               if (!checked) {
                 ttsCancel();
-                setTtsTestResult(null);
+                setTtsVoiceTestResult(null);
               }
             }}
           />
@@ -866,7 +920,7 @@ export default function SettingsPanel() {
         </div>
 
         {ttsEnabled && (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {ttsClientInfo && !ttsClientInfo.avail ? (
               <div className="space-y-2">
                 <div className="flex items-start gap-2 rounded-md p-2 bg-destructive/10 text-destructive text-xs">
@@ -883,52 +937,169 @@ export default function SettingsPanel() {
               </div>
             ) : ttsClientInfo && ttsClientInfo.avail ? (
               <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5"
-                  onClick={async () => {
-                    setTtsTesting(true);
-                    setTtsTestResult(null);
-                    const result = await testTTS();
-                    setTtsTestResult(result);
-                    setTtsTesting(false);
-                  }}
-                  disabled={ttsTesting}
-                >
-                  {ttsTesting ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Проверяю…
-                    </>
-                  ) : (
-                    <>
-                      <Volume2 className="h-3.5 w-3.5" />
-                      Проверить синтез речи
-                    </>
-                  )}
-                </Button>
-
-                {ttsTestResult && (
-                  <div className={`flex items-start gap-2 rounded-md p-2 text-xs ${
-                    ttsTestResult.ok
-                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
-                      : 'bg-destructive/10 text-destructive'
-                  }`}>
-                    {ttsTestResult.ok
-                      ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                      : <XCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                    }
-                    <span>{ttsTestResult.message}</span>
+                {/* ── Engine selector (native Android only) ── */}
+                {isNativeAndroid() && (
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Движок TTS</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Выберите установленный движок синтеза речи или оставьте системный по умолчанию.
+                    </p>
+                    <Select
+                      value={ttsEngineName ?? '__default__'}
+                      onValueChange={async (value) => {
+                        const newName = value === '__default__' ? null : value;
+                        setTtsEngineName(newName);
+                        setTtsVoiceName(null); // voices are engine-specific
+                        setNativeVoices([]);
+                        setTtsVoiceTestResult(null);
+                        try {
+                          await setTTSEngine(newName);
+                          // Reload voices for new engine
+                          setTtsVoicesLoading(true);
+                          const { voices } = await NativeTTS.getVoices();
+                          setNativeVoices(voices);
+                        } catch (err) {
+                          console.warn('Failed to switch engine:', err);
+                        } finally {
+                          setTtsVoicesLoading(false);
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={ttsEnginesLoading ? 'Загрузка…' : 'Системный по умолчанию'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__default__">Системный по умолчанию</SelectItem>
+                        {nativeEngines.map((eng) => (
+                          <SelectItem key={eng.name} value={eng.name}>
+                            {eng.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
 
-                {!ttsTestResult && !ttsTesting && (
-                  <p className="text-xs text-muted-foreground">
-                    Нажмите «Проверить» для проверки доступности русского голоса и тестового воспроизведения.
-                  </p>
-                )}
+                {/* ── Voice selector ── */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Голос</Label>
+                  {isNativeAndroid() ? (
+                    <>
+                      <p className="text-xs text-muted-foreground">
+                        Выберите голос для текущего движка или оставьте по умолчанию.
+                      </p>
+                      <Select
+                        value={ttsVoiceName ?? '__default__'}
+                        onValueChange={async (value) => {
+                          const newName = value === '__default__' ? null : value;
+                          setTtsVoiceName(newName);
+                          setTtsVoiceTestResult(null);
+                          try {
+                            await setTTSVoice(newName);
+                          } catch (err) {
+                            console.warn('Failed to set voice:', err);
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder={ttsVoicesLoading ? 'Загрузка…' : 'По умолчанию'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__default__">По умолчанию</SelectItem>
+                          {nativeVoices.map((voice) => (
+                            <SelectItem key={voice.name} value={voice.name}>
+                              {voice.name} ({voice.lang}{voice.quality != null ? `, q${voice.quality}` : ''})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xs text-muted-foreground">
+                        Выберите голос браузера или оставьте автоматический выбор русского.
+                      </p>
+                      <Select
+                        value={ttsVoiceName ?? '__auto__'}
+                        onValueChange={async (value) => {
+                          const newName = value === '__auto__' ? null : value;
+                          setTtsVoiceName(newName);
+                          setTtsVoiceTestResult(null);
+                          try {
+                            await setTTSVoice(newName);
+                          } catch (err) {
+                            console.warn('Failed to set voice:', err);
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Автоматический (русский)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__auto__">Автоматический (русский)</SelectItem>
+                          {webVoices.map((voice) => (
+                            <SelectItem key={voice.name} value={voice.name}>
+                              {voice.name} ({voice.lang})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </>
+                  )}
+                </div>
 
+                {/* ── Test voice button ── */}
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={async () => {
+                        setTtsVoiceTesting(true);
+                        setTtsVoiceTestResult(null);
+                        const result = await testTTS();
+                        setTtsVoiceTestResult(result);
+                        setTtsVoiceTesting(false);
+                      }}
+                      disabled={ttsVoiceTesting}
+                    >
+                      {ttsVoiceTesting ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Проверяю…
+                        </>
+                      ) : (
+                        <>
+                          <Volume2 className="h-3.5 w-3.5" />
+                          Проверить голос
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {ttsVoiceTestResult && (
+                    <div className={`flex items-start gap-2 rounded-md p-2 text-xs ${
+                      ttsVoiceTestResult.ok
+                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
+                        : 'bg-destructive/10 text-destructive'
+                    }`}>
+                      {ttsVoiceTestResult.ok
+                        ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                        : <XCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      }
+                      <span>{ttsVoiceTestResult.message}</span>
+                    </div>
+                  )}
+
+                  {!ttsVoiceTestResult && !ttsVoiceTesting && (
+                    <p className="text-xs text-muted-foreground">
+                      Нажмите «Проверить голос» для тестового воспроизведения выбранным голосом.
+                    </p>
+                  )}
+                </div>
+
+                {/* ── System TTS settings (Capacitor) ── */}
                 {ttsClientInfo.env.isCapacitor && (
                   <Button
                     variant="ghost"
