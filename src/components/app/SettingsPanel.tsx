@@ -40,13 +40,14 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Pencil, Key, Zap, Eye, Loader2, CheckCircle2, XCircle, Wifi, Download, Upload, X, ListChecks, Share2, Sun, Moon, Monitor, Volume2, VolumeX } from 'lucide-react';
+import { Plus, Trash2, Pencil, Key, Zap, Eye, Loader2, CheckCircle2, XCircle, Wifi, Download, Upload, X, ListChecks, Share2, Sun, Moon, Monitor, Volume2, VolumeX, Settings } from 'lucide-react';
 import type { LLMProvider, ProviderType } from '@/lib/types';
 import { testProvider } from '@/lib/llm-client';
 import { db } from '@/lib/db';
 import { isNativePlatform } from '@/lib/nativeHttp';
 import JSZip from 'jszip';
-import { isTTSAvailable, testTTS, cancel as ttsCancel, detectTTSEnvironment } from '@/lib/tts';
+import { isTTSAvailable, testTTS, cancel as ttsCancel, detectTTSEnvironment, type TTSEnvironment } from '@/lib/tts';
+import NativeTTS from '@/lib/native-tts';
 
 const PRESETS: Record<ProviderType, { name: string; baseUrl: string; model: string; supportsVision: boolean; needsKey: boolean }> = {
   nuadvi: { name: 'NuAdvi Proxy', baseUrl: 'https://kreagenium.ru/nuadvi/v1', model: 'gemma-4', supportsVision: true, needsKey: false },
@@ -95,7 +96,7 @@ export default function SettingsPanel() {
   // Client-only TTS info (null = not yet resolved, avoids SSR false-negative)
   const [ttsClientInfo, setTtsClientInfo] = useState<{
     avail: boolean;
-    env: { platform: string; isCapacitor: boolean; hint: string };
+    env: TTSEnvironment;
   } | null>(null);
 
   // Detect TTS availability on client (after mount) — avoids SSR false-negative
@@ -871,8 +872,11 @@ export default function SettingsPanel() {
                 <div className="flex items-start gap-2 rounded-md p-2 bg-destructive/10 text-destructive text-xs">
                   <XCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                   <div className="space-y-1">
-                    <span>Синтез речи (Web Speech API) недоступен в этом окружении.</span>
+                    <span>Синтез речи недоступен в этом окружении.</span>
                     <span className="block text-muted-foreground">Окружение: {ttsClientInfo.env.platform}</span>
+                    <span className="block text-muted-foreground">
+                      Web Speech API: {ttsClientInfo.env.webSpeechAvailable ? 'есть' : 'нет'} · Нативный мост TTS: {ttsClientInfo.env.nativeBridge ? 'есть' : 'нет'}
+                    </span>
                     <span className="block">{ttsClientInfo.env.hint}</span>
                   </div>
                 </div>
@@ -923,6 +927,20 @@ export default function SettingsPanel() {
                   <p className="text-xs text-muted-foreground">
                     Нажмите «Проверить» для проверки доступности русского голоса и тестового воспроизведения.
                   </p>
+                )}
+
+                {ttsClientInfo.env.isCapacitor && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 text-muted-foreground"
+                    onClick={() => {
+                      void NativeTTS.openSettings().catch(() => {});
+                    }}
+                  >
+                    <Settings className="h-3.5 w-3.5" />
+                    Голосовые настройки системы
+                  </Button>
                 )}
               </>
             ) : null}

@@ -1,11 +1,24 @@
 /**
- * Text-to-Speech utility using Web Speech API (speechSynthesis).
+ * Text-to-Speech utility — dual backend:
  *
+ * 1. Browser/PWA → Web Speech API (window.speechSynthesis).
+ * 2. Android APK (Capacitor) → native bridge to the platform TTS engine
+ *    (android.speech.tts.TextToSpeech via NativeTTSPlugin.java), because the
+ *    Android System WebView deliberately does not expose window.speechSynthesis
+ *    (chromium issue 40417848 / crbug 487187). No WebView flag can enable it.
+ *
+ * Shared behaviour:
  * - Strips markdown before speaking.
- * - Splits long text into paragraph fragments (≤180 chars → further split by sentence).
+ * - Splits long text into fragments (≤180 chars → further split by sentence).
  * - Provides speak / pause / resume / cancel / getState.
  * - Single-voice policy: starting a new speak cancels any ongoing speech.
+ *
+ * Android note: android.speech.tts has no native pause/resume — pause() stops
+ * the engine and remembers the fragment index; resume() re-issues remaining
+ * fragments from there (the interrupted fragment restarts from its beginning).
  */
+
+import NativeTTS, { isNativeAndroid } from './native-tts';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -15,6 +28,16 @@ export interface TTSOptions {
   rate?: number;          // 0.1 – 10, default 1
   onFragmentStart?: (index: number, total: number, text: string) => void;
   onStateChange?: (state: TTSState) => void;
+}
+
+export interface TTSEnvironment {
+  platform: string;
+  isCapacitor: boolean;
+  /** window.speechSynthesis present (Web Speech API) */
+  webSpeechAvailable: boolean;
+  /** native Android TTS bridge bundled in this APK */
+  nativeBridge: boolean;
+  hint: string;
 }
 
 // ─── Internal state ──────────────────────────────────────────────────
@@ -147,21 +170,31 @@ export function splitForSpeech(plainText: string): string[] {
 
 // ─── Availability checks ─────────────────────────────────────────────
 
-export function isTTSAvailable(): boolean {
+/**
+ * Raw Web Speech API check (browser backend only).
+ */
+function isWebSpeechAvailable(): boolean {
   return typeof window !== 'undefined' && 'speechSynthesis' in window;
 }
 
 /**
- * Detect the runtime environment for TTS diagnostics.
- * Returns an object with platform info and a hint for the user.
+ * TTS is available when either backend works:
+ * - Android APK: native bridge to the system TTS engine is bundled in the APK.
+ * - Browser: Web Speech API (window.speechSynthesis) present.
  */
-export function detectTTSEnvironment(): {
-  platform: string;
-  isCapacitor: boolean;
-  hint: string;
-} {
+export function isTTSAvailable(): boolean {
+  return isNativeAndroid() || isWebSpeechAvailable();
+}
+
+/**
+ * Detect the runtime environment for TTS diagnostics.
+ * Returns platform info, backend flags and a hint for the user.
+ */
+export function detectTTSEnvironment(): TTSEnvironment {
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
   const isCapacitor = typeof window !== 'undefined' && !!(window as any).Capacitor?.isNativePlatform?.();
+  const nativeBridge = isNativeAndroid();
+  const webSpeechAvailable = isWebSpeechAvailable();
   const isAndroid = /Android/i.test(ua);
   const isIOS = /iPhone|iPad|iPod/i.test(ua);
   const isFirefox = /Firefox/i.test(ua);
@@ -172,10 +205,12 @@ export function detectTTSEnvironment(): {
 
   if (isCapacitor && isAndroid) {
     platform = 'Android (Capacitor)';
-    hint = 'Откройте настройки устройства → Язык и ввод → Синтез речи → убедитесь, что движок Google выбран и данные русского языка скачаны.';
+    hint = nativeBridge
+      ? 'Озвучивание идёт через нативный мост к системному TTS (Android WebView не поддерживает Web Speech API). Движок и голоса берутся из настроек устройства: Настройки → Язык и ввод → Синтез речи.'
+      : 'Нативный TTS-мост не найден в этой сборке приложения — пересоберите APK и установите заново.';
   } else if (isCapacitor && isIOS) {
     platform = 'iOS (Capacitor)';
-    hint = 'iOS поддерживает синтез речи встроенно. Если голос не работает, проверьте Настройки → Универсальный доступ → Произносимый контент.';
+    hint = 'WKWebView (окружение iOS-приложения) не поддерживает Web Speech API — озвучивание на iOS пока недоступно. Используйте веб-версию в Safari.';
   } else if (isAndroid) {
     platform = 'Android (браузер)';
     hint = 'Убедитесь, что в настройках устройства выбран TTS-движок (Google) и скачаны данные русского языка: Настройки → Язык и ввод → Синтез речи.';
@@ -193,35 +228,36 @@ export function detectTTSEnvironment(): {
     hint = 'Проверьте, поддерживает ли ваш браузер Web Speech API (speechSynthesis).';
   }
 
-  return { platform, isCapacitor, hint };
+  return { platform, isCapacitor, webSpeechAvailable, nativeBridge, hint };
 }
 
 /**
- * Check if a Russian voice is available.
+ * Check if a Russian voice is available (Web Speech API backend only).
  * Voices may load asynchronously, so this can return false initially
  * and become true later. Use waitForVoices() for a reliable check.
  */
 export function hasRussianVoice(): boolean {
-  if (!isTTSAvailable()) return false;
+  if (!isWebSpeechAvailable()) return false;
   const voices = window.speechSynthesis.getVoices();
   return voices.some((v) => v.lang.startsWith('ru'));
 }
 
 /**
- * Get list of available Russian voices.
+ * Get list of available Russian voices (Web Speech API backend only).
  */
 export function getRussianVoices(): SpeechSynthesisVoice[] {
-  if (!isTTSAvailable()) return [];
+  if (!isWebSpeechAvailable()) return [];
   return window.speechSynthesis.getVoices().filter((v) => v.lang.startsWith('ru'));
 }
 
 /**
  * Wait for voices to load (they load asynchronously in some browsers).
  * Returns true if a Russian voice is available within the timeout.
+ * Web Speech API backend only.
  */
 export function waitForRussianVoice(timeoutMs = 2000): Promise<boolean> {
   return new Promise((resolve) => {
-    if (!isTTSAvailable()) {
+    if (!isWebSpeechAvailable()) {
       resolve(false);
       return;
     }
@@ -263,6 +299,40 @@ export async function testTTS(): Promise<{ ok: boolean; message: string }> {
     return { ok: false, message: `Синтез речи недоступен. Окружение: ${env.platform}. ${env.hint}` };
   }
 
+  // ── Native Android backend ──
+  if (isNativeAndroid()) {
+    try {
+      // Voice list is diagnostic only; speech may work even if it fails.
+      let ruVoiceName = '';
+      try {
+        const { voices } = await NativeTTS.getVoices();
+        const ru = voices.filter((v) => (v.lang ?? '').toLowerCase().startsWith('ru'));
+        if (ru.length > 0) ruVoiceName = ru[0].name;
+      } catch {
+        // ignore — diagnostic only
+      }
+
+      await NativeTTS.speak({ text: 'Синтез речи включён', lang: 'ru-RU', rate: 1, volume: 1 });
+
+      return {
+        ok: true,
+        message: ruVoiceName
+          ? `Нативный TTS работает (голос: ${ruVoiceName})`
+          : 'Нативный TTS работает (системный голос)',
+      };
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : String(err);
+      if (/not implemented|unimplemented|plugin does not/i.test(raw)) {
+        return {
+          ok: false,
+          message: 'Нативный TTS-мост не найден в этой сборке приложения — пересоберите APK (npm run apk:debug) и установите заново.',
+        };
+      }
+      return { ok: false, message: `Ошибка нативного TTS: ${raw}` };
+    }
+  }
+
+  // ── Web Speech API backend ──
   const hasRu = await waitForRussianVoice(1500);
   if (!hasRu) {
     const voices = window.speechSynthesis.getVoices();
@@ -312,8 +382,9 @@ export async function testTTS(): Promise<{ ok: boolean; message: string }> {
 // ─── Core TTS control ────────────────────────────────────────────────
 
 /**
- * Speak the given text. Strips markdown, splits into fragments, queues utterances.
+ * Speak the given text. Strips markdown, splits into fragments, queues them.
  * Cancels any currently playing speech first (single-voice policy).
+ * Routes to the native bridge on Android, Web Speech API in browsers.
  */
 export function speak(text: string, options?: TTSOptions): void {
   if (!isTTSAvailable()) return;
@@ -326,11 +397,21 @@ export function speak(text: string, options?: TTSOptions): void {
   const plainText = stripMarkdown(text);
   _fragments = splitForSpeech(plainText);
 
-  if (_fragments.length === 0 || _fragments.every((f) => !f.trim())) return;
+  if (_fragments.length === 0 || _fragments.every((f) => !f.trim())) {
+    _fragments = [];
+    return;
+  }
 
   _currentFragmentIdx = 0;
-  queueFragments();
+
+  if (isNativeAndroid()) {
+    nativeQueueFrom(0);
+  } else {
+    queueFragments();
+  }
 }
+
+// ── Web Speech API backend ──
 
 function queueFragments(): void {
   const synth = window.speechSynthesis;
@@ -378,15 +459,73 @@ function queueFragments(): void {
   setState('playing');
 }
 
+// ── Native Android backend ──
+
+let _nativeSession = 0;
+let _nativePaused = false;
+let _nativeResumeIdx = 0;
+
+/**
+ * Sequentially speak _fragments from startIdx through the native bridge.
+ * The in-flight speak() promise resolves when the utterance finishes or is
+ * stopped — pause()/cancel() rely on that plus session/pause flags to stop
+ * the loop.
+ */
+async function runNativeQueue(session: number, startIdx: number): Promise<void> {
+  for (let i = startIdx; i < _fragments.length; i++) {
+    if (session !== _nativeSession || _nativePaused) return;
+
+    _currentFragmentIdx = i;
+    _options.onFragmentStart?.(i, _fragments.length, _fragments[i]);
+
+    try {
+      await NativeTTS.speak({
+        text: _fragments[i],
+        lang: 'ru-RU',
+        rate: _options.rate ?? 1,
+        volume: 1,
+      });
+    } catch (err) {
+      if (session !== _nativeSession) return; // superseded by cancel()/new speak()
+      console.error('[tts] native speak failed:', err);
+      if (session === _nativeSession) {
+        setState('idle');
+      }
+      return;
+    }
+  }
+
+  if (session === _nativeSession && !_nativePaused) {
+    setState('idle');
+  }
+}
+
+function nativeQueueFrom(startIdx: number): void {
+  _nativeSession++;
+  _nativePaused = false;
+  setState('playing');
+  void runNativeQueue(_nativeSession, startIdx);
+}
+
 /**
  * Pause the currently playing speech.
  */
 export function pause(): void {
   if (!isTTSAvailable()) return;
-  if (_state === 'playing') {
-    window.speechSynthesis.pause();
+  if (_state !== 'playing') return;
+
+  if (isNativeAndroid()) {
+    // android.speech.tts has no pause: stop the engine, remember the fragment.
+    // The interrupted fragment restarts from its beginning on resume.
+    _nativePaused = true;
+    _nativeResumeIdx = _currentFragmentIdx;
+    void NativeTTS.stop().catch(() => {});
     setState('paused');
+    return;
   }
+
+  window.speechSynthesis.pause();
+  setState('paused');
 }
 
 /**
@@ -394,10 +533,15 @@ export function pause(): void {
  */
 export function resume(): void {
   if (!isTTSAvailable()) return;
-  if (_state === 'paused') {
-    window.speechSynthesis.resume();
-    setState('playing');
+  if (_state !== 'paused') return;
+
+  if (isNativeAndroid()) {
+    nativeQueueFrom(_nativeResumeIdx);
+    return;
   }
+
+  window.speechSynthesis.resume();
+  setState('playing');
 }
 
 /**
@@ -405,6 +549,18 @@ export function resume(): void {
  */
 export function cancel(): void {
   if (!isTTSAvailable()) return;
+
+  if (isNativeAndroid()) {
+    _nativeSession++;
+    _nativePaused = false;
+    void NativeTTS.stop().catch(() => {});
+    _currentText = '';
+    _fragments = [];
+    _currentFragmentIdx = 0;
+    setState('idle');
+    return;
+  }
+
   window.speechSynthesis.cancel();
   _currentText = '';
   _fragments = [];

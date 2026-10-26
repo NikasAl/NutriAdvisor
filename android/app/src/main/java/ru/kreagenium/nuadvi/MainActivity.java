@@ -14,6 +14,10 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         registerPlugin(NativeHttpPlugin.class);
+        // TTS bridge: Android System WebView does not expose the Web Speech API
+        // (speechSynthesis) — chromium issue 40417848 / crbug 487187 — so AI
+        // analysis read-aloud goes through the platform TextToSpeech engine.
+        registerPlugin(NativeTTSPlugin.class);
         super.onCreate(savedInstanceState);
 
         // Edge-to-edge only works reliably on API 30+ (Android 11+).
