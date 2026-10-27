@@ -2,22 +2,36 @@
  * Photo capture helper — «сфотографировать прямо сейчас» for photo attach dialogs.
  *
  * Two backends, chosen automatically:
- * - Native (Capacitor Android shell): @capacitor/camera → launches the native
- *   camera activity and returns the shot as a data-URL. Same auto-registration
- *   mechanism as the other npm Capacitor plugins (no manual registerPlugin —
- *   `npx cap sync android` wires it into the APK).
+ * - Native (Capacitor Android shell): the app's own NativeCameraPlugin
+ *   (android/.../NativeCameraPlugin.java) → launches the native camera app
+ *   via ACTION_IMAGE_CAPTURE and returns the shot as an already-compressed
+ *   JPEG data-URL. A custom bridge is used instead of the @capacitor/camera
+ *   npm plugin because its deprecated getPhoto() flow decodes the camera shot
+ *   at FULL sensor resolution (no inSampleSize, no OOM guard), which crashes
+ *   the app on modern 12–108 MP cameras.
  * - Browser (PWA): a programmatic <input type="file" capture="environment"> —
  *   mobile browsers open the camera app; if a browser ignores the capture
  *   attribute it opens the gallery instead (graceful fallback — a photo can
  *   still be picked).
  *
- * The captured image is compressed with the same pipeline as gallery
- * attachments (image-utils), so callers get identical JPEG data-URLs.
+ * The native plugin already compresses to maxSide/quality; the result goes
+ * through the same JS compression pass as gallery attachments (image-utils),
+ * so callers get identical JPEG data-URLs from both backends.
  */
 
-import { Capacitor } from '@capacitor/core';
-import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { compressDataUrl, compressImageFile } from './image-utils';
+
+export interface NativeCameraTakePhotoResult {
+  dataUrl?: string;
+  cancelled?: boolean;
+}
+
+export interface NativeCameraPluginInterface {
+  takePhoto(options: { maxSide: number; quality: number }): Promise<NativeCameraTakePhotoResult>;
+}
+
+const NativeCamera = registerPlugin<NativeCameraPluginInterface>('NativeCamera');
 
 /** True when running inside the Capacitor Android shell (native camera available). */
 export function isNativeCameraAvailable(): boolean {
@@ -40,18 +54,14 @@ export async function takePhotoNow(
   quality: number = 0.8
 ): Promise<string | null> {
   if (isNativeCameraAvailable()) {
-    const photo = await Camera.getPhoto({
-      resultType: CameraResultType.DataUrl,
-      source: CameraSource.Camera,
-      quality: 90,
-      // Camera-side downscale hint before the JS compression pass
-      width: 2048,
-      height: 2048,
-      correctOrientation: true,
-      saveToGallery: false,
+    const result = await NativeCamera.takePhoto({
+      maxSide,
+      quality: Math.round(Math.min(1, Math.max(0.3, quality)) * 100),
     });
-    if (!photo.dataUrl) return null;
-    return compressDataUrl(photo.dataUrl, maxSide, quality);
+    if (result.cancelled || !result.dataUrl) return null;
+    // The native plugin already sized the image to maxSide; this pass is a
+    // cheap normalization that keeps one compression code path for all sources.
+    return compressDataUrl(result.dataUrl, maxSide, quality);
   }
 
   // Browser path: hidden capture input (camera on mobile, gallery fallback)

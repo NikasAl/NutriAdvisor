@@ -39,4 +39,17 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- NativeCameraPlugin requests this at runtime (alias "camera"). Also
+         required so the app may launch ACTION_IMAGE_CAPTURE: an app that
+         declares CAMERA must hold it granted before the intent. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- Package visibility (Android 11+): resolve the camera app before
+         launching ACTION_IMAGE_CAPTURE. -->
+    <queries>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+    </queries>
 </manifest>
