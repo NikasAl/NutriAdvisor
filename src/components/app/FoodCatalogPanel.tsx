@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import MarkdownRenderer from '@/components/ui/markdown-renderer';
+import TTSButton from '@/components/ui/TTSButton';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -66,6 +67,7 @@ export default function FoodCatalogPanel() {
   const productAnalyses = useAppStore((s) => s.productAnalyses);
   const runProductAnalysis = useAppStore((s) => s.runProductAnalysis);
   const deleteProductAnalysis = useAppStore((s) => s.deleteProductAnalysis);
+  const ttsEnabled = useAppStore((s) => s.ttsEnabled);
 
   const [tab, setTab] = useState<'products' | 'dishes' | 'analysis'>('products');
   const [search, setSearch] = useState('');
@@ -649,14 +651,19 @@ export default function FoodCatalogPanel() {
                       </div>
                     )}
                     <MarkdownRenderer content={a.analysis} className="text-foreground" />
-                    <div className="flex justify-end">
+                    <div className="flex items-center justify-end gap-1">
+                      <TTSButton
+                        text={a.analysis}
+                        enabled={ttsEnabled}
+                        sourceId={a.id}
+                      />
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <button
-                            className="rounded-md p-1.5 hover:bg-destructive/10 text-destructive inline-flex items-center gap-1 text-xs"
+                            className="rounded-md p-1.5 hover:bg-destructive/10 text-destructive"
                             title="Удалить анализ"
                           >
-                            <Trash2 className="h-3.5 w-3.5" /> Удалить
+                            <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
