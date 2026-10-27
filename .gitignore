@@ -38,5 +38,9 @@ android/local.properties
 bun.lock
 android-resources/
 scripts/1.sh
+
+# Dev-environment artifacts (must never reach the repo)
 worklog.md
 NutriAdvisor/
+agent-ctx/
+download/
