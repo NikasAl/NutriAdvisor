@@ -66,7 +66,8 @@ import java.util.concurrent.Executors;
 )
 public class NativeCameraPlugin extends Plugin {
 
-    private static final String CAMERA_ALIAS = "camera";
+    /** Alias must be public: class-level @Permission annotations cannot see private constants. */
+    public static final String CAMERA_ALIAS = "camera";
 
     /** Single worker for bitmap decode/compress (one thread for the app lifetime). */
     private static final ExecutorService PROCESSOR = Executors.newSingleThreadExecutor();
