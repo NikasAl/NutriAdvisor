@@ -512,7 +512,7 @@ export default function FoodCatalogPanel() {
                     </p>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {dish.ingredients.map((ing, idx) => (
-                        <span key={idx} className="text-[10px] rounded bg-muted px-1.5 py-0.5">
+                        <span key={idx} className="text-[10px] rounded bg-muted px-1.5 py-0.5 max-w-full truncate">
                           {getProductName(ing.productId)} {ing.weightGrams}г
                         </span>
                       ))}
