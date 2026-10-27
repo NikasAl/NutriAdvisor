@@ -893,8 +893,9 @@ export default function WorkoutPanel() {
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <button
-                                className="rounded-full p-0.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="rounded-full p-0.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
                                 onClick={(e) => e.stopPropagation()}
+                                title="Удалить упражнение"
                               >
                                 <X className="h-3 w-3" />
                               </button>
