@@ -15,6 +15,8 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import MarkdownRenderer from '@/components/ui/markdown-renderer';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,8 +30,24 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   Plus, Trash2, Pencil, Search, X, Package, UtensilsCrossed, Check,
+  ScanSearch, ChevronDown, ChevronUp, Loader2,
 } from 'lucide-react';
-import type { DishIngredientData, FoodEntryItem } from '@/lib/types';
+import type { DishIngredientData, FoodEntryItem, ProductVerdict } from '@/lib/types';
+import { PRODUCT_VERDICT_LABELS } from '@/lib/types';
+
+/** Colored verdict badge styles (light + dark) */
+const VERDICT_STYLES: Record<ProductVerdict, string> = {
+  suitable: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-900',
+  caution: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-900',
+  not_recommended: 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-400 dark:border-rose-900',
+};
+
+function formatAnalysisDate(d: Date): string {
+  const date = new Date(d);
+  const day = date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined });
+  const time = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  return `${day}, ${time}`;
+}
 
 export default function FoodCatalogPanel() {
   const foodProducts = useAppStore((s) => s.foodProducts);
@@ -40,8 +58,11 @@ export default function FoodCatalogPanel() {
   const addDish = useAppStore((s) => s.addDish);
   const updateDish = useAppStore((s) => s.updateDish);
   const deleteDish = useAppStore((s) => s.deleteDish);
+  const productAnalyses = useAppStore((s) => s.productAnalyses);
+  const runProductAnalysis = useAppStore((s) => s.runProductAnalysis);
+  const deleteProductAnalysis = useAppStore((s) => s.deleteProductAnalysis);
 
-  const [tab, setTab] = useState<'products' | 'dishes'>('products');
+  const [tab, setTab] = useState<'products' | 'dishes' | 'analysis'>('products');
   const [search, setSearch] = useState('');
 
   // Product dialog
@@ -57,6 +78,18 @@ export default function FoodCatalogPanel() {
   const [ingSearch, setIngSearch] = useState('');
   const [showIngDropdown, setShowIngDropdown] = useState(false);
 
+  // Product analysis state
+  const [expandedAnalysisId, setExpandedAnalysisId] = useState<string | null>(null);
+  const [newAnalysisOpen, setNewAnalysisOpen] = useState(false);
+  const [analysisMode, setAnalysisMode] = useState<'catalog' | 'custom'>('catalog');
+  const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(null);
+  const [catSearch, setCatSearch] = useState('');
+  const [customName, setCustomName] = useState('');
+  const [customIngredients, setCustomIngredients] = useState('');
+  const [customNutrients, setCustomNutrients] = useState('');
+  const [analysisRunning, setAnalysisRunning] = useState(false);
+  const [analysisError, setAnalysisError] = useState('');
+
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return foodProducts;
@@ -68,6 +101,25 @@ export default function FoodCatalogPanel() {
     if (!q) return dishes;
     return dishes.filter((d) => d.name.toLowerCase().includes(q));
   }, [dishes, search]);
+
+  // Analyses: filter by product name, summary and verdict label (case-insensitive)
+  const filteredAnalyses = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return productAnalyses;
+    return productAnalyses.filter(
+      (a) =>
+        a.productName.toLowerCase().includes(q) ||
+        a.summary.toLowerCase().includes(q) ||
+        PRODUCT_VERDICT_LABELS[a.verdict].toLowerCase().includes(q)
+    );
+  }, [productAnalyses, search]);
+
+  // Catalog products available in the new-analysis dialog (searchable)
+  const filteredCatProducts = useMemo(() => {
+    const q = catSearch.trim().toLowerCase();
+    if (!q) return foodProducts;
+    return foodProducts.filter((p) => p.name.toLowerCase().includes(q));
+  }, [foodProducts, catSearch]);
 
   const filteredIngProducts = useMemo(() => {
     const q = ingSearch.trim().toLowerCase();
@@ -101,6 +153,55 @@ export default function FoodCatalogPanel() {
     setProdDialogOpen(false);
     setProdName('');
     setEditingProdId(null);
+  };
+
+  // ── Product analysis handlers ──
+
+  const openNewAnalysis = () => {
+    setAnalysisMode('catalog');
+    setSelectedCatalogId(null);
+    setCatSearch('');
+    setCustomName('');
+    setCustomIngredients('');
+    setCustomNutrients('');
+    setAnalysisError('');
+    setAnalysisRunning(false);
+    setNewAnalysisOpen(true);
+  };
+
+  const closeNewAnalysis = () => {
+    setNewAnalysisOpen(false);
+    setAnalysisError('');
+    setAnalysisRunning(false);
+  };
+
+  const handleRunAnalysis = async () => {
+    if (analysisRunning) return;
+    let input: { productName: string; ingredients?: string; nutrientsPer100g?: string; sourceProductId?: string } | null = null;
+
+    if (analysisMode === 'catalog') {
+      const p = foodProducts.find((x) => x.id === selectedCatalogId);
+      if (!p) return;
+      input = { productName: p.name, sourceProductId: p.id };
+    } else {
+      if (!customName.trim()) return;
+      input = {
+        productName: customName.trim(),
+        ingredients: customIngredients.trim() || undefined,
+        nutrientsPer100g: customNutrients.trim() || undefined,
+      };
+    }
+
+    setAnalysisRunning(true);
+    setAnalysisError('');
+    try {
+      await runProductAnalysis(input);
+      closeNewAnalysis();
+    } catch (err) {
+      setAnalysisError(err instanceof Error ? err.message : 'Ошибка анализа');
+    } finally {
+      setAnalysisRunning(false);
+    }
   };
 
   const handleSaveDish = async () => {
@@ -159,27 +260,39 @@ export default function FoodCatalogPanel() {
 
   return (
     <div className="space-y-4 pb-4">
-      {/* Tabs */}
-      <div className="flex gap-2">
+      {/* Tabs — row 1: products + dishes, row 2: product analysis (full width) */}
+      <div className="space-y-2">
+        <div className="flex gap-2">
+          <button
+            onClick={() => { setTab('products'); setSearch(''); }}
+            className={`flex-1 flex items-center justify-center gap-2 rounded-lg border p-3 transition-colors ${
+              tab === 'products' ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            <Package className="h-5 w-5" />
+            <span className="text-sm font-medium">Продукты</span>
+            <Badge variant="secondary" className="text-[10px]">{foodProducts.length}</Badge>
+          </button>
+          <button
+            onClick={() => { setTab('dishes'); setSearch(''); }}
+            className={`flex-1 flex items-center justify-center gap-2 rounded-lg border p-3 transition-colors ${
+              tab === 'dishes' ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            <UtensilsCrossed className="h-5 w-5" />
+            <span className="text-sm font-medium">Блюда</span>
+            <Badge variant="secondary" className="text-[10px]">{dishes.length}</Badge>
+          </button>
+        </div>
         <button
-          onClick={() => { setTab('products'); setSearch(''); }}
-          className={`flex-1 flex items-center justify-center gap-2 rounded-lg border p-3 transition-colors ${
-            tab === 'products' ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'text-muted-foreground hover:bg-muted'
+          onClick={() => { setTab('analysis'); setSearch(''); }}
+          className={`w-full flex items-center justify-center gap-2 rounded-lg border p-3 transition-colors ${
+            tab === 'analysis' ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'text-muted-foreground hover:bg-muted'
           }`}
         >
-          <Package className="h-5 w-5" />
-          <span className="text-sm font-medium">Продукты</span>
-          <Badge variant="secondary" className="text-[10px]">{foodProducts.length}</Badge>
-        </button>
-        <button
-          onClick={() => { setTab('dishes'); setSearch(''); }}
-          className={`flex-1 flex items-center justify-center gap-2 rounded-lg border p-3 transition-colors ${
-            tab === 'dishes' ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'text-muted-foreground hover:bg-muted'
-          }`}
-        >
-          <UtensilsCrossed className="h-5 w-5" />
-          <span className="text-sm font-medium">Блюда</span>
-          <Badge variant="secondary" className="text-[10px]">{dishes.length}</Badge>
+          <ScanSearch className="h-5 w-5" />
+          <span className="text-sm font-medium">Анализ продуктов</span>
+          <Badge variant="secondary" className="text-[10px]">{productAnalyses.length}</Badge>
         </button>
       </div>
 
@@ -189,7 +302,7 @@ export default function FoodCatalogPanel() {
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder={tab === 'products' ? 'Поиск продуктов...' : 'Поиск блюд...'}
+          placeholder={tab === 'products' ? 'Поиск продуктов...' : tab === 'dishes' ? 'Поиск блюд...' : 'Поиск анализов...'}
           className="pl-9 pr-8"
         />
         {search && (
@@ -301,6 +414,106 @@ export default function FoodCatalogPanel() {
             <div className="py-8 text-center text-sm text-muted-foreground">
               <UtensilsCrossed className="mx-auto mb-2 h-8 w-8 opacity-30" />
               <p>{dishes.length === 0 ? 'Нет блюд' : 'Ничего не найдено'}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Product analyses list */}
+      {tab === 'analysis' && (
+        <div className="space-y-1.5">
+          <Button onClick={openNewAnalysis} className="w-full gap-2">
+            <ScanSearch className="h-4 w-4" /> Новый анализ
+          </Button>
+
+          {filteredAnalyses.map((a) => {
+            const expanded = expandedAnalysisId === a.id;
+            return (
+              <div key={a.id} className="rounded-lg border px-3 py-2.5">
+                <button
+                  onClick={() => setExpandedAnalysisId(expanded ? null : (a.id ?? null))}
+                  className="w-full text-left"
+                >
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{a.productName}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {formatAnalysisDate(a.createdAt)}
+                      </p>
+                    </div>
+                    <Badge className={`text-[10px] shrink-0 ${VERDICT_STYLES[a.verdict]}`}>
+                      {PRODUCT_VERDICT_LABELS[a.verdict]}
+                    </Badge>
+                    {expanded ? (
+                      <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{a.summary}</p>
+                </button>
+
+                {expanded && (
+                  <div className="mt-2 pt-2 border-t space-y-2">
+                    {(a.ingredients || a.nutrientsPer100g) && (
+                      <div className="text-[10px] text-muted-foreground space-y-0.5">
+                        {a.ingredients && (
+                          <p className="break-words">
+                            <span className="font-medium">Состав:</span> {a.ingredients}
+                          </p>
+                        )}
+                        {a.nutrientsPer100g && (
+                          <p className="break-words">
+                            <span className="font-medium">На 100 г:</span> {a.nutrientsPer100g}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    <MarkdownRenderer content={a.analysis} className="text-foreground" />
+                    <div className="flex justify-end">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button
+                            className="rounded-md p-1.5 hover:bg-destructive/10 text-destructive inline-flex items-center gap-1 text-xs"
+                            title="Удалить анализ"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" /> Удалить
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Удалить анализ?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Анализ продукта «{a.productName}» будет удалён.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Отмена</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => { if (a.id) { deleteProductAnalysis(a.id); setExpandedAnalysisId(null); } }}
+                              className="bg-destructive text-destructive-foreground"
+                            >
+                              Удалить
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {filteredAnalyses.length === 0 && (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              <ScanSearch className="mx-auto mb-2 h-8 w-8 opacity-30" />
+              <p>{productAnalyses.length === 0 ? 'Анализов пока нет' : 'Ничего не найдено'}</p>
+              {productAnalyses.length === 0 && (
+                <p className="text-xs mt-1 px-4">
+                  Нажмите «Новый анализ», чтобы проверить, подходит ли вам продукт из магазина
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -436,6 +649,146 @@ export default function FoodCatalogPanel() {
             <DialogClose asChild><Button variant="outline">Отмена</Button></DialogClose>
             <Button onClick={handleSaveDish} disabled={!dishName.trim() || ingredients.length === 0}>
               <Check className="mr-1.5 h-4 w-4" /> Сохранить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Product Analysis Dialog */}
+      <Dialog open={newAnalysisOpen} onOpenChange={(o) => { if (!o) closeNewAnalysis(); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ScanSearch className="h-4 w-4" />
+              Новый анализ продукта
+            </DialogTitle>
+          </DialogHeader>
+
+          {analysisRunning ? (
+            <div className="py-8 flex flex-col items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
+              <span>Анализирую продукт…</span>
+              <span className="text-xs">Обычно это занимает меньше минуты</span>
+            </div>
+          ) : (
+            <div className="space-y-3 py-1">
+              {analysisError && (
+                <div className="text-xs text-destructive bg-destructive/10 rounded-md p-3 break-words">
+                  {analysisError}
+                </div>
+              )}
+
+              {/* Mode toggle */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setAnalysisMode('catalog')}
+                  className={`flex-1 rounded-lg border p-2 text-sm transition-colors ${
+                    analysisMode === 'catalog'
+                      ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
+                      : 'text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  Из каталога
+                </button>
+                <button
+                  onClick={() => setAnalysisMode('custom')}
+                  className={`flex-1 rounded-lg border p-2 text-sm transition-colors ${
+                    analysisMode === 'custom'
+                      ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
+                      : 'text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  Свой продукт
+                </button>
+              </div>
+
+              {analysisMode === 'catalog' ? (
+                /* Catalog product picker */
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <Input
+                      value={catSearch}
+                      onChange={(e) => setCatSearch(e.target.value)}
+                      placeholder="Найти продукт в каталоге..."
+                      className="pl-8 pr-8 h-9 text-sm"
+                    />
+                    {catSearch && (
+                      <button onClick={() => setCatSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-56 overflow-y-auto rounded-lg border divide-y divide-border">
+                    {filteredCatProducts.map((p) => {
+                      const selected = selectedCatalogId === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          onClick={() => setSelectedCatalogId(selected ? null : p.id)}
+                          className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                            selected
+                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
+                              : 'hover:bg-muted'
+                          }`}
+                        >
+                          <span className="truncate">{p.name}</span>
+                          {selected && <Check className="h-4 w-4 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                    {filteredCatProducts.length === 0 && (
+                      <div className="py-6 text-center text-xs text-muted-foreground">
+                        Ничего не найдено
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* Custom product form */
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Название продукта</Label>
+                    <Input
+                      value={customName}
+                      onChange={(e) => setCustomName(e.target.value)}
+                      placeholder="Молочный шоколад «Аленка»..."
+                      autoFocus
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Состав (ингредиенты)</Label>
+                    <Textarea
+                      value={customIngredients}
+                      onChange={(e) => setCustomIngredients(e.target.value)}
+                      placeholder="сахар, какао-масло, молоко сухое, эмульгатор соевый лецитин..."
+                      className="min-h-20 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Пищевая ценность на 100 г (опционально)</Label>
+                    <Input
+                      value={customNutrients}
+                      onChange={(e) => setCustomNutrients(e.target.value)}
+                      placeholder="540 ккал, белки 7,6 г, жиры 29 г, углеводы 60 г"
+                      className="text-sm"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            {!analysisRunning && (
+              <DialogClose asChild><Button variant="outline">Отмена</Button></DialogClose>
+            )}
+            <Button
+              onClick={handleRunAnalysis}
+              disabled={analysisRunning || (analysisMode === 'catalog' ? !selectedCatalogId : !customName.trim())}
+            >
+              {analysisRunning ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ScanSearch className="mr-1.5 h-4 w-4" />}
+              {analysisRunning ? 'Анализирую...' : 'Анализировать'}
             </Button>
           </DialogFooter>
         </DialogContent>

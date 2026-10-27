@@ -9,7 +9,7 @@ import {
   BookOpen, Moon, Droplets, UtensilsCrossed, Activity,
   AlertTriangle, ExternalLink, ChevronDown, ChevronUp,
   Flame, GlassWater, BedDouble, Dumbbell, TrendingUp,
-  Camera, MessageSquare,
+  Camera, MessageSquare, ScanSearch,
 } from 'lucide-react';
 import PrivacyPolicyPanel from './PrivacyPolicyPanel';
 
@@ -181,6 +181,15 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
               <strong>Фото продукта из магазина</strong> — в чате прикрепите фото упаковки или
               витрины и спросите «Можно ли мне такое есть?» — модель определит продукт,
               проанализирует состав, КБЖУ и совместимость с вашим профилем, целями и ограничениями.
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Анализ продуктов</strong> — специализированный инструмент на странице
+              «Продукты» (третий таб): выполняет разовый вердикт «стоит ли это есть» по названию,
+              составу и пищевой ценности продукта и сохраняет все анализы в приложении,
+              чтобы вы могли вернуться к ним позже.
             </p>
           </div>
           <div className="flex items-start gap-2">
@@ -424,6 +433,19 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
           </div>
 
           <div className="flex items-start gap-3 rounded-lg bg-muted/50 p-3">
+            <ScanSearch className="h-5 w-5 text-teal-500 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-medium">Анализ продуктов</p>
+              <p className="text-xs text-muted-foreground">
+                Отдельный инструмент на странице «Продукты» (таб «Анализ продуктов»): выберите
+                продукт из каталога или введите свой с составом — модель даст структурированный
+                вердикт (подходит / с осторожностью / не рекомендую), риски и рекомендации.
+                Все анализы сохраняются в списке с поиском.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 rounded-lg bg-muted/50 p-3">
             <TrendingUp className="h-5 w-5 text-emerald-500 mt-0.5 shrink-0" />
             <div>
               <p className="text-sm font-medium">Статистика</p>
@@ -445,6 +467,109 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
               </p>
             </div>
           </div>
+        </div>
+      </Section>
+
+      {/* Section 5.5: Product Analysis tool */}
+      <Section
+        icon={ScanSearch}
+        title="Анализ продуктов"
+      >
+        <p>
+          «Анализ продуктов» — специализированный инструмент, который развивает сценарий
+          «можно ли купить этот продукт» в отдельную функцию. Каждый продукт оценивается
+          с точки зрения того, стоит ли его употреблять именно вам — с учётом вашего профиля,
+          целей и состояния здоровья. Все выполненные анализы сохраняются в приложении,
+          чтобы вы могли вернуться к ним в магазине или при составлении рациона.
+        </p>
+
+        <div className="space-y-2">
+          <div className="flex items-start gap-2">
+            <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Где находится:</strong> страница «Продукты» → третий таб «Анализ продуктов»
+              (отдельная строка под табами «Продукты» и «Блюда»).
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Как запустить:</strong> нажмите кнопку «Новый анализ» и выберите продукт
+              из каталога либо введите свой продукт — название, состав (ингредиенты)
+              и при желании пищевую ценность на 100 г. Затем нажмите «Анализировать».
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Какие данные используются:</strong> модель получает данные вашего профиля —
+              цели, ограничения и заметки о здоровье, медицинские показатели (если вы вели
+              их в разделе «Анализы»), а также возраст, вес, рост и уровень активности.
+              Эти данные сопоставляются с составом и КБЖУ продукта.
+            </p>
+          </div>
+        </div>
+
+        <Separator className="my-3" />
+
+        <p className="font-medium">Как читать вердикты</p>
+        <div className="space-y-2">
+          <div className="flex items-start gap-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 p-2.5">
+            <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400 shrink-0">Подходит</span>
+            <p className="text-xs text-emerald-700/80 dark:text-emerald-400/80">
+              продукт совместим с вашими целями и здоровьем — может присутствовать в рационе регулярно.
+            </p>
+          </div>
+          <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 p-2.5">
+            <span className="text-sm font-medium text-amber-700 dark:text-amber-400 shrink-0">С осторожностью</span>
+            <p className="text-xs text-amber-700/80 dark:text-amber-400/80">
+              допустим, но с ограничениями по порции или частоте, либо содержит спорные компоненты.
+            </p>
+          </div>
+          <div className="flex items-start gap-2 rounded-lg bg-rose-50 dark:bg-rose-950/30 p-2.5">
+            <span className="text-sm font-medium text-rose-700 dark:text-rose-400 shrink-0">Не рекомендую</span>
+            <p className="text-xs text-rose-700/80 dark:text-rose-400/80">
+              противоречит вашим целям, содержит для вас аллергены или явно вредные компоненты.
+            </p>
+          </div>
+        </div>
+
+        <p>
+          Нажмите на карточку анализа, чтобы раскрыть полный текст: разбор состава и питательности,
+          конкретные риски (ингредиенты, добавки, сахар, соль, аллергены), рекомендации по количеству
+          и заменам, а также блок «Почему это важно именно для вас». Свежие анализы отображаются
+          вверху списка; удалять анализ можно кнопкой «Удалить» внутри раскрытой карточки.
+        </p>
+
+        <div className="space-y-2">
+          <div className="flex items-start gap-2">
+            <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Поиск:</strong> поле поиска над списком фильтрует анализы по названию продукта,
+              краткой сводке и вердикту — без учёта регистра. При смене таба поиск сбрасывается.
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Резервная копия:</strong> анализы включаются в экспорт и импорт бэкапа
+              вместе с остальными данными приложения.
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 p-3 space-y-2">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+            <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+              Медицинский дисклеймер
+            </p>
+          </div>
+          <p className="text-xs text-amber-600 dark:text-amber-500">
+            Вердикты анализа продуктов носят информационный характер и не заменяют консультацию
+            врача или диетолога. При аллергиях, хронических заболеваниях или во время лечения
+            принимайте решения о питании только вместе со специалистом.
+          </p>
         </div>
       </Section>
 

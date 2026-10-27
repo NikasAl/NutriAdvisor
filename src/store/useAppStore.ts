@@ -26,6 +26,8 @@ import type {
   WorkoutSet,
   MedTestParam,
   MedTestMeasure,
+  ProductAnalysis,
+  ProductVerdict,
 } from '@/lib/types';
 import { DEFAULT_MED_TEST_PARAMS, computeTrend } from '@/lib/types';
 import { NutritionPrompts } from '@/lib/prompts';
@@ -189,8 +191,7 @@ interface AppState {
 
   // Medical test parameters & measurements
   medTestParams: MedTestParam[];
-  medTestMeasures: MedTestMeasure[];
-  loadMedTestParams: () => Promise<void>;
+  medTestMeasures: MedTestMeasure[];  loadMedTestParams: () => Promise<void>;
   addMedTestParam: (name: string, unit: string, refLow?: number, refHigh?: number) => Promise<void>;
   deleteMedTestParam: (id: string) => Promise<void>;
   loadMedTestMeasures: () => Promise<void>;
@@ -198,6 +199,19 @@ interface AppState {
   updateMedTestMeasure: (id: string, updates: Partial<MedTestMeasure>) => Promise<void>;
   deleteMedTestMeasure: (id: string) => Promise<void>;
   buildMedTestSummary: () => string;
+
+  // Product analyses ("стоит ли это есть?" — stored single-turn LLM verdicts)
+  productAnalyses: ProductAnalysis[];
+  loadProductAnalyses: () => Promise<void>;
+  addProductAnalysis: (a: Omit<ProductAnalysis, 'id' | 'createdAt'>) => Promise<void>;
+  deleteProductAnalysis: (id: string) => Promise<void>;
+  /** Run a single-turn LLM product analysis, parse the verdict and store it (newest first). */
+  runProductAnalysis: (input: {
+    productName: string;
+    ingredients?: string;
+    nutrientsPer100g?: string;
+    sourceProductId?: string;
+  }) => Promise<ProductAnalysis>;
 
   // Streaming abort controller ref
   _abortController: AbortController | null;
@@ -482,6 +496,47 @@ function buildMedTestSummary(
   summary += '--- Конец медицинских показателей ---';
   return summary;
 }
+
+/**
+ * Parse the structured verdict from a product analysis LLM response.
+ * Expected first line: "ВЕРДИКТ: ПОДХОДИТ | С ОСТОРОЖНОСТЬЮ | НЕ РЕКОМЕНДУЮ",
+ * followed by "КРАТКО: ..." summary. Falls back to heuristics and the first
+ * meaningful line when the model deviates from the format.
+ */
+function parseProductVerdict(text: string): { verdict: ProductVerdict; summary: string } {
+  let verdict: ProductVerdict = 'caution';
+  // Tolerant to markdown decorations: "**ВЕРДИКТ:** ПОДХОДИТ" etc.
+  const m = text.match(/ВЕРДИКТ\D{0,20}?(НЕ\s*РЕКОМЕНДУЮ|С\s*ОСТОРОЖНОСТЬЮ|ПОДХОДИТ)/i);
+  if (m) {
+    const v = m[1].toUpperCase().replace(/\s+/g, ' ');
+    if (v.startsWith('НЕ')) verdict = 'not_recommended';
+    else if (v.startsWith('ПОДХОДИТ')) verdict = 'suitable';
+    else verdict = 'caution';
+  } else {
+    const up = text.toUpperCase();
+    if (up.includes('НЕ РЕКОМЕНДУЮ')) verdict = 'not_recommended';
+    else if (up.includes('ПОДХОДИТ')) verdict = 'suitable';
+  }
+
+  let summary = '';
+  const sm = text.match(/КРАТКО\s*:?\s*([\s\S]+?)(?=\n\s*\*\*|\n\s*-{3,}|$)/i);
+  if (sm && sm[1].trim()) {
+    summary = sm[1].trim();
+  } else {
+    // Fallback: first non-empty line that is not the verdict line / header
+    for (const line of text.split('\n')) {
+      const l = line.trim();
+      if (!l) continue;
+      if (/^ВЕРДИКТ/i.test(l) || /^#{1,3}\s/.test(l)) continue;
+      if (/^\*\*.*\*\*:?$/.test(l)) continue; // section header like **Риски:**
+      summary = l.replace(/^КРАТКО\s*:?\s*/i, '');
+      break;
+    }
+  }
+  summary = summary.replace(/\*+/g, '').replace(/\s+/g, ' ').trim().slice(0, 250);
+  return { verdict, summary };
+}
+
 
 export const useAppStore = create<AppState>((set, get) => ({
   // Navigation
@@ -1183,6 +1238,99 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   buildMedTestSummary: () => {
     return buildMedTestSummary(get().medTestParams, get().medTestMeasures);
+  },
+
+  // Product analyses ("стоит ли это есть?")
+  productAnalyses: [],
+
+  loadProductAnalyses: async () => {
+    const analyses = await db.productAnalyses.orderBy('createdAt').reverse().toArray();
+    set({ productAnalyses: analyses });
+  },
+
+  addProductAnalysis: async (a) => {
+    const analysis: ProductAnalysis = { ...a, id: uuid(), createdAt: new Date() };
+    await db.productAnalyses.add(analysis);
+    set((s) => ({ productAnalyses: [analysis, ...s.productAnalyses] }));
+  },
+
+  deleteProductAnalysis: async (id) => {
+    await db.productAnalyses.delete(id);
+    set((s) => ({ productAnalyses: s.productAnalyses.filter((a) => a.id !== id) }));
+  },
+
+  runProductAnalysis: async (input) => {
+    const { profile, customGoals } = get();
+    const provider = get().getActiveProvider();
+    if (!provider || !provider.baseUrl || !provider.model) {
+      throw new Error('Настройте провайдер LLM в настройках');
+    }
+
+    set({ isSending: true, streamingAnalysis: '', lastAnalysisDebug: null });
+
+    try {
+      const profileInfo = buildProfileInfoForAnalysis(profile, customGoals);
+      const medTestSummary = buildMedTestSummary(get().medTestParams, get().medTestMeasures);
+      const fullProfileInfo = [profileInfo, medTestSummary.trim()].filter(Boolean).join('\n');
+      const systemPrompt = NutritionPrompts.getProductAnalysisPrompt(fullProfileInfo || undefined);
+
+      // Product data as the user turn
+      const parts: string[] = [`Продукт: ${input.productName}`];
+      if (input.ingredients?.trim()) parts.push(`Состав (ингредиенты): ${input.ingredients.trim()}`);
+      if (input.nutrientsPer100g?.trim()) parts.push(`Пищевая ценность на 100 г: ${input.nutrientsPer100g.trim()}`);
+      const userContent = parts.join('\n');
+
+      const messages: LLMMessage[] = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userContent },
+      ];
+
+      let finalContent = '';
+      try {
+        await callLLMStream(provider, messages, (text) => {
+          finalContent = text;
+          set({ streamingAnalysis: text });
+        }, 0.5);
+      } catch {
+        // Streaming not supported — fallback to non-streaming
+        const response = await callLLM(provider, messages, 0.5);
+        finalContent = response.content;
+        set({ streamingAnalysis: finalContent });
+      }
+
+      if (!finalContent.trim()) {
+        throw new Error('Модель вернула пустой ответ');
+      }
+
+      const { verdict, summary } = parseProductVerdict(finalContent);
+
+      set({
+        isSending: false,
+        streamingAnalysis: '',
+        lastAnalysisDebug: {
+          prompt: `--- Системный промпт ---\n${systemPrompt}\n\n--- Данные продукта ---\n${userContent}`,
+          response: finalContent,
+        },
+      });
+
+      const analysis: ProductAnalysis = {
+        id: uuid(),
+        productName: input.productName,
+        verdict,
+        summary: summary || 'Анализ выполнен',
+        analysis: finalContent,
+        ingredients: input.ingredients?.trim() || undefined,
+        nutrientsPer100g: input.nutrientsPer100g?.trim() || undefined,
+        sourceProductId: input.sourceProductId,
+        createdAt: new Date(),
+      };
+      await db.productAnalyses.add(analysis);
+      set((s) => ({ productAnalyses: [analysis, ...s.productAnalyses] }));
+      return analysis;
+    } catch (error) {
+      set({ isSending: false, streamingAnalysis: '' });
+      throw error;
+    }
   },
 
   // Chat

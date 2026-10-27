@@ -82,6 +82,7 @@ export default function SettingsPanel() {
   const setTtsVoiceName = useAppStore((s) => s.setTtsVoiceName);
   const loadWaterLog = useAppStore((s) => s.loadWaterLog);
   const loadSleepLog = useAppStore((s) => s.loadSleepLog);
+  const loadProductAnalyses = useAppStore((s) => s.loadProductAnalyses);
   const addProvider = useAppStore((s) => s.addProvider);
   const updateProvider = useAppStore((s) => s.updateProvider);
   const deleteProvider = useAppStore((s) => s.deleteProvider);
@@ -261,6 +262,7 @@ export default function SettingsPanel() {
         workoutEntries: await db.workoutEntries.toArray(),
         waterLogs: await db.waterLogs.toArray(),
         sleepLogs: await db.sleepLogs.toArray(),
+        productAnalyses: await db.productAnalyses.toArray(),
       };
 
       const json = JSON.stringify(data, null, 2);
@@ -277,6 +279,7 @@ export default function SettingsPanel() {
         `${data.chatSessions.length} разговоров`,
         `${data.chatMessages.length} сообщений`,
         `${data.customGoals.length} целей`,
+        `${data.productAnalyses.length} анализов продуктов`,
       ];
       const counts = parts.join(', ');
       const dateStr = new Date().toISOString().split('T')[0];
@@ -480,6 +483,14 @@ export default function SettingsPanel() {
         }
       }
 
+      // Import product analyses (section absent in old backups — keep existing data)
+      if (Array.isArray(data.productAnalyses)) {
+        await db.productAnalyses.clear();
+        for (const a of data.productAnalyses) {
+          await db.productAnalyses.put({ ...a, createdAt: new Date(a.createdAt) });
+        }
+      }
+
       const parts: string[] = [];
       if (data.providers) parts.push(`${data.providers.length} провайдер`);
       if (data.foodEntries) parts.push(`${data.foodEntries.length} записей еды`);
@@ -493,6 +504,7 @@ export default function SettingsPanel() {
       if (data.chatSessions) parts.push(`${data.chatSessions.length} разговоров`);
       if (data.chatMessages) parts.push(`${data.chatMessages.length} сообщений`);
       if (data.customGoals) parts.push(`${data.customGoals.length} целей`);
+      if (data.productAnalyses) parts.push(`${data.productAnalyses.length} анализов продуктов`);
       setImportStatus(`Импортировано! ${parts.join(', ')}`);
 
       // Reload all data in store
@@ -510,6 +522,7 @@ export default function SettingsPanel() {
         loadCustomGoals(),
         loadWaterLog(today),
         loadSleepLog(today),
+        loadProductAnalyses(),
       ]);
 
       setTimeout(() => setImportStatus(''), 5000);

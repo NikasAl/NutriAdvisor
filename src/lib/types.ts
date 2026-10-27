@@ -102,6 +102,35 @@ export interface FoodProduct {
   createdAt: Date;
 }
 
+// ─── Product Analysis (store shelf-analyses) ───────────────────────
+
+/** Verdict degrees for a product analysis */
+export type ProductVerdict = 'suitable' | 'caution' | 'not_recommended';
+
+export const PRODUCT_VERDICT_LABELS: Record<ProductVerdict, string> = {
+  suitable: 'Подходит',
+  caution: 'С осторожностью',
+  not_recommended: 'Не рекомендую',
+};
+
+/** A stored single-turn LLM analysis of a grocery product */
+export interface ProductAnalysis {
+  id?: string;
+  productName: string;
+  verdict: ProductVerdict;
+  /** 1–2 line short summary shown on the card */
+  summary: string;
+  /** Full analysis text (markdown) */
+  analysis: string;
+  /** Ingredients list as entered by the user (if any) */
+  ingredients?: string;
+  /** Nutrients per 100 g as entered by the user (if any) */
+  nutrientsPer100g?: string;
+  /** Catalog product id the analysis was run for (if selected from catalog) */
+  sourceProductId?: string;
+  createdAt: Date;
+}
+
 export interface DishIngredientData {
   productId: string;
   weightGrams: number;

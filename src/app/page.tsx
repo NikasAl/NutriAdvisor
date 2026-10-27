@@ -36,6 +36,7 @@ export default function Home() {
   const loadExercises = useAppStore((s) => s.loadExercises);
   const loadWorkoutEntries = useAppStore((s) => s.loadWorkoutEntries);
   const seedExerciseCatalog = useAppStore((s) => s.seedExerciseCatalog);
+  const loadProductAnalyses = useAppStore((s) => s.loadProductAnalyses);
   const [showHelp, setShowHelp] = useState<HelpSection | false>(() => {
     if (typeof window !== 'undefined' && !localStorage.getItem('nutri-help-shown')) return 'about';
     return false;
@@ -61,7 +62,8 @@ export default function Home() {
     loadExercises();
     loadWorkoutEntries();
     seedExerciseCatalog();
-  }, [loadProviders, loadProfile, loadFoodEntries, loadDiaryEntries, loadFoodProducts, loadDishes, seedFoodCatalog, loadWaterLog, loadSleepLog, loadExercises, loadWorkoutEntries, seedExerciseCatalog]);
+    loadProductAnalyses();
+  }, [loadProviders, loadProfile, loadFoodEntries, loadDiaryEntries, loadFoodProducts, loadDishes, seedFoodCatalog, loadWaterLog, loadSleepLog, loadExercises, loadWorkoutEntries, seedExerciseCatalog, loadProductAnalyses]);
 
   // Apply theme on mount and when it changes
   useEffect(() => {
