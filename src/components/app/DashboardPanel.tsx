@@ -41,9 +41,11 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
   const chatSessions = useAppStore((s) => s.chatSessions);
   const getActiveProvider = useAppStore((s) => s.getActiveProvider);
   const setActiveTab = useAppStore((s) => s.setActiveTab);
+  const workoutEntries = useAppStore((s) => s.workoutEntries);
   const loadProfile = useAppStore((s) => s.loadProfile);
   const loadFoodEntries = useAppStore((s) => s.loadFoodEntries);
   const loadChatSessions = useAppStore((s) => s.loadChatSessions);
+  const loadWorkoutEntries = useAppStore((s) => s.loadWorkoutEntries);
   const waterLog = useAppStore((s) => s.waterLog);
   const waterGlassMl = useAppStore((s) => s.waterGlassMl);
   const addWaterGlass = useAppStore((s) => s.addWaterGlass);
@@ -61,7 +63,8 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
     loadProfile();
     loadFoodEntries();
     loadChatSessions();
-  }, [loadProfile, loadFoodEntries, loadChatSessions]);
+    loadWorkoutEntries();
+  }, [loadProfile, loadFoodEntries, loadChatSessions, loadWorkoutEntries]);
 
   const provider = getActiveProvider();
   const today = new Date().toISOString().split('T')[0];
@@ -71,6 +74,11 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
   const totalProtein = todayEntries.reduce((sum, e) => sum + (e.estimatedProtein ?? 0), 0);
   const totalFat = todayEntries.reduce((sum, e) => sum + (e.estimatedFat ?? 0), 0);
   const totalCarbs = todayEntries.reduce((sum, e) => sum + (e.estimatedCarbs ?? 0), 0);
+
+  // Calories burned in today's workouts
+  const todayWorkouts = workoutEntries.filter((e) => e.date === today);
+  const exerciseCalories = todayWorkouts.reduce((sum, e) => sum + (e.estimatedCaloriesBurned ?? 0), 0);
+  const netCalories = Math.max(0, totalCalories - exerciseCalories);
 
   // Rough calorie goal estimation
   const bmr = profile.weight && profile.height && profile.age
@@ -85,7 +93,7 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
     : profile.goals.includes('weight_gain') || profile.goals.includes('muscle_gain')
       ? tdee + 300
       : tdee;
-  const calorieProgress = Math.min(100, Math.round((totalCalories / calorieGoal) * 100));
+  const calorieProgress = Math.min(100, Math.round((netCalories / calorieGoal) * 100));
 
   return (
     <div className="space-y-4 pb-4">
@@ -190,11 +198,17 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
         <CardContent className="px-4 pb-4 space-y-3">
           <div className="flex items-end justify-between">
             <div>
-              <span className="text-2xl font-bold">{totalCalories}</span>
+              <span className="text-2xl font-bold">{netCalories}</span>
               <span className="ml-1 text-sm text-muted-foreground">/ {Math.round(calorieGoal)} ккал</span>
             </div>
             <span className="text-sm text-muted-foreground">{calorieProgress}%</span>
           </div>
+          {exerciseCalories > 0 && (
+            <div className="flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400">
+              <Dumbbell className="h-3 w-3" />
+              <span>Съедено {totalCalories} ккал − сожжено {exerciseCalories} ккал = нетто {netCalories} ккал</span>
+            </div>
+          )}
           <Progress value={calorieProgress} className="h-2" />
           <div className="grid grid-cols-3 gap-3 text-center">
             <div className="rounded-lg bg-blue-50 p-2 dark:bg-blue-950/20">

@@ -447,6 +447,15 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
               в разделе «Профиль» для точного расчёта.
             </p>
           </div>
+          <div className="flex items-start gap-2">
+            <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Учёт тренировок</strong> — если за сегодня записана тренировка, калории,
+              потраченные на неё, вычитаются из съеденных: нетто = съедено − сожжено.
+              Оранжевая строка под числом показывает расшифровку. Прогресс-бар отражает
+              нетто-калории относительно цели.
+            </p>
+          </div>
         </div>
 
         <p>
