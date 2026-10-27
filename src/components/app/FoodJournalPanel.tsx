@@ -386,10 +386,6 @@ export default function FoodJournalPanel() {
               <button onClick={() => handleEditEntry(entry)} className="rounded-md p-1 hover:bg-muted text-muted-foreground" title="Редактировать"><Pencil className="h-3.5 w-3.5" /></button>
               <button onClick={() => handleTemplate(entry)} className="rounded-md p-1 hover:bg-muted text-muted-foreground" title="Создать из шаблона"><Copy className="h-3.5 w-3.5" /></button>
               <button onClick={() => toggleExpand(eid)} className="rounded-md p-1 hover:bg-muted text-muted-foreground" title={isExpanded ? 'Свернуть' : 'Подробнее'}>{isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild><button className="rounded-md p-1 hover:bg-destructive/10 text-destructive" title="Удалить"><Trash2 className="h-3.5 w-3.5" /></button></AlertDialogTrigger>
-                <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Удалить запись?</AlertDialogTitle><AlertDialogDescription>Эта запись будет удалена без возможности восстановления.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Отмена</AlertDialogCancel><AlertDialogAction onClick={() => deleteFoodEntry(eid)} className="bg-destructive text-destructive-foreground">Удалить</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
-              </AlertDialog>
             </div>
           </div>
           {isExpanded && entry.aiAnalysis && (
@@ -402,6 +398,13 @@ export default function FoodJournalPanel() {
             </div>
           )}
           {isExpanded && !entry.aiAnalysis && <div className="mt-3 rounded-md bg-muted/30 p-2 text-xs text-muted-foreground text-center">Анализ не проводился</div>}
+          {/* Delete at the very bottom of the card — harder to hit accidentally while collapsing/scrolling */}
+          <div className="mt-2 flex justify-end border-t border-border/50 pt-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild><button className="rounded-md p-1 hover:bg-destructive/10 text-destructive" title="Удалить"><Trash2 className="h-3.5 w-3.5" /></button></AlertDialogTrigger>
+              <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Удалить запись?</AlertDialogTitle><AlertDialogDescription>Эта запись будет удалена без возможности восстановления.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Отмена</AlertDialogCancel><AlertDialogAction onClick={() => deleteFoodEntry(eid)} className="bg-destructive text-destructive-foreground">Удалить</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+            </AlertDialog>
+          </div>
         </CardContent>
       </Card>
     );

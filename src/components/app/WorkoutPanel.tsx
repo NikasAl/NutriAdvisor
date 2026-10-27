@@ -1018,32 +1018,6 @@ export default function WorkoutPanel() {
                     >
                       {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                     </button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <button
-                          className="rounded-md p-1 hover:bg-destructive/10 text-destructive"
-                          onClick={(e) => e.stopPropagation()}
-                          title="Удалить"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Удалить тренировку?</AlertDialogTitle>
-                          <AlertDialogDescription>Тренировка «{entry.name || 'Без названия'}» будет удалена.</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Отмена</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={async () => { await deleteWorkoutEntry(entry.id!); if (entry.isDraft) await clearWorkoutDraft(); }}
-                            className="bg-destructive text-destructive-foreground"
-                          >
-                            Удалить
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
                   </div>
                 </div>
 
@@ -1058,6 +1032,36 @@ export default function WorkoutPanel() {
                     <MarkdownRenderer content={entry.aiAnalysis} className="text-xs" />
                   </div>
                 )}
+
+                {/* Delete at the very bottom of the card — harder to hit accidentally while collapsing/scrolling */}
+                <div className="mt-2 flex justify-end border-t border-border/50 pt-2">
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <button
+                        className="rounded-md p-1 hover:bg-destructive/10 text-destructive"
+                        onClick={(e) => e.stopPropagation()}
+                        title="Удалить"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Удалить тренировку?</AlertDialogTitle>
+                        <AlertDialogDescription>Тренировка «{entry.name || 'Без названия'}» будет удалена.</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Отмена</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={async () => { await deleteWorkoutEntry(entry.id!); if (entry.isDraft) await clearWorkoutDraft(); }}
+                          className="bg-destructive text-destructive-foreground"
+                        >
+                          Удалить
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </CardContent>
             </Card>
           );
@@ -1089,24 +1093,27 @@ export default function WorkoutPanel() {
                   <button className="rounded-md p-1 hover:bg-muted text-muted-foreground" onClick={() => openEditActivity(entry)} title="Редактировать">
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <button className="rounded-md p-1 hover:bg-destructive/10 text-destructive" title="Удалить">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Удалить активность?</AlertDialogTitle>
-                        <AlertDialogDescription>«{entry.description}» будет удалено.</AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Отмена</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => deleteDiaryEntry(entry.id!)} className="bg-destructive text-destructive-foreground">Удалить</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
                 </div>
+              </div>
+              {/* Delete at the very bottom of the card — harder to hit accidentally while collapsing/scrolling */}
+              <div className="mt-2 flex justify-end border-t border-border/50 pt-2">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <button className="rounded-md p-1 hover:bg-destructive/10 text-destructive" title="Удалить">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Удалить активность?</AlertDialogTitle>
+                      <AlertDialogDescription>«{entry.description}» будет удалено.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Отмена</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => deleteDiaryEntry(entry.id!)} className="bg-destructive text-destructive-foreground">Удалить</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </CardContent>
           </Card>
@@ -1194,32 +1201,6 @@ export default function WorkoutPanel() {
                         >
                           {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                         </button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <button
-                              className="rounded-md p-1 hover:bg-destructive/10 text-destructive"
-                              onClick={(e) => e.stopPropagation()}
-                              title="Удалить"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Удалить тренировку?</AlertDialogTitle>
-                              <AlertDialogDescription>Тренировка «{entry.name || 'Без названия'}» будет удалена.</AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Отмена</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={async () => { await deleteWorkoutEntry(entry.id!); if (entry.isDraft) await clearWorkoutDraft(); }}
-                                className="bg-destructive text-destructive-foreground"
-                              >
-                                Удалить
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
                       </div>
                     </div>
 
@@ -1234,6 +1215,36 @@ export default function WorkoutPanel() {
                         <MarkdownRenderer content={entry.aiAnalysis} className="text-xs" />
                       </div>
                     )}
+
+                    {/* Delete at the very bottom of the card — harder to hit accidentally while collapsing/scrolling */}
+                    <div className="mt-2 flex justify-end border-t border-border/50 pt-2">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button
+                            className="rounded-md p-1 hover:bg-destructive/10 text-destructive"
+                            onClick={(e) => e.stopPropagation()}
+                            title="Удалить"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Удалить тренировку?</AlertDialogTitle>
+                            <AlertDialogDescription>Тренировка «{entry.name || 'Без названия'}» будет удалена.</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Отмена</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={async () => { await deleteWorkoutEntry(entry.id!); if (entry.isDraft) await clearWorkoutDraft(); }}
+                              className="bg-destructive text-destructive-foreground"
+                            >
+                              Удалить
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   </CardContent>
                 </Card>
               );
@@ -1274,24 +1285,27 @@ export default function WorkoutPanel() {
                       <button className="rounded-md p-1 hover:bg-muted text-muted-foreground" onClick={() => openEditActivity(entry)} title="Редактировать">
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <button className="rounded-md p-1 hover:bg-destructive/10 text-destructive" title="Удалить">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Удалить активность?</AlertDialogTitle>
-                            <AlertDialogDescription>«{entry.description}» будет удалено.</AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Отмена</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => deleteDiaryEntry(entry.id!)} className="bg-destructive text-destructive-foreground">Удалить</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
                     </div>
+                  </div>
+                  {/* Delete at the very bottom of the card — harder to hit accidentally while collapsing/scrolling */}
+                  <div className="mt-2 flex justify-end border-t border-border/50 pt-2">
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <button className="rounded-md p-1 hover:bg-destructive/10 text-destructive" title="Удалить">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Удалить активность?</AlertDialogTitle>
+                          <AlertDialogDescription>«{entry.description}» будет удалено.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Отмена</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => deleteDiaryEntry(entry.id!)} className="bg-destructive text-destructive-foreground">Удалить</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </CardContent>
               </Card>
