@@ -211,6 +211,8 @@ interface AppState {
     ingredients?: string;
     nutrientsPer100g?: string;
     sourceProductId?: string;
+    /** Photos of the product/package (compressed data-URLs) — primary scenario */
+    photos?: string[];
   }) => Promise<ProductAnalysis>;
 
   // Streaming abort controller ref
@@ -527,7 +529,7 @@ function parseProductVerdict(text: string): { verdict: ProductVerdict; summary: 
     for (const line of text.split('\n')) {
       const l = line.trim();
       if (!l) continue;
-      if (/^ВЕРДИКТ/i.test(l) || /^#{1,3}\s/.test(l)) continue;
+      if (/^ПРОДУКТ/i.test(l) || /^ВЕРДИКТ/i.test(l) || /^#{1,3}\s/.test(l)) continue;
       if (/^\*\*.*\*\*:?$/.test(l)) continue; // section header like **Риски:**
       summary = l.replace(/^КРАТКО\s*:?\s*/i, '');
       break;
@@ -1266,19 +1268,48 @@ export const useAppStore = create<AppState>((set, get) => ({
       throw new Error('Настройте провайдер LLM в настройках');
     }
 
+    const photos = (input.photos ?? []).filter((p) => p && p.trim());
+    const fromPhotos = photos.length > 0;
+
+    // Photos require a vision-capable provider — dropping them silently would
+    // make the analysis meaningless, so fail fast with a clear message
+    if (fromPhotos && !provider.supportsVision) {
+      throw new Error('Выбранный провайдер не поддерживает распознавание фото (Vision). Включите «Поддержка Vision» в настройках провайдера или введите продукт вручную.');
+    }
+
     set({ isSending: true, streamingAnalysis: '', lastAnalysisDebug: null });
 
     try {
       const profileInfo = buildProfileInfoForAnalysis(profile, customGoals);
       const medTestSummary = buildMedTestSummary(get().medTestParams, get().medTestMeasures);
       const fullProfileInfo = [profileInfo, medTestSummary.trim()].filter(Boolean).join('\n');
-      const systemPrompt = NutritionPrompts.getProductAnalysisPrompt(fullProfileInfo || undefined);
+      const systemPrompt = NutritionPrompts.getProductAnalysisPrompt(fullProfileInfo || undefined, fromPhotos);
 
       // Product data as the user turn
-      const parts: string[] = [`Продукт: ${input.productName}`];
-      if (input.ingredients?.trim()) parts.push(`Состав (ингредиенты): ${input.ingredients.trim()}`);
-      if (input.nutrientsPer100g?.trim()) parts.push(`Пищевая ценность на 100 г: ${input.nutrientsPer100g.trim()}`);
-      const userContent = parts.join('\n');
+      let userContent: string | ContentPart[];
+      let debugPrompt: string;
+
+      if (fromPhotos) {
+        const textParts: string[] = ['Проанализируй продукт по прикреплённым фотографиям упаковки: прочитай с фото название, состав и пищевую ценность и дай вердикт в указанном формате.'];
+        if (input.productName.trim()) {
+          textParts.push(`Название продукта (указал пользователь): ${input.productName.trim()}`);
+        }
+        const text = textParts.join('\n');
+        userContent = [
+          { type: 'text', text },
+          ...photos.map((url) => ({
+            type: 'image_url' as const,
+            image_url: { url: url.startsWith('data:') ? url : `data:image/jpeg;base64,${url}` },
+          })),
+        ];
+        debugPrompt = text;
+      } else {
+        const parts: string[] = [`Продукт: ${input.productName}`];
+        if (input.ingredients?.trim()) parts.push(`Состав (ингредиенты): ${input.ingredients.trim()}`);
+        if (input.nutrientsPer100g?.trim()) parts.push(`Пищевая ценность на 100 г: ${input.nutrientsPer100g.trim()}`);
+        userContent = parts.join('\n');
+        debugPrompt = userContent;
+      }
 
       const messages: LLMMessage[] = [
         { role: 'system', content: systemPrompt },
@@ -1304,24 +1335,34 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       const { verdict, summary } = parseProductVerdict(finalContent);
 
+      // In photo mode the model names the product itself ("ПРОДУКТ: ..." line);
+      // user-provided name (if any) takes precedence, otherwise fall back gracefully
+      let productName = input.productName.trim();
+      if (fromPhotos && !productName) {
+        const pm = finalContent.match(/ПРОДУКТ\s*:\s*([^\n]+)/i);
+        productName = pm?.[1]?.trim() || 'Продукт с фото';
+      }
+
       set({
         isSending: false,
         streamingAnalysis: '',
         lastAnalysisDebug: {
-          prompt: `--- Системный промпт ---\n${systemPrompt}\n\n--- Данные продукта ---\n${userContent}`,
+          prompt: `--- Системный промпт ---\n${systemPrompt}\n\n--- Данные продукта ---\n${debugPrompt}`,
           response: finalContent,
         },
       });
 
       const analysis: ProductAnalysis = {
         id: uuid(),
-        productName: input.productName,
+        productName,
         verdict,
         summary: summary || 'Анализ выполнен',
         analysis: finalContent,
         ingredients: input.ingredients?.trim() || undefined,
         nutrientsPer100g: input.nutrientsPer100g?.trim() || undefined,
         sourceProductId: input.sourceProductId,
+        source: fromPhotos ? 'photo' : input.sourceProductId ? 'catalog' : 'manual',
+        photos: fromPhotos ? photos : undefined,
         createdAt: new Date(),
       };
       await db.productAnalyses.add(analysis);

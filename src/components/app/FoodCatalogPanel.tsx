@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,10 +30,11 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   Plus, Trash2, Pencil, Search, X, Package, UtensilsCrossed, Check,
-  ScanSearch, ChevronDown, ChevronUp, Loader2,
+  ScanSearch, ChevronDown, ChevronUp, Loader2, Camera,
 } from 'lucide-react';
 import type { DishIngredientData, FoodEntryItem, ProductVerdict } from '@/lib/types';
 import { PRODUCT_VERDICT_LABELS } from '@/lib/types';
+import { compressImageFile } from '@/lib/image-utils';
 
 /** Colored verdict badge styles (light + dark) */
 const VERDICT_STYLES: Record<ProductVerdict, string> = {
@@ -41,6 +42,9 @@ const VERDICT_STYLES: Record<ProductVerdict, string> = {
   caution: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-900',
   not_recommended: 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-400 dark:border-rose-900',
 };
+
+/** Max photos per one product analysis (keeps the LLM request reasonably small) */
+const MAX_ANALYSIS_PHOTOS = 5;
 
 function formatAnalysisDate(d: Date): string {
   const date = new Date(d);
@@ -81,7 +85,7 @@ export default function FoodCatalogPanel() {
   // Product analysis state
   const [expandedAnalysisId, setExpandedAnalysisId] = useState<string | null>(null);
   const [newAnalysisOpen, setNewAnalysisOpen] = useState(false);
-  const [analysisMode, setAnalysisMode] = useState<'catalog' | 'custom'>('catalog');
+  const [analysisMode, setAnalysisMode] = useState<'photo' | 'catalog' | 'custom'>('photo');
   const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(null);
   const [catSearch, setCatSearch] = useState('');
   const [customName, setCustomName] = useState('');
@@ -89,6 +93,12 @@ export default function FoodCatalogPanel() {
   const [customNutrients, setCustomNutrients] = useState('');
   const [analysisRunning, setAnalysisRunning] = useState(false);
   const [analysisError, setAnalysisError] = useState('');
+  // Photo mode (primary scenario) — like chat attachments
+  const [analysisPhotos, setAnalysisPhotos] = useState<string[]>([]);
+  const [photoName, setPhotoName] = useState('');
+  const [compressingPhotos, setCompressingPhotos] = useState(false);
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
+  const analysisFileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -158,12 +168,15 @@ export default function FoodCatalogPanel() {
   // ── Product analysis handlers ──
 
   const openNewAnalysis = () => {
-    setAnalysisMode('catalog');
+    setAnalysisMode('photo');
     setSelectedCatalogId(null);
     setCatSearch('');
     setCustomName('');
     setCustomIngredients('');
     setCustomNutrients('');
+    setAnalysisPhotos([]);
+    setPhotoName('');
+    setCompressingPhotos(false);
     setAnalysisError('');
     setAnalysisRunning(false);
     setNewAnalysisOpen(true);
@@ -175,11 +188,34 @@ export default function FoodCatalogPanel() {
     setAnalysisRunning(false);
   };
 
+  const handleAttachAnalysisPhotos = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = ''; // allow re-selecting the same file
+    if (files.length === 0) return;
+    setAnalysisError('');
+    try {
+      setCompressingPhotos(true);
+      const compressed = await Promise.all(files.map((f) => compressImageFile(f)));
+      setAnalysisPhotos((prev) => [...prev, ...compressed].slice(0, MAX_ANALYSIS_PHOTOS));
+    } catch (err) {
+      setAnalysisError(err instanceof Error ? err.message : 'Не удалось обработать изображение');
+    } finally {
+      setCompressingPhotos(false);
+    }
+  };
+
+  const removeAnalysisPhoto = (idx: number) => {
+    setAnalysisPhotos((prev) => prev.filter((_, i) => i !== idx));
+  };
+
   const handleRunAnalysis = async () => {
     if (analysisRunning) return;
-    let input: { productName: string; ingredients?: string; nutrientsPer100g?: string; sourceProductId?: string } | null = null;
+    let input: { productName: string; ingredients?: string; nutrientsPer100g?: string; sourceProductId?: string; photos?: string[] } | null = null;
 
-    if (analysisMode === 'catalog') {
+    if (analysisMode === 'photo') {
+      if (analysisPhotos.length === 0) return;
+      input = { productName: photoName.trim(), photos: [...analysisPhotos] };
+    } else if (analysisMode === 'catalog') {
       const p = foodProducts.find((x) => x.id === selectedCatalogId);
       if (!p) return;
       input = { productName: p.name, sourceProductId: p.id };
@@ -437,7 +473,8 @@ export default function FoodCatalogPanel() {
                   <div className="flex items-start gap-2">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{a.productName}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                      <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                        {a.source === 'photo' && <Camera className="h-3 w-3 shrink-0" />}
                         {formatAnalysisDate(a.createdAt)}
                       </p>
                     </div>
@@ -455,6 +492,19 @@ export default function FoodCatalogPanel() {
 
                 {expanded && (
                   <div className="mt-2 pt-2 border-t space-y-2">
+                    {a.photos && a.photos.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {a.photos.map((img, i) => (
+                          <img
+                            key={i}
+                            src={img}
+                            alt={`Фото ${i + 1}`}
+                            className="h-14 w-14 rounded-md object-cover cursor-pointer border border-border"
+                            onClick={() => setViewingImage(img)}
+                          />
+                        ))}
+                      </div>
+                    )}
                     {(a.ingredients || a.nutrientsPer100g) && (
                       <div className="text-[10px] text-muted-foreground space-y-0.5">
                         {a.ingredients && (
@@ -511,7 +561,8 @@ export default function FoodCatalogPanel() {
               <p>{productAnalyses.length === 0 ? 'Анализов пока нет' : 'Ничего не найдено'}</p>
               {productAnalyses.length === 0 && (
                 <p className="text-xs mt-1 px-4">
-                  Нажмите «Новый анализ», чтобы проверить, подходит ли вам продукт из магазина
+                  Нажмите «Новый анализ» и прикрепите фото упаковки — модель сама определит
+                  продукт и проверит, подходит ли он вам
                 </p>
               )}
             </div>
@@ -678,11 +729,21 @@ export default function FoodCatalogPanel() {
                 </div>
               )}
 
-              {/* Mode toggle */}
-              <div className="flex gap-2">
+              {/* Mode toggle — photo first (primary scenario) */}
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => setAnalysisMode('photo')}
+                  className={`flex-1 flex items-center justify-center gap-1 rounded-lg border p-2 text-xs transition-colors ${
+                    analysisMode === 'photo'
+                      ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
+                      : 'text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  <Camera className="h-3.5 w-3.5 shrink-0" /> Фото
+                </button>
                 <button
                   onClick={() => setAnalysisMode('catalog')}
-                  className={`flex-1 rounded-lg border p-2 text-sm transition-colors ${
+                  className={`flex-1 rounded-lg border p-2 text-xs transition-colors ${
                     analysisMode === 'catalog'
                       ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
                       : 'text-muted-foreground hover:bg-muted'
@@ -692,7 +753,7 @@ export default function FoodCatalogPanel() {
                 </button>
                 <button
                   onClick={() => setAnalysisMode('custom')}
-                  className={`flex-1 rounded-lg border p-2 text-sm transition-colors ${
+                  className={`flex-1 rounded-lg border p-2 text-xs transition-colors ${
                     analysisMode === 'custom'
                       ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
                       : 'text-muted-foreground hover:bg-muted'
@@ -702,7 +763,73 @@ export default function FoodCatalogPanel() {
                 </button>
               </div>
 
-              {analysisMode === 'catalog' ? (
+              {analysisMode === 'photo' ? (
+                /* Photo mode — primary scenario: attach 1..N photos of the package */
+                <div className="space-y-3">
+                  <input
+                    ref={analysisFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={handleAttachAnalysisPhotos}
+                  />
+                  <button
+                    onClick={() => analysisFileInputRef.current?.click()}
+                    disabled={compressingPhotos || analysisPhotos.length >= MAX_ANALYSIS_PHOTOS}
+                    className="w-full flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 p-5 text-sm text-emerald-700 dark:text-emerald-400 transition-colors hover:bg-emerald-50 dark:hover:bg-emerald-950/40 disabled:opacity-50"
+                  >
+                    {compressingPhotos ? (
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    ) : (
+                      <Camera className="h-6 w-6" />
+                    )}
+                    <span className="font-medium">
+                      {compressingPhotos ? 'Обрабатываю фото…' : 'Сфотографировать или выбрать фото'}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      Этикетка, состав, таблица КБЖУ — до {MAX_ANALYSIS_PHOTOS} фото
+                    </span>
+                  </button>
+
+                  {analysisPhotos.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {analysisPhotos.map((img, idx) => (
+                        <div key={idx} className="relative">
+                          <img
+                            src={img}
+                            alt={`Фото продукта ${idx + 1}`}
+                            className="h-16 w-16 rounded-md object-cover cursor-pointer border border-border"
+                            onClick={() => setViewingImage(img)}
+                          />
+                          <button
+                            onClick={() => removeAnalysisPhoto(idx)}
+                            className="absolute -right-1.5 -top-1.5 rounded-full bg-destructive text-white p-0.5 shadow"
+                            title="Удалить фото"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Название продукта (необязательно)</Label>
+                    <Input
+                      value={photoName}
+                      onChange={(e) => setPhotoName(e.target.value)}
+                      placeholder="Модель определит название с фото"
+                      className="text-sm"
+                    />
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    Модель сама считает название, состав и КБЖУ с фотографий, сопоставит
+                    с вашим профилем и даст вердикт — набирать текст не нужно.
+                  </p>
+                </div>
+              ) : analysisMode === 'catalog' ? (
                 /* Catalog product picker */
                 <div className="space-y-2">
                   <div className="relative">
@@ -785,7 +912,12 @@ export default function FoodCatalogPanel() {
             )}
             <Button
               onClick={handleRunAnalysis}
-              disabled={analysisRunning || (analysisMode === 'catalog' ? !selectedCatalogId : !customName.trim())}
+              disabled={
+                analysisRunning ||
+                (analysisMode === 'photo' && analysisPhotos.length === 0) ||
+                (analysisMode === 'catalog' && !selectedCatalogId) ||
+                (analysisMode === 'custom' && !customName.trim())
+              }
             >
               {analysisRunning ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ScanSearch className="mr-1.5 h-4 w-4" />}
               {analysisRunning ? 'Анализирую...' : 'Анализировать'}
@@ -793,6 +925,28 @@ export default function FoodCatalogPanel() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Fullscreen image viewer (photos in dialog and saved analyses) */}
+      {viewingImage && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setViewingImage(null)}
+        >
+          <img
+            src={viewingImage}
+            alt="Просмотр"
+            className="max-h-full max-w-full object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            className="absolute top-3 right-3 rounded-full bg-white/10 text-white p-2 hover:bg-white/20"
+            onClick={() => setViewingImage(null)}
+            title="Закрыть"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

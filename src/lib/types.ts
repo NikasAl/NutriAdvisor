@@ -113,6 +113,9 @@ export const PRODUCT_VERDICT_LABELS: Record<ProductVerdict, string> = {
   not_recommended: 'Не рекомендую',
 };
 
+/** How the analyzed product was specified */
+export type ProductAnalysisSource = 'photo' | 'catalog' | 'manual';
+
 /** A stored single-turn LLM analysis of a grocery product */
 export interface ProductAnalysis {
   id?: string;
@@ -128,6 +131,10 @@ export interface ProductAnalysis {
   nutrientsPer100g?: string;
   /** Catalog product id the analysis was run for (if selected from catalog) */
   sourceProductId?: string;
+  /** How the product was specified: photo of the package (primary), catalog pick or manual entry */
+  source?: ProductAnalysisSource;
+  /** Compressed photos of the product/package attached to the analysis (if any) */
+  photos?: string[];
   createdAt: Date;
 }
 
