@@ -5,17 +5,31 @@
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# --- Capacitor (required for release builds with minifyEnabled true) ---
+#
+# Capacitor's plugin dispatch is built on runtime reflection: plugin classes
+# are resolved by name, @PluginMethod/@PermissionCallback methods are looked
+# up reflectively, and permission handling reads the @CapacitorPlugin /
+# @Permission annotations at runtime (Bridge.getPermissionStates does
+# pluginAnnotation.permissions() with no null guard). R8 full mode (AGP 8)
+# strips/renames/merges these, which crashes release builds with
+# "NullPointerException: throw with null exception" inside
+# getPermissionStates while the same code works fine in debug builds.
+#
+# The consumer-rules.pro shipped by the capacitor AAR is not sufficient
+# under R8 full mode, so keep the whole runtime explicitly.
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+-keepattributes *Annotation*, Signature, InnerClasses, EnclosingMethod
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+-keep class com.getcapacitor.** { *; }
+-keep class com.capacitorjs.plugins.** { *; }
+
+# Local native plugins (NativeCameraPlugin, NativeTTSPlugin, NativeHttpPlugin)
+# and MainActivity
+-keep class ru.kreagenium.nuadvi.** { *; }
+
+# --- Debuggable release stack traces ---
+# Keep original source file names and line numbers so release crash logs can
+# be read directly (slight size increase, worth it for diagnostics).
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
