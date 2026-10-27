@@ -30,11 +30,12 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   Plus, Trash2, Pencil, Search, X, Package, UtensilsCrossed, Check,
-  ScanSearch, ChevronDown, ChevronUp, Loader2, Camera,
+  ScanSearch, ChevronDown, ChevronUp, Loader2, Camera, ImageIcon,
 } from 'lucide-react';
 import type { DishIngredientData, FoodEntryItem, ProductVerdict } from '@/lib/types';
 import { PRODUCT_VERDICT_LABELS } from '@/lib/types';
 import { compressImageFile } from '@/lib/image-utils';
+import { takePhotoNow } from '@/lib/photo-capture';
 
 /** Colored verdict badge styles (light + dark) */
 const VERDICT_STYLES: Record<ProductVerdict, string> = {
@@ -199,6 +200,22 @@ export default function FoodCatalogPanel() {
       setAnalysisPhotos((prev) => [...prev, ...compressed].slice(0, MAX_ANALYSIS_PHOTOS));
     } catch (err) {
       setAnalysisError(err instanceof Error ? err.message : 'Не удалось обработать изображение');
+    } finally {
+      setCompressingPhotos(false);
+    }
+  };
+
+  // Take a photo with the camera right now and attach it like a gallery pick
+  const handleTakeAnalysisPhoto = async () => {
+    if (analysisPhotos.length >= MAX_ANALYSIS_PHOTOS) return;
+    setAnalysisError('');
+    try {
+      setCompressingPhotos(true);
+      const dataUrl = await takePhotoNow();
+      if (!dataUrl) return; // cancelled
+      setAnalysisPhotos((prev) => [...prev, dataUrl].slice(0, MAX_ANALYSIS_PHOTOS));
+    } catch (err) {
+      setAnalysisError(err instanceof Error ? err.message : 'Не удалось сделать снимок');
     } finally {
       setCompressingPhotos(false);
     }
@@ -764,7 +781,7 @@ export default function FoodCatalogPanel() {
               </div>
 
               {analysisMode === 'photo' ? (
-                /* Photo mode — primary scenario: attach 1..N photos of the package */
+                /* Photo mode — primary scenario: take a shot now or pick 1..N photos of the package */
                 <div className="space-y-3">
                   <input
                     ref={analysisFileInputRef}
@@ -774,23 +791,35 @@ export default function FoodCatalogPanel() {
                     className="hidden"
                     onChange={handleAttachAnalysisPhotos}
                   />
-                  <button
-                    onClick={() => analysisFileInputRef.current?.click()}
-                    disabled={compressingPhotos || analysisPhotos.length >= MAX_ANALYSIS_PHOTOS}
-                    className="w-full flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 p-5 text-sm text-emerald-700 dark:text-emerald-400 transition-colors hover:bg-emerald-50 dark:hover:bg-emerald-950/40 disabled:opacity-50"
-                  >
-                    {compressingPhotos ? (
-                      <Loader2 className="h-6 w-6 animate-spin" />
-                    ) : (
-                      <Camera className="h-6 w-6" />
-                    )}
-                    <span className="font-medium">
-                      {compressingPhotos ? 'Обрабатываю фото…' : 'Сфотографировать или выбрать фото'}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      Этикетка, состав, таблица КБЖУ — до {MAX_ANALYSIS_PHOTOS} фото
-                    </span>
-                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={handleTakeAnalysisPhoto}
+                      disabled={compressingPhotos || analysisPhotos.length >= MAX_ANALYSIS_PHOTOS}
+                      className="flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 p-4 text-sm text-emerald-700 dark:text-emerald-400 transition-colors hover:bg-emerald-50 dark:hover:bg-emerald-950/40 disabled:opacity-50"
+                    >
+                      {compressingPhotos ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <Camera className="h-5 w-5" />
+                      )}
+                      <span className="font-medium">Сфотографировать</span>
+                    </button>
+                    <button
+                      onClick={() => analysisFileInputRef.current?.click()}
+                      disabled={compressingPhotos || analysisPhotos.length >= MAX_ANALYSIS_PHOTOS}
+                      className="flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 p-4 text-sm text-emerald-700 dark:text-emerald-400 transition-colors hover:bg-emerald-50 dark:hover:bg-emerald-950/40 disabled:opacity-50"
+                    >
+                      {compressingPhotos ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <ImageIcon className="h-5 w-5" />
+                      )}
+                      <span className="font-medium">Из галереи</span>
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Этикетка, состав, таблица КБЖУ — до {MAX_ANALYSIS_PHOTOS} фото
+                  </p>
 
                   {analysisPhotos.length > 0 && (
                     <div className="flex flex-wrap gap-2">

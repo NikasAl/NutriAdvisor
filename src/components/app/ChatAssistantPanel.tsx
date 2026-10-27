@@ -18,11 +18,12 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   Plus, Send, Loader2, Trash2, PenLine, PanelLeftClose, PanelLeft,
-  Check, X, Pencil, Square, Sparkles, Calendar, Paperclip,
+  Check, X, Pencil, Square, Sparkles, Calendar, Paperclip, Camera,
 } from 'lucide-react';
 import MarkdownRenderer from '@/components/ui/markdown-renderer';
 import TTSButton from '@/components/ui/TTSButton';
 import { compressImageFile } from '@/lib/image-utils';
+import { takePhotoNow } from '@/lib/photo-capture';
 import type { ChatSession } from '@/lib/types';
 
 const MAX_CONTEXT_CHARS = 10000;
@@ -119,6 +120,18 @@ export default function ChatAssistantPanel() {
       setAttachedImages((prev) => [...prev, ...compressed]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось обработать изображение');
+    }
+  };
+
+  // Take a photo with the camera right now and attach it like a gallery pick
+  const handleTakePhoto = async () => {
+    setError('');
+    try {
+      const dataUrl = await takePhotoNow();
+      if (!dataUrl) return; // cancelled
+      setAttachedImages((prev) => [...prev, dataUrl]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось сделать снимок');
     }
   };
 
@@ -654,6 +667,16 @@ export default function ChatAssistantPanel() {
               className="hidden"
               onChange={handleAttachFiles}
             />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-11 w-11 shrink-0 rounded-full text-muted-foreground hover:text-foreground"
+              onClick={handleTakePhoto}
+              disabled={isSending}
+              title="Сфотографировать"
+            >
+              <Camera className="h-5 w-5" />
+            </Button>
             <Button
               variant="ghost"
               size="icon"
