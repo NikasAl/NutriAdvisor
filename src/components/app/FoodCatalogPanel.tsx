@@ -33,10 +33,16 @@ import {
   Plus, Trash2, Pencil, Search, X, Package, UtensilsCrossed, Check,
   ScanSearch, ChevronDown, ChevronUp, Loader2, Camera, ImageIcon,
 } from 'lucide-react';
-import type { Dish, DishIngredientData, FoodEntryItem, ProductVerdict, AnalysisDishComponent } from '@/lib/types';
+import type { Dish, DishIngredientData, FoodEntryItem, FoodProduct, ProductVerdict, AnalysisDishComponent } from '@/lib/types';
 import { PRODUCT_VERDICT_LABELS } from '@/lib/types';
 import { compressImageFile } from '@/lib/image-utils';
 import { takePhotoNow } from '@/lib/photo-capture';
+
+/** Resolve a product name by id. Module-level helper so useMemo factories can
+ *  call it during render without touching component-scope consts (TDZ-safe). */
+function productNameOf(products: FoodProduct[], productId: string): string {
+  return products.find((p) => p.id === productId)?.name ?? 'Неизвестный продукт';
+}
 
 /** Colored verdict badge styles (light + dark) */
 const VERDICT_STYLES: Record<ProductVerdict, string> = {
@@ -161,7 +167,7 @@ export default function FoodCatalogPanel() {
     const totalW = dish.ingredients.reduce((s, i) => s + i.weightGrams, 0);
     const portion = Number(dishPortion) > 0 ? Number(dishPortion) : totalW;
     return dish.ingredients.map((ing) => ({
-      productName: getProductName(ing.productId),
+      productName: productNameOf(foodProducts, ing.productId),
       grams: totalW > 0 ? Math.round((ing.weightGrams / totalW) * portion) : ing.weightGrams,
     }));
   }, [selectedCatalogDish, dishPortion, foodProducts]);
@@ -394,9 +400,7 @@ export default function FoodCatalogPanel() {
     setIngredients(next);
   };
 
-  const getProductName = (productId: string) => {
-    return foodProducts.find((p) => p.id === productId)?.name ?? 'Неизвестный продукт';
-  };
+  const getProductName = (productId: string) => productNameOf(foodProducts, productId);
 
   const totalDishWeight = ingredients.reduce((s, i) => s + i.weightGrams, 0);
 
