@@ -32,7 +32,7 @@ import {
   Plus, Trash2, Pencil, Search, X, Package, UtensilsCrossed, Check,
   ScanSearch, ChevronDown, ChevronUp, Loader2, Camera, ImageIcon,
 } from 'lucide-react';
-import type { DishIngredientData, FoodEntryItem, ProductVerdict } from '@/lib/types';
+import type { Dish, DishIngredientData, FoodEntryItem, ProductVerdict, AnalysisDishComponent } from '@/lib/types';
 import { PRODUCT_VERDICT_LABELS } from '@/lib/types';
 import { compressImageFile } from '@/lib/image-utils';
 import { takePhotoNow } from '@/lib/photo-capture';
@@ -87,7 +87,12 @@ export default function FoodCatalogPanel() {
   const [expandedAnalysisId, setExpandedAnalysisId] = useState<string | null>(null);
   const [newAnalysisOpen, setNewAnalysisOpen] = useState(false);
   const [analysisMode, setAnalysisMode] = useState<'photo' | 'catalog' | 'custom'>('photo');
+  // What is analyzed: a grocery product (default) or a dish from the catalog
+  const [photoKind, setPhotoKind] = useState<'product' | 'dish'>('product');
+  const [catKind, setCatKind] = useState<'product' | 'dish'>('product');
   const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(null);
+  const [selectedCatalogDishId, setSelectedCatalogDishId] = useState<string | null>(null);
+  const [dishPortion, setDishPortion] = useState('');
   const [catSearch, setCatSearch] = useState('');
   const [customName, setCustomName] = useState('');
   const [customIngredients, setCustomIngredients] = useState('');
@@ -113,7 +118,7 @@ export default function FoodCatalogPanel() {
     return dishes.filter((d) => d.name.toLowerCase().includes(q));
   }, [dishes, search]);
 
-  // Analyses: filter by product name, summary and verdict label (case-insensitive)
+  // Analyses: filter by name, summary, verdict label and dish components (case-insensitive)
   const filteredAnalyses = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return productAnalyses;
@@ -121,7 +126,8 @@ export default function FoodCatalogPanel() {
       (a) =>
         a.productName.toLowerCase().includes(q) ||
         a.summary.toLowerCase().includes(q) ||
-        PRODUCT_VERDICT_LABELS[a.verdict].toLowerCase().includes(q)
+        PRODUCT_VERDICT_LABELS[a.verdict].toLowerCase().includes(q) ||
+        (a.dishComponents?.some((c) => c.productName.toLowerCase().includes(q)) ?? false)
     );
   }, [productAnalyses, search]);
 
@@ -131,6 +137,32 @@ export default function FoodCatalogPanel() {
     if (!q) return foodProducts;
     return foodProducts.filter((p) => p.name.toLowerCase().includes(q));
   }, [foodProducts, catSearch]);
+
+  // Catalog dishes available in the new-analysis dialog (searchable)
+  const filteredCatDishes = useMemo(() => {
+    const q = catSearch.trim().toLowerCase();
+    if (!q) return dishes;
+    return dishes.filter((d) => d.name.toLowerCase().includes(q));
+  }, [dishes, catSearch]);
+
+  // The dish currently selected for analysis in the catalog mode
+  const selectedCatalogDish: Dish | undefined = useMemo(
+    () => dishes.find((d) => d.id === selectedCatalogDishId),
+    [dishes, selectedCatalogDishId]
+  );
+
+  // Portion composition preview: components recalculated proportionally to the
+  // portion weight (same math as adding a dish to the food diary)
+  const selectedDishPortionComponents: AnalysisDishComponent[] = useMemo(() => {
+    const dish = selectedCatalogDish;
+    if (!dish) return [];
+    const totalW = dish.ingredients.reduce((s, i) => s + i.weightGrams, 0);
+    const portion = Number(dishPortion) > 0 ? Number(dishPortion) : totalW;
+    return dish.ingredients.map((ing) => ({
+      productName: getProductName(ing.productId),
+      grams: totalW > 0 ? Math.round((ing.weightGrams / totalW) * portion) : ing.weightGrams,
+    }));
+  }, [selectedCatalogDish, dishPortion, foodProducts]);
 
   const filteredIngProducts = useMemo(() => {
     const q = ingSearch.trim().toLowerCase();
@@ -170,7 +202,11 @@ export default function FoodCatalogPanel() {
 
   const openNewAnalysis = () => {
     setAnalysisMode('photo');
+    setPhotoKind('product');
+    setCatKind('product');
     setSelectedCatalogId(null);
+    setSelectedCatalogDishId(null);
+    setDishPortion('');
     setCatSearch('');
     setCustomName('');
     setCustomIngredients('');
@@ -227,21 +263,60 @@ export default function FoodCatalogPanel() {
 
   const handleRunAnalysis = async () => {
     if (analysisRunning) return;
-    let input: { productName: string; ingredients?: string; nutrientsPer100g?: string; sourceProductId?: string; photos?: string[] } | null = null;
+    let input: {
+      productName: string;
+      ingredients?: string;
+      nutrientsPer100g?: string;
+      sourceProductId?: string;
+      sourceDishId?: string;
+      kind?: 'product' | 'dish';
+      dishComponents?: AnalysisDishComponent[];
+      dishTotalWeight?: number;
+      photos?: string[];
+    } | null = null;
 
     if (analysisMode === 'photo') {
       if (analysisPhotos.length === 0) return;
-      input = { productName: photoName.trim(), photos: [...analysisPhotos] };
+      if (photoKind === 'dish') {
+        input = {
+          productName: photoName.trim(),
+          photos: [...analysisPhotos],
+          kind: 'dish',
+          dishTotalWeight: Number(dishPortion) > 0 ? Number(dishPortion) : undefined,
+        };
+      } else {
+        input = { productName: photoName.trim(), photos: [...analysisPhotos], kind: 'product' };
+      }
     } else if (analysisMode === 'catalog') {
-      const p = foodProducts.find((x) => x.id === selectedCatalogId);
-      if (!p) return;
-      input = { productName: p.name, sourceProductId: p.id };
+      if (catKind === 'dish') {
+        const d = dishes.find((x) => x.id === selectedCatalogDishId);
+        if (!d) return;
+        const totalW = d.ingredients.reduce((s, i) => s + i.weightGrams, 0);
+        const portion = Number(dishPortion) > 0 ? Number(dishPortion) : totalW;
+        const comps: AnalysisDishComponent[] = d.ingredients.map((ing) => ({
+          productName: getProductName(ing.productId),
+          grams: totalW > 0 ? Math.round((ing.weightGrams / totalW) * portion) : ing.weightGrams,
+        }));
+        input = {
+          productName: d.name,
+          kind: 'dish',
+          dishComponents: comps,
+          dishTotalWeight: portion,
+          sourceDishId: d.id,
+          photos: analysisPhotos.length > 0 ? [...analysisPhotos] : undefined,
+        };
+      } else {
+        const p = foodProducts.find((x) => x.id === selectedCatalogId);
+        if (!p) return;
+        input = { productName: p.name, sourceProductId: p.id, kind: 'product' };
+      }
     } else {
       if (!customName.trim()) return;
       input = {
         productName: customName.trim(),
         ingredients: customIngredients.trim() || undefined,
         nutrientsPer100g: customNutrients.trim() || undefined,
+        kind: 'product',
       };
     }
 
@@ -254,6 +329,18 @@ export default function FoodCatalogPanel() {
       setAnalysisError(err instanceof Error ? err.message : 'Ошибка анализа');
     } finally {
       setAnalysisRunning(false);
+    }
+  };
+
+  // Selecting a dish pre-fills the portion weight with the full dish weight
+  const selectCatalogDish = (id: string | null) => {
+    setSelectedCatalogDishId(id);
+    if (id) {
+      const d = dishes.find((x) => x.id === id);
+      const totalW = d ? d.ingredients.reduce((s, i) => s + i.weightGrams, 0) : 0;
+      setDishPortion(totalW > 0 ? String(totalW) : '');
+    } else {
+      setDishPortion('');
     }
   };
 
@@ -489,7 +576,14 @@ export default function FoodCatalogPanel() {
                 >
                   <div className="flex items-start gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{a.productName}</p>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <p className="text-sm font-medium truncate">{a.productName}</p>
+                        {a.kind === 'dish' && (
+                          <Badge variant="secondary" className="text-[9px] shrink-0 gap-0.5">
+                            <UtensilsCrossed className="h-2.5 w-2.5" /> Блюдо
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
                         {a.source === 'photo' && <Camera className="h-3 w-3 shrink-0" />}
                         {formatAnalysisDate(a.createdAt)}
@@ -536,6 +630,24 @@ export default function FoodCatalogPanel() {
                         )}
                       </div>
                     )}
+                    {a.kind === 'dish' && (a.dishTotalWeight != null || (a.dishComponents && a.dishComponents.length > 0)) && (
+                      <div className="text-[10px] text-muted-foreground space-y-1">
+                        {a.dishTotalWeight != null && (
+                          <p>
+                            <span className="font-medium">Порция:</span> {a.dishTotalWeight} г
+                          </p>
+                        )}
+                        {a.dishComponents && a.dishComponents.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {a.dishComponents.map((c, i) => (
+                              <span key={i} className="rounded bg-muted px-1.5 py-0.5 max-w-full truncate">
+                                {c.productName} {c.grams}г
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <MarkdownRenderer content={a.analysis} className="text-foreground" />
                     <div className="flex justify-end">
                       <AlertDialog>
@@ -578,8 +690,8 @@ export default function FoodCatalogPanel() {
               <p>{productAnalyses.length === 0 ? 'Анализов пока нет' : 'Ничего не найдено'}</p>
               {productAnalyses.length === 0 && (
                 <p className="text-xs mt-1 px-4">
-                  Нажмите «Новый анализ» и прикрепите фото упаковки — модель сама определит
-                  продукт и проверит, подходит ли он вам
+                  Нажмите «Новый анализ» и сфотографируйте продукт или блюдо — модель сама
+                  определит, подходит ли оно именно вам
                 </p>
               )}
             </div>
@@ -728,18 +840,18 @@ export default function FoodCatalogPanel() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ScanSearch className="h-4 w-4" />
-              Новый анализ продукта
+              Новый анализ
             </DialogTitle>
           </DialogHeader>
 
           {analysisRunning ? (
             <div className="py-8 flex flex-col items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
-              <span>Анализирую продукт…</span>
+              <span>Анализирую…</span>
               <span className="text-xs">Обычно это занимает меньше минуты</span>
             </div>
           ) : (
-            <div className="space-y-3 py-1">
+            <div className="space-y-3 py-1 min-w-0">
               {analysisError && (
                 <div className="text-xs text-destructive bg-destructive/10 rounded-md p-3 break-words">
                   {analysisError}
@@ -781,8 +893,32 @@ export default function FoodCatalogPanel() {
               </div>
 
               {analysisMode === 'photo' ? (
-                /* Photo mode — primary scenario: take a shot now or pick 1..N photos of the package */
-                <div className="space-y-3">
+                /* Photo mode — primary scenario: take a shot now or pick 1..N photos.
+                   Kind toggle: package (product) vs ready meal (dish). */
+                <div className="space-y-3 min-w-0">
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => setPhotoKind('product')}
+                      className={`flex-1 flex items-center justify-center gap-1 rounded-lg border p-2 text-xs transition-colors ${
+                        photoKind === 'product'
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
+                          : 'text-muted-foreground hover:bg-muted'
+                      }`}
+                    >
+                      <Package className="h-3.5 w-3.5 shrink-0" /> Продукт (упаковка)
+                    </button>
+                    <button
+                      onClick={() => setPhotoKind('dish')}
+                      className={`flex-1 flex items-center justify-center gap-1 rounded-lg border p-2 text-xs transition-colors ${
+                        photoKind === 'dish'
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
+                          : 'text-muted-foreground hover:bg-muted'
+                      }`}
+                    >
+                      <UtensilsCrossed className="h-3.5 w-3.5 shrink-0" /> Блюдо (готовое)
+                    </button>
+                  </div>
+
                   <input
                     ref={analysisFileInputRef}
                     type="file"
@@ -818,7 +954,9 @@ export default function FoodCatalogPanel() {
                     </button>
                   </div>
                   <p className="text-xs text-muted-foreground text-center">
-                    Этикетка, состав, таблица КБЖУ — до {MAX_ANALYSIS_PHOTOS} фото
+                    {photoKind === 'dish'
+                      ? `Готовое блюдо с разных ракурсов — до ${MAX_ANALYSIS_PHOTOS} фото`
+                      : `Этикетка, состав, таблица КБЖУ — до ${MAX_ANALYSIS_PHOTOS} фото`}
                   </p>
 
                   {analysisPhotos.length > 0 && (
@@ -827,7 +965,7 @@ export default function FoodCatalogPanel() {
                         <div key={idx} className="relative">
                           <img
                             src={img}
-                            alt={`Фото продукта ${idx + 1}`}
+                            alt={`Фото ${idx + 1}`}
                             className="h-16 w-16 rounded-md object-cover cursor-pointer border border-border"
                             onClick={() => setViewingImage(img)}
                           />
@@ -844,29 +982,68 @@ export default function FoodCatalogPanel() {
                   )}
 
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Название продукта (необязательно)</Label>
+                    <Label className="text-xs">
+                      Название {photoKind === 'dish' ? 'блюда' : 'продукта'} (необязательно)
+                    </Label>
                     <Input
                       value={photoName}
                       onChange={(e) => setPhotoName(e.target.value)}
-                      placeholder="Модель определит название с фото"
+                      placeholder={photoKind === 'dish' ? 'Модель определит блюдо с фото' : 'Модель определит название с фото'}
                       className="text-sm"
                     />
                   </div>
 
+                  {photoKind === 'dish' && (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Вес порции, г (необязательно)</Label>
+                      <Input
+                        type="number"
+                        value={dishPortion}
+                        onChange={(e) => setDishPortion(e.target.value)}
+                        placeholder="Модель оценит вес по фото"
+                        className="text-sm"
+                      />
+                    </div>
+                  )}
+
                   <p className="text-xs text-muted-foreground">
-                    Модель сама считает название, состав и КБЖУ с фотографий, сопоставит
-                    с вашим профилем и даст вердикт — набирать текст не нужно.
+                    {photoKind === 'dish'
+                      ? 'Модель определит блюдо и его составляющие по фотографиям, оценит КБЖУ порции, сопоставит с вашим профилем и даст вердикт — набирать текст не нужно.'
+                      : 'Модель сама считает название, состав и КБЖУ с фотографий, сопоставит с вашим профилем и даст вердикт — набирать текст не нужно.'}
                   </p>
                 </div>
               ) : analysisMode === 'catalog' ? (
-                /* Catalog product picker */
-                <div className="space-y-2">
+                /* Catalog picker — product or dish */
+                <div className="space-y-2 min-w-0">
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => { setCatKind('product'); selectCatalogDish(null); }}
+                      className={`flex-1 flex items-center justify-center gap-1 rounded-lg border p-2 text-xs transition-colors ${
+                        catKind === 'product'
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
+                          : 'text-muted-foreground hover:bg-muted'
+                      }`}
+                    >
+                      <Package className="h-3.5 w-3.5 shrink-0" /> Продукт
+                    </button>
+                    <button
+                      onClick={() => { setCatKind('dish'); setSelectedCatalogId(null); }}
+                      className={`flex-1 flex items-center justify-center gap-1 rounded-lg border p-2 text-xs transition-colors ${
+                        catKind === 'dish'
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
+                          : 'text-muted-foreground hover:bg-muted'
+                      }`}
+                    >
+                      <UtensilsCrossed className="h-3.5 w-3.5 shrink-0" /> Блюдо
+                    </button>
+                  </div>
+
                   <div className="relative">
                     <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                     <Input
                       value={catSearch}
                       onChange={(e) => setCatSearch(e.target.value)}
-                      placeholder="Найти продукт в каталоге..."
+                      placeholder={catKind === 'dish' ? 'Найти блюдо в каталоге...' : 'Найти продукт в каталоге...'}
                       className="pl-8 pr-8 h-9 text-sm"
                     />
                     {catSearch && (
@@ -875,30 +1052,155 @@ export default function FoodCatalogPanel() {
                       </button>
                     )}
                   </div>
-                  <div className="max-h-56 overflow-y-auto rounded-lg border divide-y divide-border">
-                    {filteredCatProducts.map((p) => {
-                      const selected = selectedCatalogId === p.id;
-                      return (
-                        <button
-                          key={p.id}
-                          onClick={() => setSelectedCatalogId(selected ? null : p.id)}
-                          className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors ${
-                            selected
-                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
-                              : 'hover:bg-muted'
-                          }`}
-                        >
-                          <span className="truncate">{p.name}</span>
-                          {selected && <Check className="h-4 w-4 shrink-0" />}
-                        </button>
-                      );
-                    })}
-                    {filteredCatProducts.length === 0 && (
-                      <div className="py-6 text-center text-xs text-muted-foreground">
-                        Ничего не найдено
+
+                  {catKind === 'product' ? (
+                    <div className="max-h-56 overflow-y-auto overflow-x-hidden rounded-lg border divide-y divide-border">
+                      {filteredCatProducts.map((p) => {
+                        const selected = selectedCatalogId === p.id;
+                        return (
+                          <button
+                            key={p.id}
+                            onClick={() => setSelectedCatalogId(selected ? null : p.id)}
+                            className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                              selected
+                                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
+                                : 'hover:bg-muted'
+                            }`}
+                          >
+                            <span className="truncate min-w-0 flex-1">{p.name}</span>
+                            {selected && <Check className="h-4 w-4 shrink-0" />}
+                          </button>
+                        );
+                      })}
+                      {filteredCatProducts.length === 0 && (
+                        <div className="py-6 text-center text-xs text-muted-foreground">
+                          Ничего не найдено
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="max-h-44 overflow-y-auto overflow-x-hidden rounded-lg border divide-y divide-border">
+                        {filteredCatDishes.map((d) => {
+                          const selected = selectedCatalogDishId === d.id;
+                          const totalW = d.ingredients.reduce((s, i) => s + i.weightGrams, 0);
+                          return (
+                            <button
+                              key={d.id}
+                              onClick={() => selectCatalogDish(selected ? null : d.id!)}
+                              className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                                selected
+                                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
+                                  : 'hover:bg-muted'
+                              }`}
+                            >
+                              <span className="truncate min-w-0 flex-1">
+                                {d.name}
+                                <span className="text-[10px] text-muted-foreground ml-1.5">
+                                  {d.ingredients.length} ингр.{totalW > 0 ? ` · ${totalW}г` : ''}
+                                </span>
+                              </span>
+                              {selected && <Check className="h-4 w-4 shrink-0" />}
+                            </button>
+                          );
+                        })}
+                        {filteredCatDishes.length === 0 && (
+                          <div className="py-6 text-center text-xs text-muted-foreground">
+                            Нет блюд в каталоге
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
+
+                      {selectedCatalogDish && (
+                        <div className="space-y-2.5 rounded-lg border bg-muted/30 p-2.5">
+                          <div className="flex items-end gap-2">
+                            <div className="space-y-1 flex-1 min-w-0">
+                              <Label className="text-xs">Вес порции, г</Label>
+                              <Input
+                                type="number"
+                                value={dishPortion}
+                                onChange={(e) => setDishPortion(e.target.value)}
+                                placeholder="г"
+                                className="h-9 text-sm"
+                              />
+                            </div>
+                          </div>
+                          {selectedDishPortionComponents.length > 0 && (
+                            <div className="space-y-1">
+                              <p className="text-[10px] text-muted-foreground">
+                                Состав порции (пересчитан пропорционально):
+                              </p>
+                              <div className="flex flex-wrap gap-1">
+                                {selectedDishPortionComponents.map((c, idx) => (
+                                  <span key={idx} className="text-[10px] rounded bg-muted px-1.5 py-0.5 max-w-full truncate">
+                                    {c.productName} {c.grams}г
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Optional dish photo (via the same camera/gallery dialog) */}
+                          <input
+                            ref={analysisFileInputRef}
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={handleAttachAnalysisPhotos}
+                          />
+                          <div className="grid grid-cols-2 gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5 text-xs"
+                              onClick={handleTakeAnalysisPhoto}
+                              disabled={compressingPhotos || analysisPhotos.length >= MAX_ANALYSIS_PHOTOS}
+                            >
+                              {compressingPhotos ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+                              Фото блюда
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5 text-xs"
+                              onClick={() => analysisFileInputRef.current?.click()}
+                              disabled={compressingPhotos || analysisPhotos.length >= MAX_ANALYSIS_PHOTOS}
+                            >
+                              <ImageIcon className="h-3.5 w-3.5" />
+                              Галерея
+                            </Button>
+                          </div>
+                          {analysisPhotos.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {analysisPhotos.map((img, idx) => (
+                                <div key={idx} className="relative">
+                                  <img
+                                    src={img}
+                                    alt={`Фото блюда ${idx + 1}`}
+                                    className="h-14 w-14 rounded-md object-cover cursor-pointer border border-border"
+                                    onClick={() => setViewingImage(img)}
+                                  />
+                                  <button
+                                    onClick={() => removeAnalysisPhoto(idx)}
+                                    className="absolute -right-1.5 -top-1.5 rounded-full bg-destructive text-white p-0.5 shadow"
+                                    title="Удалить фото"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <p className="text-[10px] text-muted-foreground">
+                            Модель оценит КБЖУ порции по составу компонентов и вашему профилю. Фото поможет модели точнее учесть способ приготовления.
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               ) : (
                 /* Custom product form */
@@ -944,7 +1246,8 @@ export default function FoodCatalogPanel() {
               disabled={
                 analysisRunning ||
                 (analysisMode === 'photo' && analysisPhotos.length === 0) ||
-                (analysisMode === 'catalog' && !selectedCatalogId) ||
+                (analysisMode === 'catalog' && catKind === 'product' && !selectedCatalogId) ||
+                (analysisMode === 'catalog' && catKind === 'dish' && !selectedCatalogDishId) ||
                 (analysisMode === 'custom' && !customName.trim())
               }
             >

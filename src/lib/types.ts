@@ -116,6 +116,17 @@ export const PRODUCT_VERDICT_LABELS: Record<ProductVerdict, string> = {
 /** How the analyzed product was specified */
 export type ProductAnalysisSource = 'photo' | 'catalog' | 'manual';
 
+/** What the analysis covers: a single product or a dish from the catalog.
+ *  Old records without this field are treated as 'product' (backward compat). */
+export type AnalysisKind = 'product' | 'dish';
+
+/** One dish component recalculated for the analyzed portion weight */
+export interface AnalysisDishComponent {
+  productName: string;
+  /** Component weight in grams, scaled proportionally to the portion */
+  grams: number;
+}
+
 /** A stored single-turn LLM analysis of a grocery product */
 export interface ProductAnalysis {
   id?: string;
@@ -131,6 +142,14 @@ export interface ProductAnalysis {
   nutrientsPer100g?: string;
   /** Catalog product id the analysis was run for (if selected from catalog) */
   sourceProductId?: string;
+  /** Catalog dish id the analysis was run for (if selected from catalog) */
+  sourceDishId?: string;
+  /** Product or dish — missing on old records → treat as 'product' */
+  kind?: AnalysisKind;
+  /** For dish analyses: portion composition (components with recalculated weights) */
+  dishComponents?: AnalysisDishComponent[];
+  /** For dish analyses: portion weight in grams */
+  dishTotalWeight?: number;
   /** How the product was specified: photo of the package (primary), catalog pick or manual entry */
   source?: ProductAnalysisSource;
   /** Compressed photos of the product/package attached to the analysis (if any) */

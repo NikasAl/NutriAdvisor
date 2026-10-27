@@ -205,7 +205,7 @@ interface AppState {
   loadProductAnalyses: () => Promise<void>;
   addProductAnalysis: (a: Omit<ProductAnalysis, 'id' | 'createdAt'>) => Promise<void>;
   deleteProductAnalysis: (id: string) => Promise<void>;
-  /** Run a single-turn LLM product analysis, parse the verdict and store it (newest first). */
+  /** Run a single-turn LLM product/dish analysis, parse the verdict and store it (newest first). */
   runProductAnalysis: (input: {
     productName: string;
     ingredients?: string;
@@ -213,6 +213,14 @@ interface AppState {
     sourceProductId?: string;
     /** Photos of the product/package (compressed data-URLs) — primary scenario */
     photos?: string[];
+    /** What is analyzed: a product (default, backward compat) or a dish from the catalog */
+    kind?: 'product' | 'dish';
+    /** For dishes: portion composition — components with weights recalculated to the portion */
+    dishComponents?: { productName: string; grams: number }[];
+    /** For dishes: portion weight in grams */
+    dishTotalWeight?: number;
+    /** Catalog dish id the analysis was run for (if selected from catalog) */
+    sourceDishId?: string;
   }) => Promise<ProductAnalysis>;
 
   // Streaming abort controller ref
@@ -529,7 +537,7 @@ function parseProductVerdict(text: string): { verdict: ProductVerdict; summary: 
     for (const line of text.split('\n')) {
       const l = line.trim();
       if (!l) continue;
-      if (/^ПРОДУКТ/i.test(l) || /^ВЕРДИКТ/i.test(l) || /^#{1,3}\s/.test(l)) continue;
+      if (/^(ПРОДУКТ|БЛЮДО)/i.test(l) || /^ВЕРДИКТ/i.test(l) || /^#{1,3}\s/.test(l)) continue;
       if (/^\*\*.*\*\*:?$/.test(l)) continue; // section header like **Риски:**
       summary = l.replace(/^КРАТКО\s*:?\s*/i, '');
       break;
@@ -1270,6 +1278,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     const photos = (input.photos ?? []).filter((p) => p && p.trim());
     const fromPhotos = photos.length > 0;
+    const kind: 'product' | 'dish' = input.kind ?? 'product';
 
     // Photos require a vision-capable provider — dropping them silently would
     // make the analysis meaningless, so fail fast with a clear message
@@ -1283,13 +1292,30 @@ export const useAppStore = create<AppState>((set, get) => ({
       const profileInfo = buildProfileInfoForAnalysis(profile, customGoals);
       const medTestSummary = buildMedTestSummary(get().medTestParams, get().medTestMeasures);
       const fullProfileInfo = [profileInfo, medTestSummary.trim()].filter(Boolean).join('\n');
-      const systemPrompt = NutritionPrompts.getProductAnalysisPrompt(fullProfileInfo || undefined, fromPhotos);
+      const systemPrompt = NutritionPrompts.getProductAnalysisPrompt(fullProfileInfo || undefined, { fromPhotos, kind });
 
-      // Product data as the user turn
+      // Product/dish data as the user turn
       let userContent: string | ContentPart[];
       let debugPrompt: string;
 
-      if (fromPhotos) {
+      if (fromPhotos && kind === 'dish') {
+        const textParts: string[] = ['Проанализируй блюдо по прикреплённым фотографиям: определи состав и примерные веса компонентов, оцени КБЖУ порции и дай вердикт в указанном формате.'];
+        if (input.productName.trim()) {
+          textParts.push(`Название блюда (указал пользователь): ${input.productName.trim()}`);
+        }
+        if (input.dishTotalWeight && input.dishTotalWeight > 0) {
+          textParts.push(`Вес порции (указал пользователь): ${Math.round(input.dishTotalWeight)} г`);
+        }
+        const text = textParts.join('\n');
+        userContent = [
+          { type: 'text', text },
+          ...photos.map((url) => ({
+            type: 'image_url' as const,
+            image_url: { url: url.startsWith('data:') ? url : `data:image/jpeg;base64,${url}` },
+          })),
+        ];
+        debugPrompt = text;
+      } else if (fromPhotos) {
         const textParts: string[] = ['Проанализируй продукт по прикреплённым фотографиям упаковки: прочитай с фото название, состав и пищевую ценность и дай вердикт в указанном формате.'];
         if (input.productName.trim()) {
           textParts.push(`Название продукта (указал пользователь): ${input.productName.trim()}`);
@@ -1303,6 +1329,21 @@ export const useAppStore = create<AppState>((set, get) => ({
           })),
         ];
         debugPrompt = text;
+      } else if (kind === 'dish') {
+        const parts: string[] = [`Блюдо: ${input.productName}`];
+        if (input.dishTotalWeight && input.dishTotalWeight > 0) {
+          parts.push(`Вес порции: ${Math.round(input.dishTotalWeight)} г`);
+        }
+        const comps = (input.dishComponents ?? []).filter((c) => c.productName && c.grams > 0);
+        if (comps.length > 0) {
+          parts.push('Состав порции (компоненты, пересчитанные на вес порции):');
+          for (const c of comps) {
+            parts.push(`- ${c.productName}: ${Math.round(c.grams)} г`);
+          }
+        }
+        parts.push('Оцени блюдо целиком как приём пищи и дай вердикт в указанном формате.');
+        userContent = parts.join('\n');
+        debugPrompt = userContent;
       } else {
         const parts: string[] = [`Продукт: ${input.productName}`];
         if (input.ingredients?.trim()) parts.push(`Состав (ингредиенты): ${input.ingredients.trim()}`);
@@ -1335,19 +1376,19 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       const { verdict, summary } = parseProductVerdict(finalContent);
 
-      // In photo mode the model names the product itself ("ПРОДУКТ: ..." line);
+      // In photo mode the model names the food itself ("ПРОДУКТ: / БЛЮДО: ..." line);
       // user-provided name (if any) takes precedence, otherwise fall back gracefully
       let productName = input.productName.trim();
       if (fromPhotos && !productName) {
-        const pm = finalContent.match(/ПРОДУКТ\s*:\s*([^\n]+)/i);
-        productName = pm?.[1]?.trim() || 'Продукт с фото';
+        const pm = finalContent.match(/(?:ПРОДУКТ|БЛЮДО)\s*:\s*([^\n]+)/i);
+        productName = pm?.[1]?.trim() || (kind === 'dish' ? 'Блюдо с фото' : 'Продукт с фото');
       }
 
       set({
         isSending: false,
         streamingAnalysis: '',
         lastAnalysisDebug: {
-          prompt: `--- Системный промпт ---\n${systemPrompt}\n\n--- Данные продукта ---\n${debugPrompt}`,
+          prompt: `--- Системный промпт ---\n${systemPrompt}\n\n--- Данные ${kind === 'dish' ? 'блюда' : 'продукта'} ---\n${debugPrompt}`,
           response: finalContent,
         },
       });
@@ -1361,7 +1402,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         ingredients: input.ingredients?.trim() || undefined,
         nutrientsPer100g: input.nutrientsPer100g?.trim() || undefined,
         sourceProductId: input.sourceProductId,
-        source: fromPhotos ? 'photo' : input.sourceProductId ? 'catalog' : 'manual',
+        sourceDishId: input.sourceDishId,
+        kind,
+        dishComponents: kind === 'dish' && (input.dishComponents?.length ?? 0) > 0
+          ? input.dishComponents?.map((c) => ({ productName: c.productName, grams: Math.round(c.grams) }))
+          : undefined,
+        dishTotalWeight: kind === 'dish' && input.dishTotalWeight && input.dishTotalWeight > 0
+          ? Math.round(input.dishTotalWeight)
+          : undefined,
+        source: fromPhotos ? 'photo' : input.sourceProductId || input.sourceDishId ? 'catalog' : 'manual',
         photos: fromPhotos ? photos : undefined,
         createdAt: new Date(),
       };
