@@ -9,6 +9,7 @@ import {
   BookOpen, Moon, Droplets, UtensilsCrossed, Activity,
   AlertTriangle, ExternalLink, ChevronDown, ChevronUp,
   Flame, GlassWater, BedDouble, Dumbbell, TrendingUp,
+  Camera, MessageSquare,
 } from 'lucide-react';
 import PrivacyPolicyPanel from './PrivacyPolicyPanel';
 
@@ -165,6 +166,31 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
           Вы фотографируете приём пищи или описываете его текстом, а модель анализирует состав,
           рассчитывает калорийность и даёт рекомендации с учётом вашего профиля и целей.
         </p>
+
+        <div className="space-y-2 mt-2">
+          <div className="flex items-start gap-2">
+            <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Фото еды</strong> — сфотографируйте приём пищи, и модель распознает продукты,
+              оценит порции и рассчитает КБЖУ.
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Фото продукта из магазина</strong> — в чате прикрепите фото упаковки или
+              витрины и спросите «Можно ли мне такое есть?» — модель определит продукт,
+              проанализирует состав, КБЖУ и совместимость с вашим профилем, целями и ограничениями.
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Текстовое описание</strong> — опишите приём пищи словами, и модель рассчитает
+              примерную калорийность с учётом порции.
+            </p>
+          </div>
+        </div>
 
         <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 p-3 space-y-2">
           <div className="flex items-start gap-2">
@@ -380,6 +406,19 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
                 Записывайте тренировки с упражнениями (вес, повторения, подходы).
                 Drag & drop для смены порядка упражнений. Каталог упражнений по группам мышц.
                 AI анализирует тренировку и даёт рекомендации по объёму и восстановлению.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 rounded-lg bg-muted/50 p-3">
+            <Camera className="h-5 w-5 text-violet-500 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-medium">Анализ фото продукта из магазина</p>
+              <p className="text-xs text-muted-foreground">
+                В чате прикрепите фото упаковки или витрины и спросите «Можно ли мне такое есть?».
+                Модель определит продукт, разберёт состав и КБЖУ, сопоставит с вашим профилем,
+                целями и ограничениями и даст развёрнутый ответ — стоит ли употреблять
+                этот продукт и в каком количестве.
               </p>
             </div>
           </div>
