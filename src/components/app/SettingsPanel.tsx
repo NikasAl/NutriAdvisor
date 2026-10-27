@@ -123,7 +123,6 @@ export default function SettingsPanel() {
       void applyTTSPersistedConfig(ttsEngineName, ttsVoiceName);
     }
     // Only run once on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load engines (native Android only)
