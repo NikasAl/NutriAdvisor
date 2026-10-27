@@ -204,17 +204,17 @@ export default function DiaryPanel() {
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex flex-col items-center gap-2 shrink-0">
               <button
                 onClick={() => handleEdit(entry)}
-                className="rounded p-1 hover:bg-muted text-muted-foreground"
+                className="rounded-md p-1 hover:bg-muted text-muted-foreground"
                 title="Редактировать"
               >
                 <Pencil className="h-3.5 w-3.5" />
               </button>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <button className="rounded p-1 hover:bg-destructive/10 text-destructive" title="Удалить">
+                  <button className="rounded-md p-1 hover:bg-destructive/10 text-destructive" title="Удалить">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </AlertDialogTrigger>
