@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Дневник Здоровья</string>
+    <string name="app_name">Дневник Здоровья: КБЖУ, ЗОЖ, ИИ-диетолог</string>
     <string name="title_activity_main">Дневник Здоровья</string>
     <string name="package_name">ru.kreagenium.nuadvi</string>
     <string name="custom_url_scheme">ru.kreagenium.nuadvi</string>
