@@ -948,7 +948,7 @@ export default function WorkoutPanel() {
           const isExpanded = expandedIds.has(entry.id!);
           return (
             <Card key={entry.id} className="overflow-hidden">
-              <CardContent className="p-3">
+              <CardContent className="px-3 py-2">
                 <div
                   className="flex items-start justify-between gap-2 cursor-pointer"
                   onClick={() => toggleExpanded(entry.id!)}
@@ -977,23 +977,6 @@ export default function WorkoutPanel() {
                       })}
                       {!isExpanded && entry.sets.length > 2 && (
                         <p className="text-muted-foreground/60">...и ещё {entry.sets.length - 2}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 mt-1.5">
-                      {entry.estimatedDuration && (
-                        <Badge variant="outline" className="text-[10px] gap-0.5">
-                          <Clock className="h-2.5 w-2.5" /> {entry.estimatedDuration} мин
-                        </Badge>
-                      )}
-                      {entry.estimatedCaloriesBurned && (
-                        <Badge variant="outline" className="text-[10px] gap-0.5">
-                          <Flame className="h-2.5 w-2.5" /> {entry.estimatedCaloriesBurned} ккал
-                        </Badge>
-                      )}
-                      {entry.aiAnalysis && (
-                        <Badge className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                          <Sparkles className="h-2.5 w-2.5 mr-0.5" /> ИИ
-                        </Badge>
                       )}
                     </div>
                   </div>
@@ -1034,8 +1017,27 @@ export default function WorkoutPanel() {
                   </div>
                 )}
 
-                {/* Delete at the very bottom of the card — harder to hit accidentally while collapsing/scrolling */}
-                <div className="mt-2 flex justify-end border-t border-border/50 pt-2">
+                {/* Meta footer under the divider: status badges on the left, delete on the right */}
+                <div className={`mt-2 flex items-center border-t border-border/50 pt-2 ${(entry.estimatedDuration || entry.estimatedCaloriesBurned || entry.aiAnalysis) ? 'justify-between' : 'justify-end'}`}>
+                  {(entry.estimatedDuration || entry.estimatedCaloriesBurned || entry.aiAnalysis) && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {entry.estimatedDuration && (
+                        <Badge variant="outline" className="text-[10px] gap-0.5">
+                          <Clock className="h-2.5 w-2.5" /> {entry.estimatedDuration} мин
+                        </Badge>
+                      )}
+                      {entry.estimatedCaloriesBurned && (
+                        <Badge variant="outline" className="text-[10px] gap-0.5">
+                          <Flame className="h-2.5 w-2.5" /> {entry.estimatedCaloriesBurned} ккал
+                        </Badge>
+                      )}
+                      {entry.aiAnalysis && (
+                        <Badge className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                          <Sparkles className="h-2.5 w-2.5 mr-0.5" /> ИИ
+                        </Badge>
+                      )}
+                    </div>
+                  )}
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <button
@@ -1071,7 +1073,7 @@ export default function WorkoutPanel() {
         {/* Today activity entries */}
         {todayActivityEntries.map((entry) => (
           <Card key={entry.id} className="overflow-hidden border-blue-200 dark:border-blue-900/50">
-            <CardContent className="p-3">
+            <CardContent className="px-3 py-2">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 mb-1">
@@ -1084,11 +1086,6 @@ export default function WorkoutPanel() {
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">{entry.description}</p>
-                  {entry.durationMinutes && (
-                    <Badge variant="outline" className="text-[10px] gap-0.5 mt-1.5">
-                      <Clock className="h-2.5 w-2.5" /> {entry.durationMinutes} мин
-                    </Badge>
-                  )}
                 </div>
                 <div className="flex flex-col items-center gap-2 shrink-0">
                   <button className="rounded-md p-1 hover:bg-muted text-muted-foreground" onClick={() => openEditActivity(entry)} title="Редактировать">
@@ -1096,8 +1093,13 @@ export default function WorkoutPanel() {
                   </button>
                 </div>
               </div>
-              {/* Delete at the very bottom of the card — harder to hit accidentally while collapsing/scrolling */}
-              <div className="mt-2 flex justify-end border-t border-border/50 pt-2">
+              {/* Meta footer under the divider: status badge on the left, delete on the right */}
+              <div className={`mt-2 flex items-center border-t border-border/50 pt-2 ${entry.durationMinutes ? 'justify-between' : 'justify-end'}`}>
+                {entry.durationMinutes && (
+                  <Badge variant="outline" className="text-[10px] gap-0.5">
+                    <Clock className="h-2.5 w-2.5" /> {entry.durationMinutes} мин
+                  </Badge>
+                )}
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <button className="rounded-md p-1 hover:bg-destructive/10 text-destructive" title="Удалить">
@@ -1131,7 +1133,7 @@ export default function WorkoutPanel() {
               const isExpanded = expandedIds.has(entry.id!);
               return (
                 <Card key={entry.id} className="overflow-hidden">
-                  <CardContent className="p-3">
+                  <CardContent className="px-3 py-2">
                     <div
                       className="flex items-start justify-between gap-2 cursor-pointer"
                       onClick={() => toggleExpanded(entry.id!)}
@@ -1160,23 +1162,6 @@ export default function WorkoutPanel() {
                           })}
                           {!isExpanded && entry.sets.length > 2 && (
                             <p className="text-muted-foreground/60">...и ещё {entry.sets.length - 2}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-1.5">
-                          {entry.estimatedDuration && (
-                            <Badge variant="outline" className="text-[10px] gap-0.5">
-                              <Clock className="h-2.5 w-2.5" /> {entry.estimatedDuration} мин
-                            </Badge>
-                          )}
-                          {entry.estimatedCaloriesBurned && (
-                            <Badge variant="outline" className="text-[10px] gap-0.5">
-                              <Flame className="h-2.5 w-2.5" /> {entry.estimatedCaloriesBurned} ккал
-                            </Badge>
-                          )}
-                          {entry.aiAnalysis && (
-                            <Badge className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                              <Sparkles className="h-2.5 w-2.5 mr-0.5" /> ИИ
-                            </Badge>
                           )}
                         </div>
                       </div>
@@ -1217,8 +1202,27 @@ export default function WorkoutPanel() {
                       </div>
                     )}
 
-                    {/* Delete at the very bottom of the card — harder to hit accidentally while collapsing/scrolling */}
-                    <div className="mt-2 flex justify-end border-t border-border/50 pt-2">
+                    {/* Meta footer under the divider: status badges on the left, delete on the right */}
+                    <div className={`mt-2 flex items-center border-t border-border/50 pt-2 ${(entry.estimatedDuration || entry.estimatedCaloriesBurned || entry.aiAnalysis) ? 'justify-between' : 'justify-end'}`}>
+                      {(entry.estimatedDuration || entry.estimatedCaloriesBurned || entry.aiAnalysis) && (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {entry.estimatedDuration && (
+                            <Badge variant="outline" className="text-[10px] gap-0.5">
+                              <Clock className="h-2.5 w-2.5" /> {entry.estimatedDuration} мин
+                            </Badge>
+                          )}
+                          {entry.estimatedCaloriesBurned && (
+                            <Badge variant="outline" className="text-[10px] gap-0.5">
+                              <Flame className="h-2.5 w-2.5" /> {entry.estimatedCaloriesBurned} ккал
+                            </Badge>
+                          )}
+                          {entry.aiAnalysis && (
+                            <Badge className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                              <Sparkles className="h-2.5 w-2.5 mr-0.5" /> ИИ
+                            </Badge>
+                          )}
+                        </div>
+                      )}
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <button
@@ -1263,7 +1267,7 @@ export default function WorkoutPanel() {
             </div>
             {group.entries.map((entry) => (
               <Card key={entry.id} className="overflow-hidden border-blue-200 dark:border-blue-900/50">
-                <CardContent className="p-3">
+                <CardContent className="px-3 py-2">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 mb-1">
@@ -1276,11 +1280,6 @@ export default function WorkoutPanel() {
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">{entry.description}</p>
-                      {entry.durationMinutes && (
-                        <Badge variant="outline" className="text-[10px] gap-0.5 mt-1.5">
-                          <Clock className="h-2.5 w-2.5" /> {entry.durationMinutes} мин
-                        </Badge>
-                      )}
                     </div>
                     <div className="flex flex-col items-center gap-2 shrink-0">
                       <button className="rounded-md p-1 hover:bg-muted text-muted-foreground" onClick={() => openEditActivity(entry)} title="Редактировать">
@@ -1288,8 +1287,13 @@ export default function WorkoutPanel() {
                       </button>
                     </div>
                   </div>
-                  {/* Delete at the very bottom of the card — harder to hit accidentally while collapsing/scrolling */}
-                  <div className="mt-2 flex justify-end border-t border-border/50 pt-2">
+                  {/* Meta footer under the divider: status badge on the left, delete on the right */}
+                  <div className={`mt-2 flex items-center border-t border-border/50 pt-2 ${entry.durationMinutes ? 'justify-between' : 'justify-end'}`}>
+                    {entry.durationMinutes && (
+                      <Badge variant="outline" className="text-[10px] gap-0.5">
+                        <Clock className="h-2.5 w-2.5" /> {entry.durationMinutes} мин
+                      </Badge>
+                    )}
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <button className="rounded-md p-1 hover:bg-destructive/10 text-destructive" title="Удалить">

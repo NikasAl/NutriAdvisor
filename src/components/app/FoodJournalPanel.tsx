@@ -344,7 +344,7 @@ export default function FoodJournalPanel() {
     const isExpanded = expandedIds.has(eid);
     return (
       <Card key={eid} className="overflow-hidden">
-        <CardContent className="p-3">
+        <CardContent className="px-3 py-2">
           <div className="flex items-start gap-2">
             {entry.photoBase64 && <img src={entry.photoBase64} alt="Еда" className="h-12 w-12 rounded-md object-cover shrink-0" />}
             <div className="flex-1 min-w-0">
@@ -373,14 +373,6 @@ export default function FoodJournalPanel() {
                   })}
                 </div>
               )}
-              {(entry.estimatedCalories || entry.estimatedProtein) && (
-                <div className="mt-1 flex flex-wrap gap-2 text-[10px]">
-                  {entry.estimatedCalories && <span className="rounded bg-emerald-100 px-1.5 py-0.5 font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">{entry.estimatedCalories} ккал</span>}
-                  {entry.estimatedProtein && <span className="text-muted-foreground">Б: {entry.estimatedProtein}г</span>}
-                  {entry.estimatedFat && <span className="text-muted-foreground">Ж: {entry.estimatedFat}г</span>}
-                  {entry.estimatedCarbs && <span className="text-muted-foreground">У: {entry.estimatedCarbs}г</span>}
-                </div>
-              )}
             </div>
             <div className="flex flex-col items-center gap-2 shrink-0">
               <button onClick={() => handleEditEntry(entry)} className="rounded-md p-1 hover:bg-muted text-muted-foreground" title="Редактировать"><Pencil className="h-3.5 w-3.5" /></button>
@@ -398,8 +390,16 @@ export default function FoodJournalPanel() {
             </div>
           )}
           {isExpanded && !entry.aiAnalysis && <div className="mt-3 rounded-md bg-muted/30 p-2 text-xs text-muted-foreground text-center">Анализ не проводился</div>}
-          {/* Delete at the very bottom of the card — harder to hit accidentally while collapsing/scrolling */}
-          <div className="mt-2 flex justify-end border-t border-border/50 pt-2">
+          {/* Meta footer under the divider: status row on the left, delete on the right */}
+          <div className={`mt-2 flex items-center border-t border-border/50 pt-2 ${(entry.estimatedCalories || entry.estimatedProtein) ? 'justify-between' : 'justify-end'}`}>
+            {(entry.estimatedCalories || entry.estimatedProtein) && (
+              <div className="flex flex-wrap items-center gap-2 text-[10px]">
+                {entry.estimatedCalories && <span className="rounded bg-emerald-100 px-1.5 py-0.5 font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">{entry.estimatedCalories} ккал</span>}
+                {entry.estimatedProtein && <span className="text-muted-foreground">Б: {entry.estimatedProtein}г</span>}
+                {entry.estimatedFat && <span className="text-muted-foreground">Ж: {entry.estimatedFat}г</span>}
+                {entry.estimatedCarbs && <span className="text-muted-foreground">У: {entry.estimatedCarbs}г</span>}
+              </div>
+            )}
             <AlertDialog>
               <AlertDialogTrigger asChild><button className="rounded-md p-1 hover:bg-destructive/10 text-destructive" title="Удалить"><Trash2 className="h-3.5 w-3.5" /></button></AlertDialogTrigger>
               <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Удалить запись?</AlertDialogTitle><AlertDialogDescription>Эта запись будет удалена без возможности восстановления.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Отмена</AlertDialogCancel><AlertDialogAction onClick={() => deleteFoodEntry(eid)} className="bg-destructive text-destructive-foreground">Удалить</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
