@@ -9,7 +9,7 @@ import {
   BookOpen, Moon, Droplets, UtensilsCrossed, Activity,
   AlertTriangle, ExternalLink, ChevronDown, ChevronUp,
   Flame, GlassWater, BedDouble, Dumbbell, TrendingUp,
-  Camera, MessageSquare, ScanSearch,
+  Camera, MessageSquare, ScanSearch, Volume2,
 } from 'lucide-react';
 import PrivacyPolicyPanel from './PrivacyPolicyPanel';
 
@@ -462,6 +462,20 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
           </div>
 
           <div className="flex items-start gap-3 rounded-lg bg-muted/50 p-3">
+            <Volume2 className="h-5 w-5 text-purple-500 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-medium">Озвучивание (TTS)</p>
+              <p className="text-xs text-muted-foreground">
+                Слушайте ответы ИИ вслух: у каждого сообщения чата и у ИИ-анализов
+                (день в статистике, приём пищи, тренировка, вердикт по продукту)
+                есть кнопка прослушивания. Движок и голос выбираются в «Настройках»
+                → «Озвучивание (TTS)». Воспроизведение можно ставить на паузу
+                и продолжать.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 rounded-lg bg-muted/50 p-3">
             <Activity className="h-5 w-5 text-orange-500 mt-0.5 shrink-0" />
             <div>
               <p className="text-sm font-medium">Дневник активности</p>
@@ -803,6 +817,24 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
               <strong>Drag & drop</strong> — упражнения в форме редактирования можно перетаскивать
               для смены порядка. На десктопе зажмите мышью, на мобильных — long-press + перетаскивание.
               Порядок сохраняется и при повторном открытии формы.
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-rose-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Таймер упражнения</strong> — у каждого упражнения в форме есть кнопка таймера:
+              нажмите ▶ чтобы запустить отсчёт, кнопка превращается в паузу; на паузе доступны
+              «Продолжить» и «Сбросить». Удобно замерять время подхода или упражнения,
+              не выходя из приложения.
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-rose-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Черновик тренировки</strong> — если вы начали заполнять тренировку,
+              но не сохранили её, черновик сохраняется автоматически. При следующем
+              открытии формы приложение предложит продолжить с того же места
+              или начать новую тренировку.
             </p>
           </div>
           <div className="flex items-start gap-2">
