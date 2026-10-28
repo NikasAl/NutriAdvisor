@@ -344,7 +344,7 @@ export default function FoodJournalPanel() {
     const isExpanded = expandedIds.has(eid);
     return (
       <Card key={eid} className="overflow-hidden">
-        <CardContent className="px-3 py-2">
+        <CardContent className="px-3">
           <div className="flex items-start gap-2">
             {entry.photoBase64 && <img src={entry.photoBase64} alt="Еда" className="h-12 w-12 rounded-md object-cover shrink-0" />}
             <div className="flex-1 min-w-0">

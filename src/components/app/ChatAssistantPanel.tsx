@@ -398,8 +398,8 @@ export default function ChatAssistantPanel() {
       {/* Main chat area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Chat header */}
-        <div className="flex items-center justify-between mb-1 shrink-0">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2 mb-1 shrink-0">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
             {!sidebarOpen && (
               <Button
                 variant="ghost"
@@ -657,7 +657,7 @@ export default function ChatAssistantPanel() {
         )}
 
         {/* Input bar */}
-        <div className="shrink-0 border-t bg-background px-0 pt-2 pb-2">
+        <div className="shrink-0 border-t bg-background px-0 pt-2 pb-2 @container">
           <div className="flex gap-2 items-end">
             <input
               ref={fileInputRef}
@@ -667,26 +667,29 @@ export default function ChatAssistantPanel() {
               className="hidden"
               onChange={handleAttachFiles}
             />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-11 w-11 shrink-0 rounded-full text-muted-foreground hover:text-foreground"
-              onClick={handleTakePhoto}
-              disabled={isSending}
-              title="Сфотографировать"
-            >
-              <Camera className="h-5 w-5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-11 w-11 shrink-0 rounded-full text-muted-foreground hover:text-foreground"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isSending}
-              title="Прикрепить изображение"
-            >
-              <Paperclip className="h-5 w-5" />
-            </Button>
+            {/* Camera + attach stack vertically when the row is too narrow */}
+            <div className="flex shrink-0 gap-2 @max-[400px]:flex-col @max-[400px]:gap-0.5">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-11 w-11 shrink-0 rounded-full text-muted-foreground hover:text-foreground @max-[400px]:h-9 @max-[400px]:w-9"
+                onClick={handleTakePhoto}
+                disabled={isSending}
+                title="Сфотографировать"
+              >
+                <Camera className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-11 w-11 shrink-0 rounded-full text-muted-foreground hover:text-foreground @max-[400px]:h-9 @max-[400px]:w-9"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isSending}
+                title="Прикрепить изображение"
+              >
+                <Paperclip className="h-5 w-5" />
+              </Button>
+            </div>
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}

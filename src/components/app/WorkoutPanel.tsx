@@ -948,7 +948,7 @@ export default function WorkoutPanel() {
           const isExpanded = expandedIds.has(entry.id!);
           return (
             <Card key={entry.id} className="overflow-hidden">
-              <CardContent className="px-3 py-2">
+              <CardContent className="px-3">
                 <div
                   className="flex items-start justify-between gap-2 cursor-pointer"
                   onClick={() => toggleExpanded(entry.id!)}
@@ -1073,7 +1073,7 @@ export default function WorkoutPanel() {
         {/* Today activity entries */}
         {todayActivityEntries.map((entry) => (
           <Card key={entry.id} className="overflow-hidden border-blue-200 dark:border-blue-900/50">
-            <CardContent className="px-3 py-2">
+            <CardContent className="px-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 mb-1">
@@ -1133,7 +1133,7 @@ export default function WorkoutPanel() {
               const isExpanded = expandedIds.has(entry.id!);
               return (
                 <Card key={entry.id} className="overflow-hidden">
-                  <CardContent className="px-3 py-2">
+                  <CardContent className="px-3">
                     <div
                       className="flex items-start justify-between gap-2 cursor-pointer"
                       onClick={() => toggleExpanded(entry.id!)}
@@ -1267,7 +1267,7 @@ export default function WorkoutPanel() {
             </div>
             {group.entries.map((entry) => (
               <Card key={entry.id} className="overflow-hidden border-blue-200 dark:border-blue-900/50">
-                <CardContent className="px-3 py-2">
+                <CardContent className="px-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 mb-1">
