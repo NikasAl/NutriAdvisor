@@ -45,6 +45,12 @@
          declares CAMERA must hold it granted before the intent. -->
     <uses-permission android:name="android.permission.CAMERA" />
 
+    <!-- NativePedometerPlugin: hardware step counter (TYPE_STEP_COUNTER) for
+         the workout walk/run step counter. Requested at runtime through the
+         Capacitor permission API (alias "activity") on Android 10+; granted
+         implicitly on older versions. -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+
     <!-- Package visibility (Android 11+): resolve the camera app before
          launching ACTION_IMAGE_CAPTURE. -->
     <queries>

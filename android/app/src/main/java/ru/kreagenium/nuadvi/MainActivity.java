@@ -23,6 +23,10 @@ public class MainActivity extends BridgeActivity {
         // shots (no inSampleSize, no OOM guard) kills the process on modern
         // 12–108 MP cameras. See NativeCameraPlugin docs.
         registerPlugin(NativeCameraPlugin.class);
+        // Pedometer bridge: background step counting for walk/run workout
+        // exercises (hardware TYPE_STEP_COUNTER) plus a raw accelerometer
+        // stream for the JS fallback algorithm. See NativePedometerPlugin docs.
+        registerPlugin(NativePedometerPlugin.class);
         super.onCreate(savedInstanceState);
 
         // Edge-to-edge only works reliably on API 30+ (Android 11+).

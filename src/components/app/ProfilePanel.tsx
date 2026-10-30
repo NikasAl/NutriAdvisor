@@ -344,6 +344,23 @@ export default function ProfilePanel() {
                     placeholder="8"
                   />
                 </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs flex items-center gap-1"><Footprints className="h-3 w-3" /> Длина шага (м)</Label>
+                  <Input
+                    type="number"
+                    step="0.05"
+                    min="0.5"
+                    max="1"
+                    value={localProfile.stepLengthM ?? 0.75}
+                    onChange={(e) => {
+                      const v = e.target.value ? Number(e.target.value) : 0.75;
+                      const clamped = Math.min(1, Math.max(0.5, v));
+                      setLocalProfile({ ...localProfile, stepLengthM: clamped });
+                    }}
+                    placeholder="0.75"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Для шагомера в тренировках (ходьба/бег)</p>
+                </div>
               </div>
             </CardContent>
           </Card>

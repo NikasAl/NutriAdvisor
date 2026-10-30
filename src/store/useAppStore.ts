@@ -57,6 +57,7 @@ const DEFAULT_PROFILE: Omit<UserProfile, 'id' | 'updatedAt'> = {
   healthNotes: '',
   waterTargetMl: 2000,
   sleepTargetHours: 8,
+  stepLengthM: 0.75,
 };
 
 interface AppState {
@@ -188,6 +189,8 @@ interface AppState {
   loadWorkoutDraft: () => Promise<void>;
   saveWorkoutDraft: (draft: Omit<WorkoutEntry, 'id' | 'createdAt'>) => Promise<void>;
   clearWorkoutDraft: () => Promise<void>;
+  /** Reset the workoutDraft pointer WITHOUT deleting the entry — used when a draft is converted to a real workout. */
+  dismissWorkoutDraft: () => Promise<void>;
 
   // Medical test parameters & measurements
   medTestParams: MedTestParam[];
@@ -1170,6 +1173,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     } else {
       set({ workoutDraft: null });
     }
+  },
+
+  // Draft converted to a real workout: only drop the pointer. The entry with
+  // the same id was just re-saved with isDraft=false — deleting it here (the
+  // old behavior reused clearWorkoutDraft) silently discarded the workout.
+  dismissWorkoutDraft: async () => {
+    set({ workoutDraft: null });
   },
 
   // Medical test parameters & measurements

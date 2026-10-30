@@ -93,6 +93,9 @@ export interface UserProfile {
   healthNotes: string;
   waterTargetMl: number;  // daily water target in ml (default 2000)
   sleepTargetHours: number; // daily sleep target in hours (default 8)
+  /** Average step length in meters for the workout pedometer (default 0.75, clamped 0.5–1.0).
+   *  Missing on old records → treated as 0.75 (backward compat). */
+  stepLengthM?: number;
   updatedAt: Date;
 }
 
@@ -286,7 +289,10 @@ export interface WorkoutSet {
   reps?: number;
   sets?: number;
   duration?: number;
-  distance?: number;
+  distance?: number;  // kilometers (cardio exercises)
+  /** Steps counted by the workout pedometer during this exercise (walk/run only).
+   *  Missing on old records → the entry was made before the pedometer (backward compat). */
+  steps?: number;
   notes?: string;
   startTime?: number; // ms timestamp when current run segment started
   endTime?: number;   // ms timestamp when timer was paused

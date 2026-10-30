@@ -38,10 +38,11 @@ import {
 import {
   Plus, Loader2, Trash2, ChevronDown, ChevronUp,
   ChevronLeft, ChevronRight, Pencil, Dumbbell, X, Flame, Clock, Sparkles,
-  Activity, Check, Copy, Play, Square, Timer, GripVertical, FileEdit, Pause, RotateCcw,
+  Activity, Check, Copy, Play, Square, Timer, GripVertical, FileEdit, Pause, RotateCcw, Footprints,
 } from 'lucide-react';
 import type { ExerciseCategory, WorkoutEntry, WorkoutSet, DiaryEntry } from '@/lib/types';
 import { EXERCISE_CATEGORY_LABELS } from '@/lib/types';
+import { workoutPedometer, isWalkRunName, formatDistance, type PedometerSource } from '@/lib/pedometer';
 import MarkdownRenderer from '@/components/ui/markdown-renderer';
 import TTSButton from '@/components/ui/TTSButton';
 import {
@@ -108,6 +109,8 @@ interface SortableExerciseCardProps {
   exercises: { id: string; name: string; category: ExerciseCategory }[];
   exercisesByCategory: Map<ExerciseCategory, { id: string; name: string; category: ExerciseCategory }[]>;
   isOnlySet: boolean;
+  /** Current pedometer backend (for walk/run step counting UI). */
+  pedometerSource: PedometerSource;
   onToggleTimer: () => void;
   onResetTimer: () => void;
   onDuplicate: () => void;
@@ -117,7 +120,7 @@ interface SortableExerciseCardProps {
 }
 
 function SortableExerciseCard({
-  set, index, exercises, exercisesByCategory, isOnlySet,
+  set, index, exercises, exercisesByCategory, isOnlySet, pedometerSource,
   onToggleTimer, onResetTimer, onDuplicate, onRemove, onUpdateField, onSelectExercise,
 }: SortableExerciseCardProps) {
   const {
@@ -138,6 +141,8 @@ function SortableExerciseCard({
 
   const exercise = exercises.find((e) => e.id === set.exerciseId);
   const isCardio = exercise?.category === 'cardio';
+  // Pedometer (step counter) applies to walk/run-like exercises only
+  const isWalkRun = isWalkRunName(set.exerciseName);
 
   // Timer state for this exercise
   // Running: startTime set, endTime undefined → counting up
@@ -218,6 +223,28 @@ function SortableExerciseCard({
           <Timer className="h-3 w-3" />
           <span>{isTimerRunning ? `${elapsedDisplay} (идёт)` : `${elapsedDisplay} (пауза)`}</span>
         </div>
+      )}
+
+      {/* Pedometer row: steps + distance for walk/run exercises while the timer runs */}
+      {isWalkRun && isTimerActive && (
+        pedometerSource === 'unavailable' ? (
+          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            <Footprints className="h-3 w-3" />
+            <span>Шагомер недоступен на этом устройстве</span>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+            <Footprints className="h-3 w-3" />
+            <span>
+              {set.steps && set.steps > 0
+                ? `${set.steps} шагов · ${formatDistance((set.distance ?? 0) * 1000)}`
+                : 'Считаем шаги…'}
+            </span>
+            {pedometerSource === 'accelerometer' && (
+              <span className="text-muted-foreground font-normal">(акселерометр)</span>
+            )}
+          </div>
+        )
       )}
 
       {/* Exercise selector */}
@@ -335,6 +362,7 @@ export default function WorkoutPanel() {
   const clearWorkoutDraft = useAppStore((s) => s.clearWorkoutDraft);
   const addExercise = useAppStore((s) => s.addExercise);
   const deleteExercise = useAppStore((s) => s.deleteExercise);
+  const dismissWorkoutDraft = useAppStore((s) => s.dismissWorkoutDraft);
   const analyzeWorkoutStream = useAppStore((s) => s.analyzeWorkoutStream);
   const isSending = useAppStore((s) => s.isSending);
   const streamingAnalysis = useAppStore((s) => s.streamingAnalysis);
@@ -386,6 +414,33 @@ export default function WorkoutPanel() {
     const iv = setInterval(() => setTimerTick((t) => t + 1), 1000);
     return () => clearInterval(iv);
   }, [workoutSets.some((s) => s.startTime && !s.endTime), timerTick]);
+
+  // ── Workout pedometer (walk/run step counter) ────────────────────
+  // Live snapshot for the UI (source badge / availability hint)
+  const [pedometerSnap, setPedometerSnap] = useState(workoutPedometer.getSnapshot());
+  // Apply the profile step length (default 0.75 м)
+  useEffect(() => {
+    workoutPedometer.setStepLength(profile.stepLengthM);
+  }, [profile.stepLengthM]);
+  // Stream pedometer updates into the attached workout set (steps + distance km)
+  useEffect(() => workoutPedometer.subscribe((snap) => {
+    setPedometerSnap(snap);
+    const id = snap.activeSetId;
+    if (!id || snap.steps <= 0) return;
+    setWorkoutSets((prev) => prev.map((s) => s.id === id
+      ? { ...s, steps: Math.round(snap.steps), distance: Math.round(snap.distanceM / 10) / 100 }
+      : s));
+  }), []);
+  // On dialog open: if a walk/run exercise has a running timer, (re)attach
+  // the pedometer — this also restores background counting after a tab switch
+  useEffect(() => {
+    if (!isWorkoutDialogOpen) return;
+    const running = workoutSets.find((s) => s.startTime && !s.endTime && isWalkRunName(s.exerciseName));
+    const snap = workoutPedometer.getSnapshot();
+    if (running && snap.activeSetId !== running.id) {
+      void workoutPedometer.attach(running.id, running.steps ?? 0);
+    }
+  }, [isWorkoutDialogOpen]);
 
   // Expanded entry cards
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -543,13 +598,14 @@ export default function WorkoutPanel() {
     setIsWorkoutDialogOpen(true);
   };
 
-  // Copy workout as template (open as new, copying sets but clearing analysis)
+  // Copy workout as template (open as new, copying sets but clearing analysis,
+  // timer and pedometer data)
   const handleWorkoutTemplate = (entry: WorkoutEntry) => {
     setEditingWorkout(null);
     setWorkoutName(entry.name || '');
     setWorkoutDate(new Date().toISOString().split('T')[0]);
     const setsWithIds = entry.sets.length > 0
-      ? entry.sets.map((s) => ({ ...s, id: s.id || uuid(), startTime: undefined, endTime: undefined }))
+      ? entry.sets.map((s) => ({ ...s, id: s.id || uuid(), startTime: undefined, endTime: undefined, steps: undefined }))
       : [makeBlankSet()];
     setWorkoutSets(setsWithIds);
     setWorkoutDuration('');
@@ -579,10 +635,11 @@ export default function WorkoutPanel() {
 
     if (editingWorkout?.id) {
       if (editingWorkout.isDraft) {
-        // Convert draft → real workout (remove isDraft flag)
+        // Convert draft → real workout (remove isDraft flag). Only drop the
+        // draft pointer afterwards — clearWorkoutDraft() would DELETE the
+        // entry we just converted (old silently-losing-workout bug).
         await updateWorkoutEntry(editingWorkout.id, { ...entryData, isDraft: false });
-        // Clear draft state since it's now a real workout
-        await clearWorkoutDraft();
+        await dismissWorkoutDraft();
       } else {
         await updateWorkoutEntry(editingWorkout.id, entryData);
       }
@@ -591,6 +648,8 @@ export default function WorkoutPanel() {
       // If we had a draft (shouldn't normally reach here, but safety), clear it
       if (workoutDraft) await clearWorkoutDraft();
     }
+    // Steps/distance are already written into the saved sets — release the counter
+    void workoutPedometer.reset();
     setIsWorkoutDialogOpen(false);
     // Reset form fields after save
     setEditingWorkout(null);
@@ -617,6 +676,7 @@ export default function WorkoutPanel() {
         if (s.sets) line += ` × ${s.sets} подхода`;
         if (s.duration) line += ` ${s.duration}мин`;
         if (s.distance) line += ` ${s.distance}км`;
+        if (s.steps) line += ` (${s.steps} шагов)`;
         return line;
       });
 
@@ -671,6 +731,7 @@ export default function WorkoutPanel() {
     sets: undefined,
     duration: undefined,
     distance: undefined,
+    steps: undefined,
     notes: '',
     startTime: undefined,
     endTime: undefined,
@@ -687,7 +748,7 @@ export default function WorkoutPanel() {
     setWorkoutSets((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Duplicate set (copy exercise, clear timer fields)
+  // Duplicate set (copy exercise, clear timer and pedometer fields)
   const duplicateSet = (index: number) => {
     setWorkoutSets((prev) => {
       const source = prev[index];
@@ -697,6 +758,7 @@ export default function WorkoutPanel() {
         startTime: undefined,
         endTime: undefined,
         pausedElapsed: undefined,
+        steps: undefined,
       };
       const next = [...prev];
       next.splice(index + 1, 0, copy);
@@ -743,6 +805,18 @@ export default function WorkoutPanel() {
           pausedElapsed: (set.pausedElapsed ?? 0) + segmentElapsed,
         };
       }
+      // The pedometer follows the timer for walk/run exercises:
+      // start/resume → count steps; pause → hold the accumulated count
+      // without reset. Side effects inside the updater are idempotent
+      // (attach to the same set / double pause are no-ops).
+      const updated = next[index];
+      if (isWalkRunName(updated.exerciseName)) {
+        if (!updated.endTime) {
+          void workoutPedometer.attach(updated.id, updated.steps ?? 0);
+        } else {
+          void workoutPedometer.pause();
+        }
+      }
       return next;
     });
   };
@@ -751,7 +825,21 @@ export default function WorkoutPanel() {
   const resetTimer = (index: number) => {
     setWorkoutSets((prev) => {
       const next = [...prev];
-      next[index] = { ...next[index], startTime: undefined, endTime: undefined, pausedElapsed: undefined };
+      const set = next[index];
+      // Resetting a walk/run set that owns the pedometer zeroes its steps too
+      // (skipped when the pedometer is unavailable — the distance may be manual)
+      const pedomSnap = workoutPedometer.getSnapshot();
+      const pedometerOwned = pedomSnap.activeSetId === set.id
+        && isWalkRunName(set.exerciseName)
+        && pedomSnap.source !== 'unavailable';
+      if (pedometerOwned) void workoutPedometer.reset();
+      next[index] = {
+        ...set,
+        startTime: undefined,
+        endTime: undefined,
+        pausedElapsed: undefined,
+        ...(pedometerOwned ? { steps: undefined, distance: undefined } : {}),
+      };
       return next;
     });
   };
@@ -973,6 +1061,7 @@ export default function WorkoutPanel() {
                         if (set.sets) line += ` × ${set.sets} подх.`;
                         if (set.duration) line += ` ${set.duration}мин`;
                         if (set.distance) line += ` ${set.distance}км`;
+                        if (set.steps) line += ` (${set.steps} шагов)`;
                         return <p key={i}>• {line}</p>;
                       })}
                       {!isExpanded && entry.sets.length > 2 && (
@@ -1158,6 +1247,7 @@ export default function WorkoutPanel() {
                             if (set.sets) line += ` × ${set.sets} подх.`;
                             if (set.duration) line += ` ${set.duration}мин`;
                             if (set.distance) line += ` ${set.distance}км`;
+                            if (set.steps) line += ` (${set.steps} шагов)`;
                             return <p key={i}>• {line}</p>;
                           })}
                           {!isExpanded && entry.sets.length > 2 && (
@@ -1405,6 +1495,10 @@ export default function WorkoutPanel() {
           // Closing dialog: disable autosave but preserve draft in DB
           setDraftAutosaveEnabled(false);
           if (draftTimerRef.current) { clearTimeout(draftTimerRef.current); draftTimerRef.current = null; }
+          // Pedometer: keep counting in the background if a walk/run timer
+          // is still running; otherwise release the streams (totals stay)
+          const stillRunning = workoutSets.some((s) => s.startTime && !s.endTime && isWalkRunName(s.exerciseName));
+          if (!stillRunning) void workoutPedometer.detach();
         }
         setIsWorkoutDialogOpen(open);
       }}>
@@ -1467,6 +1561,7 @@ export default function WorkoutPanel() {
                       exercises={exercises}
                       exercisesByCategory={exercisesByCategory}
                       isOnlySet={workoutSets.length === 1}
+                      pedometerSource={pedometerSnap.source}
                       onToggleTimer={() => toggleTimer(index)}
                       onResetTimer={() => resetTimer(index)}
                       onDuplicate={() => duplicateSet(index)}
