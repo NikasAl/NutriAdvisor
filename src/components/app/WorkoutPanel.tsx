@@ -43,6 +43,7 @@ import {
 import type { ExerciseCategory, WorkoutEntry, WorkoutSet, DiaryEntry } from '@/lib/types';
 import { EXERCISE_CATEGORY_LABELS } from '@/lib/types';
 import { workoutPedometer, isWalkRunName, formatDistance, type PedometerSource } from '@/lib/pedometer';
+import { isNativeAndroid } from '@/lib/native-pedometer';
 import MarkdownRenderer from '@/components/ui/markdown-renderer';
 import TTSButton from '@/components/ui/TTSButton';
 import {
@@ -242,6 +243,11 @@ function SortableExerciseCard({
             </span>
             {pedometerSource === 'accelerometer' && (
               <span className="text-muted-foreground font-normal">(акселерометр)</span>
+            )}
+            {!isNativeAndroid() && (
+              <span className="w-full font-normal text-muted-foreground">
+                В браузере фоновый подсчёт недоступен: шаги считаются, пока приложение открыто
+              </span>
             )}
           </div>
         )

@@ -11,16 +11,25 @@
  *    here: distance = steps × step length (a profile setting).
  *
  * Backends, chosen per start:
- *  1. Native hardware step counter (APK only, NativePedometerPlugin,
- *     Sensor.TYPE_STEP_COUNTER) — preferred on Android;
- *  2. Accelerometer fallback running THIS algorithm:
- *     - inside the APK the plugin streams raw TYPE_ACCELEROMETER samples
- *       ("onAccel"), because the Android WebView does not reliably dispatch
- *       devicemotion events (chromium bug 178252);
- *     - in a plain browser it subscribes to DeviceMotion via
- *       @capacitor/motion (the official plugin; note that "@capacitor/sensors"
- *       from the original task brief does not exist in the npm registry —
- *       Motion is its official successor and is web-only in v8).
+ *  1. Native (APK, PedometerService foreground service) — counts with the
+ *     SCREEN OFF (phone in the pocket, app in the background). Both sensor
+ *     modes report SESSION steps through "onStepsChanged" and the
+ *     authoritative value is polled via getSteps() on every visibility
+ *     resume, because the frozen WebView loses events:
+ *     - "native-pedometer": hardware Sensor.TYPE_STEP_COUNTER, baseline
+ *       accumulation natively (cumulative value - session baseline) — lost
+ *       events are harmless by design;
+ *     - "native-accel": the Progulkin peak-detection algorithm runs in JAVA
+ *       (StepDetector.java, same smoothing/peaks/adaptive threshold) on raw
+ *       TYPE_ACCELEROMETER samples — so the fallback also survives the
+ *       screen-off WebView freeze. (The algorithm below is kept ONLY for
+ *       the browser path.)
+ *  2. Browser DeviceMotion fallback (PWA) — THIS algorithm in JS via
+ *     @capacitor/motion (the official plugin; note that "@capacitor/sensors"
+ *     from the original task brief does not exist in the npm registry —
+ *     Motion is its official successor and is web-only in v8). A browser
+ *     cannot count with the screen off or in background tabs — the UI says
+ *     so honestly.
  *  3. If nothing works (desktop browser, sensorless device) the service
  *     reports source = "unavailable" and the UI shows a hint instead of
  *     step counts.
@@ -28,7 +37,7 @@
  * The service is a module-level singleton ON PURPOSE: the workout panel
  * unmounts when the user switches tabs, but a running exercise timer (and
  * its step counting) must keep going in the background. The panel re-syncs
- * on mount.
+ * on mount; native sessions are re-synced on visibilitychange below.
  */
 
 import { Motion } from '@capacitor/motion';
@@ -148,9 +157,8 @@ class WorkoutPedometerService {
 
   // ── Backend handles ────────────────────────────────────────────────
   private nativeStepsHandle: PluginListenerHandle | null = null;
-  private nativeAccelHandle: PluginListenerHandle | null = null;
   private motionHandle: PluginListenerHandle | null = null;
-  /** Backend that the current streams come from. */
+  /** Backend that the current streams come from. Both native backends are session-based (events + getSteps poll). */
   private backend: 'native-pedometer' | 'native-accel' | 'web-motion' | null = null;
   /** Settle timer for web motion: if samples don't arrive at sensor rate, mark unavailable. */
   private webProbeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -267,9 +275,9 @@ class WorkoutPedometerService {
   // ── Internals ──────────────────────────────────────────────────────
 
   private totalSteps(): number {
-    // Accelerometer algorithm keeps its own cumulative counter; the native
-    // pedometer mode accumulates base (finished segments) + current segment.
-    if (this.backend === 'native-pedometer') {
+    // Both native backends are session-based: base (finished segments)
+    // + the current native session (events + getSteps poll).
+    if (this.backend === 'native-pedometer' || this.backend === 'native-accel') {
       return this.baseSteps + this.segmentSteps;
     }
     return this.detectedSteps + this.baseSteps;
@@ -297,7 +305,7 @@ class WorkoutPedometerService {
 
   /** Add steps of the finished streaming session to the accumulated base. */
   private flushSegment() {
-    if (this.backend === 'native-pedometer') {
+    if (this.backend === 'native-pedometer' || this.backend === 'native-accel') {
       this.baseSteps += this.segmentSteps;
       this.segmentSteps = 0;
     }
@@ -315,15 +323,18 @@ class WorkoutPedometerService {
         await this.nativeStepsHandle.remove();
         this.nativeStepsHandle = null;
       }
-      if (this.nativeAccelHandle) {
-        await this.nativeAccelHandle.remove();
-        this.nativeAccelHandle = null;
-      }
       if (this.motionHandle) {
         await this.motionHandle.remove();
         this.motionHandle = null;
       }
       if (this.backend === 'native-pedometer' || this.backend === 'native-accel') {
+        // Freeze/thaw safety: events delivered into a frozen WebView may
+        // have been lost, so poll the AUTHORITATIVE native session count
+        // before tearing the native session down.
+        const live = await NativePedometer.getSteps().catch(() => null);
+        if (live && typeof live.steps === 'number' && live.steps > this.segmentSteps) {
+          this.segmentSteps = live.steps;
+        }
         await NativePedometer.stop();
       }
     } catch {
@@ -336,32 +347,40 @@ class WorkoutPedometerService {
 
   /** Start the best available backend. Sets `source`, `backend`, `counting`. */
   private async startStreaming(): Promise<void> {
-    // 1) Native hardware step counter (APK).
+    // 1) Native (APK): PedometerService foreground service — counts with the
+    //    screen off. Both sensor modes report session steps natively.
     if (isNativeAndroid()) {
-      let res = await NativePedometer.start().catch(() => null);
+      const opts = {
+        setId: this.activeSetId ?? undefined,
+        initialSteps: this.totalSteps(),
+        stepLengthM: this.stepLengthM,
+        // Zero count (first start / after reset): the native notification
+        // total must restart as well instead of continuing a stale value.
+        fresh: this.totalSteps() === 0,
+      };
+      // Best-effort: without POST_NOTIFICATIONS (Android 13+) the service
+      // still counts, but its «Тренировка: N шагов» notification stays hidden.
+      await NativePedometer.requestNotificationPermission().catch(() => null);
+      let res = await NativePedometer.start(opts).catch(() => null);
       if (res?.needsPermission) {
         const perm = await NativePedometer.requestPermission().catch(() => null);
         // Re-decide the backend after the dialog (granted → counter, denied → accel).
-        res = await NativePedometer.start().catch(() => null);
+        res = await NativePedometer.start(opts).catch(() => null);
         if (res && res.source === 'pedometer' && !perm?.granted) {
           // Should not happen (start() re-checks the state), just be safe:
           res = { source: 'accelerometer', supported: true };
         }
       }
-      if (res?.source === 'pedometer' && res.supported) {
-        this.backend = 'native-pedometer';
-        this.source = 'pedometer';
-        this.segmentSteps = 0;
+      if (res && (res.source === 'pedometer' || res.source === 'accelerometer') && res.supported) {
+        this.backend = res.source === 'pedometer' ? 'native-pedometer' : 'native-accel';
+        this.source = res.source;
+        this.segmentSteps = 0; // fresh native session; baseSteps keeps the previous segments
         this.counting = true;
         this.nativeStepsHandle = await NativePedometer.addListener('onStepsChanged', (data) => {
           this.segmentSteps = Math.max(0, Math.round(data.steps));
           this.publish();
         });
         this.publish();
-        return;
-      }
-      if (res?.source === 'accelerometer' && res.supported) {
-        await this.startNativeAccelerometer();
         return;
       }
       this.source = 'unavailable';
@@ -374,14 +393,21 @@ class WorkoutPedometerService {
     await this.startWebMotion();
   }
 
-  private async startNativeAccelerometer(): Promise<void> {
-    this.resetAccelState();
-    this.backend = 'native-accel';
-    this.source = 'accelerometer';
-    this.counting = true;
-    this.nativeAccelHandle = await NativePedometer.addListener('onAccel', (data) => {
-      this.processAccelerometerSample(data.x, data.y, data.z);
-    });
+  /**
+   * Freeze/thaw + tab-switch + app-restart recovery: pull the authoritative
+   * native session count and rebuild the current segment from it. Events
+   * delivered into a frozen WebView are lost, so this poll — not the event
+   * stream — is the source of truth on resume. No-op for the browser
+   * backend (nothing native to sync with).
+   */
+  async resyncFromNative(): Promise<void> {
+    if (this.backend !== 'native-pedometer' && this.backend !== 'native-accel') return;
+    if (!this.counting) return;
+    const live = await NativePedometer.getSteps().catch(() => null);
+    if (!live || typeof live.steps !== 'number') return;
+    if (live.steps > this.segmentSteps) {
+      this.segmentSteps = live.steps;
+    }
     this.publish();
   }
 
@@ -446,7 +472,9 @@ class WorkoutPedometerService {
 
   /**
    * One accelerometer sample → the Progulkin step-detection algorithm
-   * (ported 1:1 from lib/services/pedometer_service.dart):
+   * (ported 1:1 from lib/services/pedometer_service.dart; on the APK the
+   * same algorithm runs natively in StepDetector.java — this JS copy is
+   * only used by the browser DeviceMotion backend):
    *   1. take the max absolute axis value (NOT the magnitude);
    *   2. smooth with a 5-sample moving average;
    *   3. keep 20-sample acc/time buffers, wait for ≥10 samples;
@@ -522,6 +550,28 @@ class WorkoutPedometerService {
 
 /** Module-level singleton: keeps counting in the background while the workout panel is unmounted. */
 export const workoutPedometer = new WorkoutPedometerService();
+
+/**
+ * Screen-off / freeze-thaw recovery (APK): when the app becomes visible
+ * again, the WebView may have lost "onStepsChanged" events while it was
+ * frozen — pull the authoritative native session count instead of trusting
+ * the event stream. Covers: screen off→on, tab switch back, app return
+ * from the background (and the first paint after a process kill, where the
+ * count restarts from the draft-adopted base).
+ */
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      void workoutPedometer.resyncFromNative();
+    }
+  });
+  // Some WebViews only fire pageshow (bfcache restore) without a
+  // visibilitychange transition — sync on that too, it is a no-op when
+  // there is nothing to update.
+  window.addEventListener('pageshow', () => {
+    void workoutPedometer.resyncFromNative();
+  });
+}
 
 /** Format meters the Progulkin way: «850 м» / «1,42 км». */
 export function formatDistance(meters: number): string {
