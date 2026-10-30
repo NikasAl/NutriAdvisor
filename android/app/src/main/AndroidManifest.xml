@@ -34,6 +34,25 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+
+        <!-- PedometerService: keeps the workout step counter alive while the
+             screen is OFF and the app is in the background (walk/run with
+             the phone in the pocket). An FGS process is never frozen by the
+             Cached App Freezer; the ongoing notification «Тренировка: N
+             шагов» is part of the platform contract.
+             FGS types (enforced on Android 14+): "health" while
+             ACTIVITY_RECOGNITION is granted (hardware step-counter path),
+             "specialUse" for the accelerometer fallback (no step counter
+             sensor or permission denied) — PROPERTY_SPECIAL_USE_FGS_SUBTYPE
+             documents the fallback as the platform requires. -->
+        <service
+            android:name=".PedometerService"
+            android:exported="false"
+            android:foregroundServiceType="health|specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="workout_step_counter_fallback" />
+        </service>
     </application>
 
     <!-- Permissions -->
@@ -50,6 +69,21 @@
          Capacitor permission API (alias "activity") on Android 10+; granted
          implicitly on older versions. -->
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+
+    <!-- PedometerService (screen-off background counting):
+         FOREGROUND_SERVICE* — the service runs as "health" (step-counter
+         path) or "specialUse" (accelerometer fallback, see the <service>
+         comment); WAKE_LOCK — PARTIAL_WAKE_LOCK while a segment is running
+         so the accelerometer algorithm can process samples (released on
+         pause/stop); POST_NOTIFICATIONS — the ongoing «Тренировка: N шагов»
+         notification (requested best-effort at runtime on Android 13+;
+         without it the service still runs, the notification just stays
+         hidden). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Package visibility (Android 11+): resolve the camera app before
          launching ACTION_IMAGE_CAPTURE. -->
