@@ -1,11 +1,13 @@
 package ru.kreagenium.nuadvi;
 
+import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 
 import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 
 import com.getcapacitor.BridgeActivity;
 
@@ -36,6 +38,38 @@ public class MainActivity extends BridgeActivity {
         if (Build.VERSION.SDK_INT >= 30) {
             WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         }
+        // After the edge-to-edge switch, pin the system bar icon foreground
+        // to the SYSTEM theme (last write wins at startup). Without this the
+        // icons stay in the platform default state (light icons), which
+        // renders an unreadable white clock/battery over the light
+        // windowBackground. Same policy as android:windowLightStatusBar in
+        // values/ + values-night/ styles and as Capacitor 8's built-in
+        // SystemBars plugin, so every writer agrees.
+        applySystemBarAppearance();
+    }
+
+    // Foreground color of the status/navigation bar icons follows the
+    // SYSTEM light/dark theme — never the in-app (CSS) theme: dark icons on
+    // the light windowBackground, light icons on the dark one. The panel
+    // color itself is never forced: the bars stay transparent and show the
+    // DayNight windowBackground behind them.
+    private void applySystemBarAppearance() {
+        int nightMode = getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_NIGHT_MASK;
+        boolean lightSystemTheme = nightMode != Configuration.UI_MODE_NIGHT_YES;
+        WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(
+                getWindow(), getWindow().getDecorView());
+        controller.setAppearanceLightStatusBars(lightSystemTheme);
+        controller.setAppearanceLightNavigationBars(lightSystemTheme);
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        // The system theme can flip while the app is open (configChanges in
+        // the manifest includes uiMode, so the activity is NOT recreated):
+        // re-apply the icon appearance so the panel never goes unreadable.
+        applySystemBarAppearance();
     }
 
     @Override
