@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Клиника — Обзор · Дневник Здоровья</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#EDF1F7;font-family:-apple-system,'SF Pro Text','Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#10233F;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+svg{display:block}
+.wrap{max-width:452px;margin:0 auto;padding:44px 20px 56px}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#2E6BE6;background:rgba(46,107,230,.1);border-radius:10px;padding:6px 11px}
+h1{font-size:24px;font-weight:800;letter-spacing:-.4px;margin:14px 0 8px}
+.slogan{font-size:14px;line-height:1.55;color:#5B6B81;margin:0 0 28px}
+.sec-t{font-size:13px;font-weight:600;color:#5B6B81;margin:0 0 12px}
+.palette{display:flex;flex-wrap:wrap;gap:12px 8px;margin-bottom:30px}
+.sw{width:54px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.sw i{width:32px;height:32px;border-radius:50%;border:1px solid rgba(16,35,63,.1)}
+.sw b{font-size:10px;font-weight:600;color:#5B6B81;letter-spacing:.1px}
+.grid{display:grid;grid-template-columns:repeat(3,117px);gap:18px 14px;justify-content:center}
+.cell{display:flex;flex-direction:column;align-items:center;gap:8px}
+.thumb{display:block;width:117px;height:254px;overflow:hidden;border-radius:14px;border:1px solid #E3EAF3;box-shadow:0 8px 24px rgba(16,35,63,.08);background:#fff}
+.thumb iframe{width:390px;height:844px;border:0;transform:scale(0.3);transform-origin:0 0;pointer-events:none}
+.cap{font-size:12px;font-weight:600;color:#10233F}
+.links{display:flex;flex-wrap:wrap;gap:8px;margin-top:30px}
+.links a{font-size:13px;font-weight:600;color:#2E6BE6;background:#FFF;border:1px solid #E3EAF3;border-radius:10px;padding:9px 13px;box-shadow:0 1px 2px rgba(16,35,63,.06)}
+.note{margin:24px 0 0;font-size:12px;line-height:1.6;color:#93A3B8}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <span class="badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 4V16h-.5A1.5 1.5 0 0 1 4 14.5Z"/></svg>Дневник Здоровья · макеты</span>
+
+  <h1>Концепция 1 — Клиника</h1>
+  <p class="slogan">Чистый медицинский интерфейс: точность, доверие, ясность.</p>
+
+  <div class="sec-t">Палитра</div>
+  <div class="palette">
+    <span class="sw"><i style="background:#F4F7FB"></i><b>#F4F7FB</b></span>
+    <span class="sw"><i style="background:#FFFFFF"></i><b>#FFFFFF</b></span>
+    <span class="sw"><i style="background:#10233F"></i><b>#10233F</b></span>
+    <span class="sw"><i style="background:#2E6BE6"></i><b>#2E6BE6</b></span>
+    <span class="sw"><i style="background:#17A673"></i><b>#17A673</b></span>
+    <span class="sw"><i style="background:#E8A13C"></i><b>#E8A13C</b></span>
+    <span class="sw"><i style="background:#14B8A6"></i><b>#14B8A6</b></span>
+  </div>
+
+  <div class="sec-t">Экраны</div>
+  <div class="grid">
+    <div class="cell">
+      <a class="thumb" href="home.html" aria-label="Главная"><iframe src="home.html" title="Главная" scrolling="no" tabindex="-1"></iframe></a>
+      <span class="cap">Главная</span>
+    </div>
+    <div class="cell">
+      <a class="thumb" href="diary.html" aria-label="Дневник"><iframe src="diary.html" title="Дневник" scrolling="no" tabindex="-1"></iframe></a>
+      <span class="cap">Дневник</span>
+    </div>
+    <div class="cell">
+      <a class="thumb" href="workout.html" aria-label="Тренировка"><iframe src="workout.html" title="Тренировка" scrolling="no" tabindex="-1"></iframe></a>
+      <span class="cap">Тренировка</span>
+    </div>
+    <div class="cell">
+      <a class="thumb" href="stats.html" aria-label="Статистика"><iframe src="stats.html" title="Статистика" scrolling="no" tabindex="-1"></iframe></a>
+      <span class="cap">Статистика</span>
+    </div>
+    <div class="cell">
+      <a class="thumb" href="chat.html" aria-label="ИИ-чат"><iframe src="chat.html" title="ИИ-чат" scrolling="no" tabindex="-1"></iframe></a>
+      <span class="cap">ИИ-чат</span>
+    </div>
+    <div class="cell">
+      <a class="thumb" href="profile.html" aria-label="Профиль"><iframe src="profile.html" title="Профиль" scrolling="no" tabindex="-1"></iframe></a>
+      <span class="cap">Профиль</span>
+    </div>
+  </div>
+
+  <div class="links">
+    <a href="home.html">Главная</a>
+    <a href="diary.html">Дневник</a>
+    <a href="workout.html">Тренировка</a>
+    <a href="stats.html">Статистика</a>
+    <a href="chat.html">ИИ-чат</a>
+    <a href="profile.html">Профиль</a>
+  </div>
+
+  <p class="note">Референсы: Apple Health, Ada Health. Статичные макеты экрана 390 × 844: только системные шрифты, CSS и inline-SVG — без скриптов, картинок и внешних ресурсов.</p>
+
+</div>
+</body>
+</html>

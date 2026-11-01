@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Полночь — Тренировка · Дневник Здоровья</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0A0E14;font-family:-apple-system,'SF Pro Display','Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#EAF1F9;-webkit-font-smoothing:antialiased}
+.phone{width:390px;margin:0 auto;min-height:844px;position:relative;padding-bottom:34px}
+svg{flex:none}
+.label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#7E8CA0}
+.card{background:#111722;border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:16px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.04)}
+.glow{box-shadow:0 8px 32px rgba(56,217,240,.10),inset 0 0 0 1px rgba(255,255,255,.04)}
+.sect{margin:0 16px 12px}
+.whead{padding:24px 16px 14px}
+.wback{display:inline-flex;align-items:center;gap:6px;color:#38D9F0;font-size:13px;font-weight:600;text-decoration:none}
+.whead .label{display:block;margin-top:18px}
+.whead h1{margin:5px 0 0;font-size:22px;line-height:1.15;font-weight:700;letter-spacing:-.01em}
+.bar{height:6px;border-radius:4px;background:rgba(255,255,255,.07);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:4px}
+.tcard{text-align:center;padding:20px 16px 18px}
+.trow{display:flex;align-items:center;justify-content:center;gap:10px}
+.tic{color:#38D9F0;display:flex}
+.tnum{font-size:46px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.01em;line-height:1}
+.tstatus{display:inline-flex;align-items:center;gap:7px;margin-top:11px;font-size:12px;font-weight:500;color:#7E8CA0}
+.tstatus i{width:7px;height:7px;border-radius:50%;background:#B7F04A;box-shadow:0 0 8px rgba(183,240,74,.85)}
+.cur-top{display:flex;align-items:center;justify-content:space-between}
+.cur-n{font-size:11px;font-weight:600;color:#7E8CA0;font-variant-numeric:tabular-nums}
+.cur-name{font-size:18px;font-weight:700;margin-top:9px}
+.cur-load{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:6px;letter-spacing:-.01em}
+.cur-load em{font-style:normal;color:#38D9F0}
+.sets{display:flex;gap:8px;margin-top:14px}
+.set{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;height:34px;border-radius:11px;background:#18202E;border:1px solid rgba(255,255,255,.08);font-size:12px;font-weight:600;color:#7E8CA0;font-variant-numeric:tabular-nums}
+.set.ok{color:#B7F04A;background:rgba(183,240,74,.08);border-color:rgba(183,240,74,.35)}
+.set.cur{color:#0A0E14;background:linear-gradient(135deg,#38D9F0,#5EA2FF);border-color:transparent;font-weight:700;box-shadow:0 8px 24px rgba(56,217,240,.25)}
+.rest-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.rtime{font-size:16px;font-weight:800;font-variant-numeric:tabular-nums}
+.plist .label{display:block;margin-bottom:2px}
+.ex{display:flex;align-items:center;gap:12px;padding:11px 0}
+.ex + .ex{border-top:1px solid rgba(255,255,255,.06)}
+.eic{width:28px;height:28px;border-radius:50%;border:1.5px solid rgba(255,255,255,.14);flex:none}
+.eic.ok{border-color:transparent;background:rgba(183,240,74,.12);color:#B7F04A;display:flex;align-items:center;justify-content:center}
+.eic.on{border-color:transparent;background:rgba(56,217,240,.12);color:#38D9F0;display:flex;align-items:center;justify-content:center}
+.ebody{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.ename{font-size:14px;font-weight:600}
+.ex.done .ename{color:#7E8CA0}
+.ename.on{color:#38D9F0}
+.emeta{font-size:12px;color:#7E8CA0;font-variant-numeric:tabular-nums}
+.etag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#5A6778;flex:none}
+.etag.ok{color:#B7F04A}
+.etag.on{color:#38D9F0}
+.scard{display:flex;align-items:center;gap:12px}
+.sic2{width:40px;height:40px;border-radius:13px;background:rgba(183,240,74,.10);color:#B7F04A;display:flex;align-items:center;justify-content:center}
+.sbody{flex:1;display:flex;flex-direction:column;gap:2px}
+.sval{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+.slab{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#7E8CA0}
+.stime{font-size:12px;color:#7E8CA0;font-variant-numeric:tabular-nums}
+.wo-actions{display:flex;gap:10px;margin:16px 16px 0}
+.btn-s{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;height:50px;border-radius:14px;background:#18202E;border:1px solid rgba(255,255,255,.10);color:#EAF1F9;font-size:15px;font-weight:700;text-decoration:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.04)}
+.btn-f{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;height:50px;border-radius:14px;background:linear-gradient(135deg,#38D9F0,#5EA2FF);color:#0A0E14;font-size:15px;font-weight:800;text-decoration:none;box-shadow:0 8px 32px rgba(56,217,240,.30)}
+</style>
+</head>
+<body>
+<div class="phone">
+  <header class="whead">
+    <a class="wback" href="home.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg>Главная</a>
+    <span class="label k" style="color:#38D9F0">Тренировка</span>
+    <h1>Силовая — верх тела</h1>
+  </header>
+
+  <section class="card glow sect tcard">
+    <div class="trow">
+      <span class="tic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span>
+      <span class="tnum">12:47</span>
+    </div>
+    <div class="tstatus"><i></i>Идёт тренировка · 3 из 5 упражнений</div>
+  </section>
+
+  <section class="card sect cur">
+    <div class="cur-top"><span class="label">Текущее упражнение</span><span class="cur-n">подход 2 / 4</span></div>
+    <div class="cur-name">Тяга верхнего блока к поясу</div>
+    <div class="cur-load">35 кг <em>×</em> 12</div>
+    <div class="sets">
+      <span class="set ok"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 12.5 4.5 4.5L19.5 7"/></svg>№1 35×12</span>
+      <span class="set cur">№2 35×12</span>
+      <span class="set">№3 35×12</span>
+      <span class="set">№4 35×12</span>
+    </div>
+  </section>
+
+  <section class="card sect rest">
+    <div class="rest-top"><span class="label">Отдых</span><span class="rtime">0:45</span></div>
+    <div class="bar"><i style="width:50%;background:linear-gradient(90deg,#38D9F0,#5EA2FF)"></i></div>
+  </section>
+
+  <section class="card sect plist">
+    <span class="label">Программа</span>
+    <div class="ex done">
+      <span class="eic ok"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 12.5 4.5 4.5L19.5 7"/></svg></span>
+      <div class="ebody"><span class="ename">Жим гантелей лёжа</span><span class="emeta">4×12 · 20 кг</span></div>
+      <span class="etag ok">готово</span>
+    </div>
+    <div class="ex now">
+      <span class="eic on"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg></span>
+      <div class="ebody"><span class="ename on">Тяга верхнего блока к поясу</span><span class="emeta">4×12 · 35 кг</span></div>
+      <span class="etag on">сейчас</span>
+    </div>
+    <div class="ex">
+      <span class="eic"></span>
+      <div class="ebody"><span class="ename">Жим гантелей сидя</span><span class="emeta">3×12 · 14 кг</span></div>
+    </div>
+    <div class="ex">
+      <span class="eic"></span>
+      <div class="ebody"><span class="ename">Скручивания</span><span class="emeta">3×20 · свой вес</span></div>
+    </div>
+    <div class="ex">
+      <span class="eic"></span>
+      <div class="ebody"><span class="ename">Планка</span><span class="emeta">3×60 с</span></div>
+    </div>
+  </section>
+
+  <section class="card sect scard">
+    <span class="sic2"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="9" cy="8.5" rx="2.6" ry="3.6"/><ellipse cx="15.5" cy="15" rx="2.6" ry="3.6"/></svg></span>
+    <div class="sbody">
+      <span class="sval">6&nbsp;432 шага · 4,8 км</span>
+      <span class="slab">шагомер</span>
+    </div>
+    <span class="stime">сессия 38 мин</span>
+  </section>
+
+  <div class="wo-actions">
+    <a class="btn-s" href="workout.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5v14M15 5v14"/></svg>Пауза</a>
+    <a class="btn-f" href="home.html">Завершить</a>
+  </div>
+</div>
+</body>
+</html>

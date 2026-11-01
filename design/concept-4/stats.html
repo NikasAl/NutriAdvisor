@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Волна — Статистика · Дневник Здоровья</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#F6F6F4;font-family:-apple-system,'SF Pro Display','Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#15181D;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+.phone{width:390px;margin:0 auto;min-height:844px;position:relative}
+.page{padding:20px 16px 110px}
+.label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280}
+.card{background:#fff;border:1px solid #E6E6E2;border-radius:16px;box-shadow:0 2px 8px rgba(21,24,29,.06)}
+.num{font-variant-numeric:tabular-nums}
+
+.hdr h1{margin:0;font-size:24px;font-weight:800;letter-spacing:-.03em}
+.hdr .sub{margin:4px 0 0;font-size:13px;font-weight:500;color:#6B7280}
+
+.pchips{display:flex;gap:8px;margin:14px 0 12px}
+.pchip{padding:8px 14px;border-radius:10px;background:#fff;border:1px solid #E6E6E2;font-size:12px;font-weight:800;color:#6B7280;box-shadow:0 2px 8px rgba(21,24,29,.06)}
+.pchip.act{background:#FF4E2B;border-color:#FF4E2B;color:#fff}
+
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.kpi{padding:12px 14px}
+.khead{display:flex;align-items:center;gap:8px}
+.ktile{width:28px;height:28px;flex:none;border-radius:8px;display:flex;align-items:center;justify-content:center}
+.kval{display:block;margin-top:9px;font-size:20px;font-weight:800;letter-spacing:-.02em}
+.ksub{display:block;margin-top:3px;font-size:11px;font-weight:600;color:#6B7280;font-variant-numeric:tabular-nums}
+
+.chartc{padding:14px;margin-bottom:12px}
+.crow2{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.gchip{background:rgba(43,182,115,.14);color:#2BB673;font-size:11px;font-weight:800;padding:3px 8px;border-radius:8px}
+.weight{width:100%;height:auto;display:block;margin-top:10px}
+.xdays{display:flex;justify-content:space-between;padding:0 2px;margin-top:6px}
+.xdays span{font-size:10px;font-weight:700;color:#9AA0A6}
+
+.gl{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:#9AA0A6}
+.gl i{width:16px;border-top:2px dashed #C9CDD3}
+.cal{position:relative;display:grid;grid-template-columns:repeat(7,1fr);gap:8px;align-items:end;height:122px;margin-top:26px}
+.gline{position:absolute;left:0;right:0;top:0;border-top:2px dashed #C9CDD3}
+.glv{position:absolute;right:0;top:-14px;font-size:10px;font-weight:800;color:#9AA0A6;font-variant-numeric:tabular-nums}
+.cbar{position:relative;border-radius:7px 7px 3px 3px;background:#15181D}
+.cbar.ghost{background:transparent;border:1.5px dashed #C9CDD3}
+.bv{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + 4px);font-size:10px;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
+.caldays{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:7px}
+.caldays span{text-align:center;font-size:10px;font-weight:700;color:#9AA0A6}
+.caldays .today{color:#FF4E2B;font-weight:800}
+
+.stbar{display:flex;height:14px;border-radius:7px;overflow:hidden;margin-top:12px}
+.stbar i{display:block;height:100%}
+.legend{display:flex;gap:14px;margin-top:11px;flex-wrap:wrap}
+.legend span{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:#6B7280}
+.legend i{width:8px;height:8px;border-radius:3px}
+
+.wlist{margin-top:8px}
+.wl{display:flex;align-items:center;gap:10px;padding:9px 8px;border-radius:10px}
+.wl .d{width:32px;height:32px;flex:none;border-radius:9px;background:#F1F1EE;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;letter-spacing:.03em}
+.wl b{flex:1;font-size:14px;font-weight:700}
+.wic{width:28px;height:28px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.wl.done .wic{background:rgba(43,182,115,.14);color:#2BB673}
+.wl.today{background:rgba(198,255,61,.2)}
+.wl.today .d{background:#15181D;color:#C6FF3D}
+.wl.today .wic{background:#FF4E2B;color:#fff}
+
+.tabbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:390px;height:72px;background:#15181D;display:flex;align-items:flex-end;padding:0 6px 16px;z-index:60;box-shadow:0 -6px 20px rgba(21,24,29,.16)}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;color:rgba(255,255,255,.55);font-size:10px;font-weight:700;letter-spacing:.05em}
+.tab svg{width:22px;height:22px}
+.tab.active{color:#C6FF3D}
+.ai-fab{width:52px;height:52px;margin-top:-30px;border-radius:50%;background:#C6FF3D;color:#15181D;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 5px #15181D}
+.ai-fab svg{width:24px;height:24px}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="page">
+
+    <header class="hdr">
+      <h1>Статистика</h1>
+      <p class="sub">25–31 октября</p>
+    </header>
+
+    <div class="pchips">
+      <span class="pchip act">Неделя</span>
+      <span class="pchip">Месяц</span>
+      <span class="pchip">Год</span>
+    </div>
+
+    <section class="kpis">
+      <div class="card kpi">
+        <div class="khead"><span class="ktile" style="background:rgba(255,78,43,.12);color:#FF4E2B"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3"/><path d="M5.5 21h13a1.5 1.5 0 0 0 1.45-1.1l1.5-5.4A1.5 1.5 0 0 0 20 12.5H4a1.5 1.5 0 0 0-1.45 2l1.5 5.4A1.5 1.5 0 0 0 5.5 21Z"/><path d="M8.5 12a3.5 3.5 0 0 1 7 0"/></svg></span><span class="label">Вес</span></div>
+        <b class="kval num" style="color:#2BB673">−0,7 кг</b>
+        <span class="ksub">79,1 → 78,4</span>
+      </div>
+      <div class="card kpi">
+        <div class="khead"><span class="ktile" style="background:rgba(21,24,29,.08);color:#15181D"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4.5 13.5H11L9.5 22 18 10.5h-6.5Z"/></svg></span><span class="label">Калории</span></div>
+        <b class="kval num">1&nbsp;874</b>
+        <span class="ksub">ккал/день в среднем</span>
+      </div>
+      <div class="card kpi">
+        <div class="khead"><span class="ktile" style="background:rgba(255,176,32,.16);color:#15181D"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12h2M19.5 12h2M6.5 12h11"/><path d="M6.5 7.5v9M17.5 7.5v9M3.5 9.5v5M20.5 9.5v5"/></svg></span><span class="label">Тренировки</span></div>
+        <b class="kval num">4</b>
+        <span class="ksub">за неделю</span>
+      </div>
+      <div class="card kpi">
+        <div class="khead"><span class="ktile" style="background:rgba(43,182,115,.14);color:#2BB673"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="9" cy="8.5" rx="2.6" ry="3.6"/><ellipse cx="15.5" cy="15" rx="2.6" ry="3.6"/></svg></span><span class="label">Шаги</span></div>
+        <b class="kval num">7&nbsp;210</b>
+        <span class="ksub">шагов/день</span>
+      </div>
+    </section>
+
+    <section class="card chartc">
+      <div class="crow2"><span class="label">Динамика веса</span><span class="gchip">−0,7 кг</span></div>
+      <svg class="weight" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 330 120" fill="none">
+        <line x1="10" y1="118" x2="318" y2="118" stroke="#E6E6E2" stroke-width="1"/>
+        <polygon points="10,20 63,43 116,31 169,66 222,77 275,89 318,100 318,118 10,118" fill="rgba(255,78,43,.07)"/>
+        <polyline points="10,20 63,43 116,31 169,66 222,77 275,89 318,100" fill="none" stroke="#FF4E2B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="10" cy="20" r="3" fill="#fff" stroke="#FF4E2B" stroke-width="2"/>
+        <circle cx="63" cy="43" r="3" fill="#fff" stroke="#FF4E2B" stroke-width="2"/>
+        <circle cx="116" cy="31" r="3" fill="#fff" stroke="#FF4E2B" stroke-width="2"/>
+        <circle cx="169" cy="66" r="3" fill="#fff" stroke="#FF4E2B" stroke-width="2"/>
+        <circle cx="222" cy="77" r="3" fill="#fff" stroke="#FF4E2B" stroke-width="2"/>
+        <circle cx="275" cy="89" r="3" fill="#fff" stroke="#FF4E2B" stroke-width="2"/>
+        <circle cx="318" cy="100" r="4.5" fill="#FF4E2B" stroke="#fff" stroke-width="2"/>
+        <text x="14" y="12" font-size="11" font-weight="700" fill="#6B7280">79,1</text>
+        <text x="306" y="94" text-anchor="end" font-size="12" font-weight="800" fill="#15181D">78,4</text>
+      </svg>
+      <div class="xdays"><span>пн</span><span>вт</span><span>ср</span><span>чт</span><span>пт</span><span>сб</span><span>вс</span></div>
+    </section>
+
+    <section class="card chartc">
+      <div class="crow2"><span class="label">Калории по дням</span><span class="gl"><i></i>цель · 1&nbsp;950</span></div>
+      <div class="cal">
+        <div class="gline"><span class="glv">1&nbsp;950</span></div>
+        <div class="cbar" style="height:94%"></div>
+        <div class="cbar" style="height:87%"></div>
+        <div class="cbar" style="height:100%;background:#FFB020"><span class="bv">2&nbsp;043</span></div>
+        <div class="cbar" style="height:83%"></div>
+        <div class="cbar" style="height:63%;background:#FF4E2B"><span class="bv" style="color:#FF4E2B">1&nbsp;284</span></div>
+        <div class="cbar ghost" style="height:30%"></div>
+        <div class="cbar ghost" style="height:30%"></div>
+      </div>
+      <div class="caldays"><span>пн</span><span>вт</span><span>ср</span><span>чт</span><span class="today">пт</span><span>сб</span><span>вс</span></div>
+    </section>
+
+    <section class="card chartc">
+      <div class="label">БЖУ недели</div>
+      <div class="stbar">
+        <i style="width:28%;background:#FF4E2B"></i>
+        <i style="width:30%;background:#FFB020"></i>
+        <i style="width:42%;background:#2BB673"></i>
+      </div>
+      <div class="legend">
+        <span><i style="background:#FF4E2B"></i>Белки · 28%</span>
+        <span><i style="background:#FFB020"></i>Жиры · 30%</span>
+        <span><i style="background:#2BB673"></i>Углеводы · 42%</span>
+      </div>
+    </section>
+
+    <section class="card chartc">
+      <div class="label">Тренировки недели</div>
+      <div class="wlist">
+        <div class="wl done">
+          <span class="d">ПН</span><b>Силовая (верх)</b>
+          <span class="wic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 12.5 4.5 4.5L19.5 7"/></svg></span>
+        </div>
+        <div class="wl done">
+          <span class="d">ВТ</span><b>Кардио, 5,2 км</b>
+          <span class="wic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 12.5 4.5 4.5L19.5 7"/></svg></span>
+        </div>
+        <div class="wl done">
+          <span class="d">ЧТ</span><b>Силовая (низ)</b>
+          <span class="wic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 12.5 4.5 4.5L19.5 7"/></svg></span>
+        </div>
+        <div class="wl today">
+          <span class="d">ПТ</span><b>Сегодня</b>
+          <span class="wic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4.5 13.5H11L9.5 22 18 10.5h-6.5Z"/></svg></span>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <nav class="tabbar">
+    <a class="tab" href="home.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h4.5v-5.5h4v5.5h4.5V10"/></svg><span>Главная</span></a>
+    <a class="tab" href="diary.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v18"/></svg><span>Дневник</span></a>
+    <a class="tab" href="chat.html"><span class="ai-fab"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 4V16h-.5A1.5 1.5 0 0 1 4 14.5Z"/></svg></span><span>ИИ</span></a>
+    <a class="tab active" href="stats.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"/><path d="M9 16v-5M14 16V8M19 16v-3"/></svg><span>Статистика</span></a>
+    <a class="tab" href="profile.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.4 3.8-5 7-5s5.8 1.6 7 5"/></svg><span>Профиль</span></a>
+  </nav>
+</div>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Волна — ИИ-чат · Дневник Здоровья</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#F6F6F4;font-family:-apple-system,'SF Pro Display','Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#15181D;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+.phone{width:390px;margin:0 auto;min-height:844px;position:relative}
+.page{padding:20px 16px 160px}
+.num{font-variant-numeric:tabular-nums}
+
+.chdr{display:flex;align-items:center;gap:11px;padding-bottom:14px;border-bottom:1px solid #E6E6E2}
+.chdr .av{width:42px;height:42px;flex:none;border-radius:50%;background:#C6FF3D;color:#15181D;display:flex;align-items:center;justify-content:center}
+.chdr h1{margin:0;font-size:17px;font-weight:800;letter-spacing:-.02em}
+.chdr .st{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:12px;font-weight:600;color:#6B7280}
+.chdr .st i{width:7px;height:7px;border-radius:50%;background:#2BB673}
+
+.chat{display:flex;flex-direction:column;gap:12px;margin-top:14px}
+.msg-u{align-self:flex-end;max-width:80%;background:#FF4E2B;color:#fff;border-radius:16px 16px 4px 16px;padding:11px 13px;font-size:13.5px;line-height:1.45;font-weight:500}
+.msg-ai{display:flex;gap:8px;align-self:flex-start;max-width:88%}
+.aav{width:28px;height:28px;flex:none;border-radius:50%;background:#C6FF3D;color:#15181D;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;margin-top:2px}
+.bub{background:#fff;border:1px solid #E6E6E2;border-radius:16px 16px 16px 4px;box-shadow:0 2px 8px rgba(21,24,29,.06);padding:11px 13px;font-size:13.5px;line-height:1.5;font-weight:500}
+.bub .chips{display:flex;gap:8px;margin-top:11px;flex-wrap:wrap}
+.cbtn{display:inline-flex;align-items:center;gap:5px;font-family:inherit;font-size:12px;font-weight:800;padding:8px 12px;border-radius:10px;cursor:pointer}
+.cbtn.pri{background:#FF4E2B;color:#fff;border:0;box-shadow:3px 3px 0 #15181D}
+.cbtn.sec{background:#fff;color:#15181D;border:1.5px solid #15181D}
+
+.inpbar{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);width:390px;padding:10px 16px 12px;background:#F6F6F4;z-index:55}
+.inprow{display:flex;align-items:center;gap:9px}
+.inpbox{flex:1;display:flex;align-items:center;gap:8px;background:#fff;border:2px solid #15181D;border-radius:14px;padding:10px 12px}
+.inpbox svg{color:#6B7280;flex:none}
+.inpbox input{flex:1;min-width:0;border:0;outline:0;background:transparent;font-family:inherit;font-size:14px;font-weight:500;color:#15181D;padding:0}
+.inpbox input::placeholder{color:#9AA0A6}
+.send{width:42px;height:42px;flex:none;border-radius:50%;background:#FF4E2B;color:#fff;border:0;display:flex;align-items:center;justify-content:center;box-shadow:3px 3px 0 #15181D;cursor:pointer}
+
+.tabbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:390px;height:72px;background:#15181D;display:flex;align-items:flex-end;padding:0 6px 16px;z-index:60;box-shadow:0 -6px 20px rgba(21,24,29,.16)}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;color:rgba(255,255,255,.55);font-size:10px;font-weight:700;letter-spacing:.05em}
+.tab svg{width:22px;height:22px}
+.tab.active{color:#C6FF3D}
+.ai-fab{width:52px;height:52px;margin-top:-30px;border-radius:50%;background:#C6FF3D;color:#15181D;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 5px #15181D}
+.ai-fab svg{width:24px;height:24px}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="page">
+
+    <header class="chdr">
+      <span class="av"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 4V16h-.5A1.5 1.5 0 0 1 4 14.5Z"/></svg></span>
+      <div>
+        <h1>ИИ-нутрициолог</h1>
+        <div class="st"><i></i>онлайн</div>
+      </div>
+    </header>
+
+    <div class="chat">
+      <div class="msg-u">Что съесть после тренировки, чтобы не выйти за КБЖУ? На ужин остаётся 371 ккал</div>
+
+      <div class="msg-ai">
+        <span class="aav">ИИ</span>
+        <div class="bub">
+          После силовой лучше сочетать белок и углеводы. Вариант на 342 ккал: творог 5% 150 г (Б 25,5 г) и яблоко (У 20,6 г). Норма белка 140 г будет закрыта, запас сохранится. Добавить в дневник?
+          <div class="chips">
+            <a class="cbtn pri" href="diary.html">Добавить в дневник</a>
+            <button class="cbtn sec">Ещё варианты</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="msg-u">Да, добавь творог на 16:30</div>
+
+      <div class="msg-ai">
+        <span class="aav">ИИ</span>
+        <div class="bub">
+          <b>Готово:</b> Творог 5%, 150 г → перекус 16:30. Итог дня: <b class="num">1&nbsp;284 ккал · Б 96 г · У 112 г</b>.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="inpbar">
+    <div class="inprow">
+      <div class="inpbox">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8.5 12.5 6-6a3 3 0 0 1 4.2 4.2l-7.6 7.6a5 5 0 0 1-7-7l7.5-7.5"/></svg>
+        <input type="text" placeholder="Спросите нутрициолог…">
+      </div>
+      <button class="send" aria-label="Отправить"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3 3 10.5l7 2.5 2.5 7Z"/><path d="M21 3 10 13"/></svg></button>
+    </div>
+  </div>
+
+  <nav class="tabbar">
+    <a class="tab" href="home.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h4.5v-5.5h4v5.5h4.5V10"/></svg><span>Главная</span></a>
+    <a class="tab" href="diary.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v18"/></svg><span>Дневник</span></a>
+    <a class="tab active" href="chat.html"><span class="ai-fab"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 4V16h-.5A1.5 1.5 0 0 1 4 14.5Z"/></svg></span><span>ИИ</span></a>
+    <a class="tab" href="stats.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"/><path d="M9 16v-5M14 16V8M19 16v-3"/></svg><span>Статистика</span></a>
+    <a class="tab" href="profile.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.4 3.8-5 7-5s5.8 1.6 7 5"/></svg><span>Профиль</span></a>
+  </nav>
+</div>
+</body>
+</html>

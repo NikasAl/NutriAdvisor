@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Зен — Навигатор · Дневник Здоровья</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#F7F2EA;font-family:-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#423A31;-webkit-font-smoothing:antialiased}
+.wrap{max-width:430px;margin:0 auto;padding:36px 18px 64px}
+.kick{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#8A7D6F}
+h1{font-family:Georgia,'Times New Roman',serif;font-weight:700;font-size:30px;line-height:1.15;margin:10px 0 0;letter-spacing:.2px}
+.slogan{font-size:15px;color:#8A7D6F;margin-top:8px;line-height:1.55}
+.slabel{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#A79A8B;margin-top:30px}
+.pal{display:flex;gap:16px;margin-top:14px;flex-wrap:wrap}
+.sw{display:flex;flex-direction:column;align-items:center;gap:5px}
+.sw i{width:34px;height:34px;border-radius:50%;border:1px solid #ECE3D4;display:block;box-shadow:0 6px 14px rgba(66,58,49,.08)}
+.sw b{font-size:11px;font-weight:600;color:#423A31}
+.sw span{font-size:10px;color:#A79A8B;letter-spacing:.02em}
+.grid{display:grid;grid-template-columns:repeat(3,117px);gap:18px 14px;margin-top:14px;justify-content:center}
+.cell{display:flex;flex-direction:column;align-items:center;gap:8px}
+.cell span{font-size:12px;font-weight:600;color:#423A31}
+.thumb{display:block;width:117px;height:254px;overflow:hidden;border-radius:16px;border:1px solid #ECE3D4;box-shadow:0 10px 30px rgba(66,58,49,.1);background:#fff;text-decoration:none;transition:transform .15s ease}
+.thumb:hover{transform:translateY(-2px)}
+.thumb iframe{width:390px;height:844px;border:0;transform:scale(0.3);transform-origin:0 0;pointer-events:none}
+.links{margin-top:30px;display:flex;flex-wrap:wrap;gap:10px}
+.links a{background:#FFF;border:1px solid #ECE3D4;border-radius:999px;padding:9px 15px;font-size:13px;font-weight:600;text-decoration:none;color:#423A31;box-shadow:0 6px 16px rgba(66,58,49,.06)}
+.links a:hover{border-color:#6E9E7F;color:#6E9E7F}
+.note{margin-top:26px;font-size:12px;color:#A79A8B;line-height:1.65}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kick">Дневник Здоровья · мобильное приложение</div>
+  <h1>Концепция 3 — Зен</h1>
+  <p class="slogan">Тёплая забота: спокойный путь к цели. Кремовый фон, шалфейный акцент, мягкие радиусы и серифные заголовки — забота без тревоги.</p>
+
+  <div class="slabel">Палитра</div>
+  <div class="pal">
+    <div class="sw"><i style="background:#F7F2EA"></i><b>Фон</b><span>#F7F2EA</span></div>
+    <div class="sw"><i style="background:#FFFFFF"></i><b>Карточки</b><span>#FFFFFF</span></div>
+    <div class="sw"><i style="background:#423A31"></i><b>Текст</b><span>#423A31</span></div>
+    <div class="sw"><i style="background:#6E9E7F"></i><b>Шалфей</b><span>#6E9E7F</span></div>
+    <div class="sw"><i style="background:#EFA45B"></i><b>Абрикос</b><span>#EFA45B</span></div>
+    <div class="sw"><i style="background:#8AA6B8"></i><b>Голубой</b><span>#8AA6B8</span></div>
+  </div>
+
+  <div class="slabel">Экраны · 390 × 844</div>
+  <div class="grid">
+    <div class="cell">
+      <a class="thumb" href="home.html" aria-label="Главная"><iframe src="home.html" scrolling="no" tabindex="-1" title="Главная"></iframe></a>
+      <span>Главная</span>
+    </div>
+    <div class="cell">
+      <a class="thumb" href="diary.html" aria-label="Дневник"><iframe src="diary.html" scrolling="no" tabindex="-1" title="Дневник"></iframe></a>
+      <span>Дневник</span>
+    </div>
+    <div class="cell">
+      <a class="thumb" href="workout.html" aria-label="Тренировка"><iframe src="workout.html" scrolling="no" tabindex="-1" title="Тренировка"></iframe></a>
+      <span>Тренировка</span>
+    </div>
+    <div class="cell">
+      <a class="thumb" href="stats.html" aria-label="Статистика"><iframe src="stats.html" scrolling="no" tabindex="-1" title="Статистика"></iframe></a>
+      <span>Статистика</span>
+    </div>
+    <div class="cell">
+      <a class="thumb" href="chat.html" aria-label="ИИ-чат"><iframe src="chat.html" scrolling="no" tabindex="-1" title="ИИ-чат"></iframe></a>
+      <span>ИИ-чат</span>
+    </div>
+    <div class="cell">
+      <a class="thumb" href="profile.html" aria-label="Профиль"><iframe src="profile.html" scrolling="no" tabindex="-1" title="Профиль"></iframe></a>
+      <span>Профиль</span>
+    </div>
+  </div>
+
+  <div class="links">
+    <a href="home.html">Главная</a>
+    <a href="diary.html">Дневник</a>
+    <a href="workout.html">Тренировка</a>
+    <a href="stats.html">Статистика</a>
+    <a href="chat.html">ИИ-чат</a>
+    <a href="profile.html">Профиль</a>
+  </div>
+
+  <p class="note">Статичные HTML-макеты для оценки визуального направления (карточка стора, посты). Системные шрифты, без скриптов и внешних ресурсов. Ширина макета — ровно 390px.</p>
+</div>
+</body>
+</html>

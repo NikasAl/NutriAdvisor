@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Клиника — Профиль · Дневник Здоровья</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#F4F7FB;font-family:-apple-system,'SF Pro Text','Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#10233F;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+a{color:inherit;text-decoration:none}
+svg{display:block}
+.phone{width:390px;margin:0 auto;min-height:844px;position:relative;padding:0 16px 110px}
+.card{background:#FFF;border:1px solid #E3EAF3;border-radius:14px;box-shadow:0 1px 2px rgba(16,35,63,.06),0 8px 24px rgba(16,35,63,.05)}
+.sec{font-size:13px;font-weight:600;color:#5B6B81;margin:20px 2px 8px}
+.hdr{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 0 0}
+.hdr h1{font-size:22px;font-weight:700;margin:0;letter-spacing:-.3px}
+.kicker{font-size:13px;font-weight:500;color:#5B6B81;margin-top:4px}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#2E6BE6;background:rgba(46,107,230,.1);border-radius:10px;padding:4px 9px}
+.bar{height:6px;border-radius:3px;background:#E9EEF5;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:3px}
+.bar.lg{height:8px;border-radius:4px}
+.ic{width:36px;height:36px;border-radius:11px;background:rgba(46,107,230,.1);color:#2E6BE6;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.grow{flex:1;min-width:0}
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:390px;height:76px;background:#FFF;border-top:1px solid #E3EAF3;display:flex;align-items:flex-end;justify-content:space-between;padding:0 12px 8px;z-index:40}
+.nav a{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:500;color:#93A3B8;padding:6px 4px;white-space:nowrap}
+.nav a>span{line-height:1}
+.nav a.active{color:#2E6BE6;font-weight:600}
+.nav a.ai{position:static;width:56px}
+.nav .fab{position:absolute;left:50%;margin-left:-26px;bottom:32px;width:52px;height:52px;border-radius:50%;background:#2E6BE6;border:3px solid #FFF;box-shadow:0 10px 22px rgba(46,107,230,.38);display:flex;align-items:center;justify-content:center;color:#FFF}
+.nav a.ai.active .fab{box-shadow:0 0 0 4px rgba(46,107,230,.16),0 10px 22px rgba(46,107,230,.38)}
+.pcard{display:flex;align-items:center;gap:14px;padding:16px;margin-top:16px}
+.pava{width:60px;height:60px;border-radius:50%;background:#2E6BE6;color:#FFF;font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 6px 16px rgba(46,107,230,.3)}
+.pname{font-size:17px;font-weight:700;letter-spacing:-.2px}
+.psub{font-size:13px;color:#5B6B81;margin-top:3px}
+.gcard{padding:16px}
+.g-h{display:flex;align-items:center;gap:12px}
+.g-t{font-size:16px;font-weight:700}
+.g-s{font-size:12px;color:#5B6B81;margin-top:1px}
+.g-pill{margin-left:auto;font-size:12px;font-weight:600;color:#2E6BE6;background:rgba(46,107,230,.1);border-radius:10px;padding:5px 9px;white-space:nowrap}
+.gcard .bar.lg{margin-top:14px}
+.g-foot{display:flex;justify-content:space-between;font-size:12px;color:#5B6B81;margin-top:8px}
+.n-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.n-t{font-size:15px;font-weight:700}
+.norms{display:flex;margin-top:14px}
+.n-col{flex:1;text-align:center}
+.n-col+.n-col{border-left:1px solid #EDF2F9}
+.n-v{font-size:17px;font-weight:800;letter-spacing:-.2px}
+.n-l{font-size:11px;color:#5B6B81;margin-top:3px}
+.slist{padding:4px 16px}
+.srow{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #EDF2F9}
+.srow:last-child{border-bottom:0}
+.s-n{font-size:14px;font-weight:600}
+.s-v{margin-left:auto;font-size:12px;color:#5B6B81;text-align:right}
+.chev{color:#C1CCDC;flex-shrink:0;display:flex}
+</style>
+</head>
+<body>
+<div class="phone">
+
+  <header class="hdr">
+    <div>
+      <h1>Профиль</h1>
+      <div class="kicker">Личные данные и цели</div>
+    </div>
+  </header>
+
+  <section class="card pcard">
+    <span class="pava">А</span>
+    <div class="grow">
+      <div class="pname">Александр, 34</div>
+      <div class="psub">178 см · 78,4 кг</div>
+    </div>
+  </section>
+
+  <div class="sec">Цель</div>
+  <section class="card gcard">
+    <div class="g-h">
+      <span class="ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg></span>
+      <div class="grow">
+        <div class="g-t">Цель: 72,0 кг</div>
+        <div class="g-s">текущий вес 78,4 кг</div>
+      </div>
+      <span class="g-pill">осталось 6,4 кг</span>
+    </div>
+    <div class="bar lg"><i style="width:34%;background:#2E6BE6"></i></div>
+    <div class="g-foot"><span>Прогресс 34%</span><span>78,4 → 72,0 кг</span></div>
+  </section>
+
+  <div class="sec">Норматив</div>
+  <section class="card" style="padding:16px">
+    <div class="n-head">
+      <span class="n-t">Норматив КБЖУ</span>
+      <span class="badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg>рассчитан ИИ</span>
+    </div>
+    <div class="norms">
+      <div class="n-col"><div class="n-v">1&nbsp;950</div><div class="n-l">ккал</div></div>
+      <div class="n-col"><div class="n-v" style="color:#2E6BE6">140</div><div class="n-l">белки, г</div></div>
+      <div class="n-col"><div class="n-v" style="color:#B26F14">65</div><div class="n-l">жиры, г</div></div>
+      <div class="n-col"><div class="n-v" style="color:#0E9384">180</div><div class="n-l">углеводы, г</div></div>
+    </div>
+  </section>
+
+  <div class="sec">Настройки</div>
+  <section class="card slist">
+    <div class="srow">
+      <span class="ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="9" cy="8.5" rx="2.6" ry="3.6"/><ellipse cx="15.5" cy="15" rx="2.6" ry="3.6"/></svg></span>
+      <span class="s-n">Длина шага</span>
+      <span class="s-v">75 см</span>
+      <span class="chev"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 5.5 16 12l-6.5 6.5"/></svg></span>
+    </div>
+    <div class="srow">
+      <span class="ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2.5H4.5Z"/><path d="M10 21a2 2 0 0 0 4 0"/></svg></span>
+      <span class="s-n">Напоминания</span>
+      <span class="s-v">Вкл</span>
+      <span class="chev"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 5.5 16 12l-6.5 6.5"/></svg></span>
+    </div>
+    <div class="srow">
+      <span class="ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13.5A8 8 0 1 1 10.5 4 6.3 6.3 0 0 0 20 13.5Z"/></svg></span>
+      <span class="s-n">Тема</span>
+      <span class="s-v">Системная</span>
+      <span class="chev"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 5.5 16 12l-6.5 6.5"/></svg></span>
+    </div>
+    <div class="srow">
+      <span class="ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.5S3.5 15.5 3.5 9.8A4.6 4.6 0 0 1 12 7a4.6 4.6 0 0 1 8.5 2.8c0 5.7-8.5 10.7-8.5 10.7Z"/></svg></span>
+      <span class="s-n">Здоровье</span>
+      <span class="s-v">АД 118/76 · HbA1c 5,4%</span>
+      <span class="chev"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 5.5 16 12l-6.5 6.5"/></svg></span>
+    </div>
+    <div class="srow">
+      <span class="ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5.5" rx="7.5" ry="2.8"/><path d="M4.5 5.5v13c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8v-13"/><path d="M4.5 12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8"/></svg></span>
+      <span class="s-n">Данные и бэкап</span>
+      <span class="s-v">30.10, 21:14 · 1,2 МБ</span>
+      <span class="chev"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 5.5 16 12l-6.5 6.5"/></svg></span>
+    </div>
+    <div class="srow">
+      <span class="ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5 5l2.1 2.1M16.9 16.9 19 19M19 5l-2.1 2.1M7.1 16.9 5 19"/></svg></span>
+      <span class="s-n">О приложении</span>
+      <span class="s-v">Дневник Здоровья · v1.1</span>
+      <span class="chev"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 5.5 16 12l-6.5 6.5"/></svg></span>
+    </div>
+  </section>
+
+</div>
+
+<nav class="nav">
+  <a href="home.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h4.5v-5.5h4v5.5h4.5V10"/></svg><span>Главная</span></a>
+  <a href="diary.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v18"/></svg><span>Дневник</span></a>
+  <a href="chat.html" class="ai" aria-label="ИИ-ассистент"><span class="fab"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 4V16h-.5A1.5 1.5 0 0 1 4 14.5Z"/></svg></span></a>
+  <a href="stats.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"/><path d="M9 16v-5M14 16V8M19 16v-3"/></svg><span>Статистика</span></a>
+  <a href="profile.html" class="active"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.4 3.8-5 7-5s5.8 1.6 7 5"/></svg><span>Профиль</span></a>
+</nav>
+</body>
+</html>

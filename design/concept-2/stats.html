@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Полночь — Статистика · Дневник Здоровья</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0A0E14;font-family:-apple-system,'SF Pro Display','Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#EAF1F9;-webkit-font-smoothing:antialiased}
+.phone{width:390px;margin:0 auto;min-height:844px;position:relative;padding-bottom:110px}
+svg{flex:none}
+.label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#7E8CA0}
+.card{background:#111722;border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:16px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.04)}
+.glow{box-shadow:0 8px 32px rgba(56,217,240,.10),inset 0 0 0 1px rgba(255,255,255,.04)}
+.sect{margin:0 16px 12px}
+.head{padding:26px 16px 12px}
+.head.col{display:block}
+.head .k{color:#38D9F0}
+.head h1{margin:5px 0 0;font-size:22px;line-height:1.15;font-weight:700;letter-spacing:-.01em}
+.period{margin:0 16px}
+.pchs{display:inline-flex;gap:4px;background:#111722;border:1px solid rgba(255,255,255,.08);border-radius:13px;padding:4px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.04)}
+.pch{font-size:12px;font-weight:600;color:#7E8CA0;text-decoration:none;padding:8px 14px;border-radius:10px}
+.pch.on{background:rgba(56,217,240,.14);color:#38D9F0}
+.prange{margin:10px 16px 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#7E8CA0}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 16px 12px}
+.kpi{padding:16px}
+.kpi-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.kpi-top svg{color:#5A6778}
+.kpi-val{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;letter-spacing:-.01em}
+.kpi-sub{font-size:12px;color:#7E8CA0;margin-top:7px;font-variant-numeric:tabular-nums}
+.chead{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.cunit{font-size:11px;font-weight:600;color:#5A6778}
+.wsvg{display:block;width:100%;height:auto;margin-top:2px}
+.wdays{display:flex;justify-content:space-between;padding:8px 2px 0;font-size:10px;font-weight:600;color:#5A6778;text-transform:uppercase;letter-spacing:.06em}
+.cal-plot{position:relative;height:158px;margin-top:12px}
+.goal{position:absolute;left:0;right:0;bottom:114px;border-top:1px dashed rgba(255,255,255,.28)}
+.goal span{position:absolute;right:0;top:-17px;font-size:10px;font-weight:600;color:#7E8CA0;background:#111722;padding:0 5px}
+.cal-bars{position:absolute;left:0;right:0;bottom:0;height:120px;display:flex;gap:8px;align-items:flex-end}
+.col{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center}
+.col i{display:block;width:100%;border-radius:6px 6px 3px 3px}
+.cval{font-size:10px;font-weight:700;margin-bottom:5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.today{background:linear-gradient(180deg,#38D9F0,rgba(56,217,240,.5));box-shadow:0 8px 24px rgba(56,217,240,.22)}
+.cal-days{display:flex;gap:8px;margin-top:10px}
+.cal-days span{flex:1;text-align:center;font-size:10px;font-weight:600;color:#5A6778;text-transform:uppercase;letter-spacing:.06em}
+.cal-days .tdy{color:#38D9F0}
+.stack{display:flex;height:14px;border-radius:7px;overflow:hidden;margin-top:12px}
+.stack i{display:block;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:10px 14px;margin-top:12px}
+.legend span{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#7E8CA0}
+.legend i{width:8px;height:8px;border-radius:50%}
+.wrow{display:flex;align-items:center;gap:12px;padding:11px 0}
+.wrow + .wrow{border-top:1px solid rgba(255,255,255,.06)}
+.wic{width:36px;height:36px;border-radius:12px;background:rgba(255,255,255,.05);color:#7E8CA0;display:flex;align-items:center;justify-content:center}
+.wic.on{background:rgba(56,217,240,.12);color:#38D9F0}
+.wbody{display:flex;flex-direction:column;gap:2px;min-width:0}
+.wday{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#5A6778}
+.wday.on{color:#38D9F0}
+.wname{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:390px;background:rgba(10,14,20,.86);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:space-between;padding:10px 20px 22px;z-index:40}
+.nav a{display:flex;flex-direction:column;align-items:center;gap:5px;text-decoration:none;color:#5A6778;font-size:10px;font-weight:600}
+.nav a.on{color:#38D9F0}
+.nav a.ai{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#38D9F0,#5EA2FF);color:#0A0E14;box-shadow:0 8px 32px rgba(56,217,240,.35)}
+.nav a.ai.on{box-shadow:0 0 0 2px #0A0E14,0 0 0 4px rgba(56,217,240,.55),0 8px 32px rgba(56,217,240,.35)}
+</style>
+</head>
+<body>
+<div class="phone">
+  <header class="head col">
+    <div class="label k">Аналитика</div>
+    <h1>Статистика</h1>
+  </header>
+
+  <div class="period">
+    <div class="pchs">
+      <a class="pch on" href="stats.html">Неделя</a>
+      <a class="pch" href="stats.html">Месяц</a>
+      <a class="pch" href="stats.html">Год</a>
+    </div>
+  </div>
+  <div class="prange">25–31 октября</div>
+
+  <section class="kpis">
+    <div class="card kpi">
+      <div class="kpi-top"><span class="label">Вес</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3"/><path d="M5.5 21h13a1.5 1.5 0 0 0 1.45-1.1l1.5-5.4A1.5 1.5 0 0 0 20 12.5H4a1.5 1.5 0 0 0-1.45 2l1.5 5.4A1.5 1.5 0 0 0 5.5 21Z"/><path d="M8.5 12a3.5 3.5 0 0 1 7 0"/></svg></div>
+      <div class="kpi-val" style="color:#B7F04A">−0,7 кг</div>
+      <div class="kpi-sub">79,1 → 78,4</div>
+    </div>
+    <div class="card kpi">
+      <div class="kpi-top"><span class="label">Калории</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"/><path d="M9 16v-5M14 16V8M19 16v-3"/></svg></div>
+      <div class="kpi-val">1&nbsp;874</div>
+      <div class="kpi-sub">ккал/день в среднем</div>
+    </div>
+    <div class="card kpi">
+      <div class="kpi-top"><span class="label">Тренировки</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12h2M19.5 12h2M6.5 12h11"/><path d="M6.5 7.5v9M17.5 7.5v9M3.5 9.5v5M20.5 9.5v5"/></svg></div>
+      <div class="kpi-val">4</div>
+      <div class="kpi-sub">за неделю</div>
+    </div>
+    <div class="card kpi">
+      <div class="kpi-top"><span class="label">Шаги</span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="9" cy="8.5" rx="2.6" ry="3.6"/><ellipse cx="15.5" cy="15" rx="2.6" ry="3.6"/></svg></div>
+      <div class="kpi-val">7&nbsp;210</div>
+      <div class="kpi-sub">шагов/день</div>
+    </div>
+  </section>
+
+  <section class="card sect">
+    <div class="chead"><span class="label">Динамика веса</span><span class="cunit">кг</span></div>
+    <svg class="wsvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 330 120" preserveAspectRatio="xMidYMid meet">
+      <line x1="8" y1="20" x2="322" y2="20" stroke="rgba(255,255,255,.06)" stroke-width="1"/>
+      <line x1="8" y1="60" x2="322" y2="60" stroke="rgba(255,255,255,.06)" stroke-width="1"/>
+      <line x1="8" y1="100" x2="322" y2="100" stroke="rgba(255,255,255,.06)" stroke-width="1"/>
+      <polyline points="10,20 63,43 116,31 169,66 222,77 275,89 318,100" fill="none" stroke="#38D9F0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="10" cy="20" r="2.5" fill="#111722" stroke="#38D9F0" stroke-width="1.5"/>
+      <circle cx="63" cy="43" r="2.5" fill="#111722" stroke="#38D9F0" stroke-width="1.5"/>
+      <circle cx="116" cy="31" r="2.5" fill="#111722" stroke="#38D9F0" stroke-width="1.5"/>
+      <circle cx="169" cy="66" r="2.5" fill="#111722" stroke="#38D9F0" stroke-width="1.5"/>
+      <circle cx="222" cy="77" r="2.5" fill="#111722" stroke="#38D9F0" stroke-width="1.5"/>
+      <circle cx="275" cy="89" r="2.5" fill="#111722" stroke="#38D9F0" stroke-width="1.5"/>
+      <circle cx="318" cy="100" r="8" fill="rgba(56,217,240,.16)"/>
+      <circle cx="318" cy="100" r="4" fill="#38D9F0" stroke="#0A0E14" stroke-width="2"/>
+      <text x="318" y="117" text-anchor="end" font-size="12" font-weight="700" fill="#38D9F0" style="font-variant-numeric:tabular-nums">78,4</text>
+    </svg>
+    <div class="wdays"><span>пн</span><span>вт</span><span>ср</span><span>чт</span><span>пт</span><span>сб</span><span>вс</span></div>
+  </section>
+
+  <section class="card sect">
+    <div class="chead"><span class="label">Калории по дням</span><span class="cunit">ккал</span></div>
+    <div class="cal-plot">
+      <div class="goal"><span>цель 1&nbsp;950</span></div>
+      <div class="cal-bars">
+        <div class="col"><i style="height:113px;background:rgba(56,217,240,.40)"></i></div>
+        <div class="col"><i style="height:104px;background:rgba(56,217,240,.40)"></i></div>
+        <div class="col"><span class="cval" style="color:#FFC24B">2&nbsp;043</span><i style="height:120px;background:#FFC24B"></i></div>
+        <div class="col"><i style="height:100px;background:rgba(56,217,240,.40)"></i></div>
+        <div class="col"><span class="cval" style="color:#38D9F0">1&nbsp;284</span><i class="today" style="height:76px"></i></div>
+        <div class="col"><i style="height:36px;background:rgba(255,255,255,.10)"></i></div>
+        <div class="col"><i style="height:36px;background:rgba(255,255,255,.10)"></i></div>
+      </div>
+    </div>
+    <div class="cal-days"><span>пн</span><span>вт</span><span>ср</span><span>чт</span><span class="tdy">пт</span><span>сб</span><span>вс</span></div>
+  </section>
+
+  <section class="card sect">
+    <div class="chead"><span class="label">БЖУ · неделя</span><span class="cunit">распределение</span></div>
+    <div class="stack">
+      <i style="width:28%;background:#38D9F0"></i>
+      <i style="width:30%;background:#FFC24B"></i>
+      <i style="width:42%;background:#B7F04A"></i>
+    </div>
+    <div class="legend">
+      <span><i style="background:#38D9F0"></i>Белки · 28%</span>
+      <span><i style="background:#FFC24B"></i>Жиры · 30%</span>
+      <span><i style="background:#B7F04A"></i>Углеводы · 42%</span>
+    </div>
+  </section>
+
+  <section class="card sect">
+    <div class="chead"><span class="label">Тренировки недели</span><span class="cunit">4 из 7 дней</span></div>
+    <div class="wrow">
+      <span class="wic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12h2M19.5 12h2M6.5 12h11"/><path d="M6.5 7.5v9M17.5 7.5v9M3.5 9.5v5M20.5 9.5v5"/></svg></span>
+      <div class="wbody"><span class="wday">пн</span><span class="wname">Силовая (верх)</span></div>
+    </div>
+    <div class="wrow">
+      <span class="wic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="9" cy="8.5" rx="2.6" ry="3.6"/><ellipse cx="15.5" cy="15" rx="2.6" ry="3.6"/></svg></span>
+      <div class="wbody"><span class="wday">вт</span><span class="wname">Кардио · 5,2 км</span></div>
+    </div>
+    <div class="wrow">
+      <span class="wic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12h2M19.5 12h2M6.5 12h11"/><path d="M6.5 7.5v9M17.5 7.5v9M3.5 9.5v5M20.5 9.5v5"/></svg></span>
+      <div class="wbody"><span class="wday">чт</span><span class="wname">Силовая (низ)</span></div>
+    </div>
+    <div class="wrow">
+      <span class="wic on"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg></span>
+      <div class="wbody"><span class="wday on">пт · сегодня</span><span class="wname">Силовая — верх тела · 17:30</span></div>
+    </div>
+  </section>
+</div>
+
+<nav class="nav">
+  <a href="home.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h4.5v-5.5h4v5.5h4.5V10"/></svg>Главная</a>
+  <a href="diary.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v18"/></svg>Дневник</a>
+  <a class="ai" href="chat.html" aria-label="ИИ-чат"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 4V16h-.5A1.5 1.5 0 0 1 4 14.5Z"/></svg></a>
+  <a class="on" href="stats.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"/><path d="M9 16v-5M14 16V8M19 16v-3"/></svg>Статистика</a>
+  <a href="profile.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.4 3.8-5 7-5s5.8 1.6 7 5"/></svg>Профиль</a>
+</nav>
+</body>
+</html>

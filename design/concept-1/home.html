@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Клиника — Главная · Дневник Здоровья</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#F4F7FB;font-family:-apple-system,'SF Pro Text','Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#10233F;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+a{color:inherit;text-decoration:none}
+svg{display:block}
+.phone{width:390px;margin:0 auto;min-height:844px;position:relative;padding:0 16px 110px}
+.card{background:#FFF;border:1px solid #E3EAF3;border-radius:14px;box-shadow:0 1px 2px rgba(16,35,63,.06),0 8px 24px rgba(16,35,63,.05)}
+.sec{font-size:13px;font-weight:600;color:#5B6B81;margin:20px 2px 8px}
+.hdr{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 0 16px}
+.hdr h1{font-size:22px;font-weight:700;margin:0;letter-spacing:-.3px}
+.kicker{font-size:13px;font-weight:500;color:#5B6B81;margin-bottom:3px}
+.avatar{width:44px;height:44px;border-radius:50%;background:#2E6BE6;color:#FFF;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;box-shadow:0 4px 12px rgba(46,107,230,.25);flex-shrink:0}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#2E6BE6;background:rgba(46,107,230,.1);border-radius:10px;padding:4px 9px}
+.bar{height:6px;border-radius:3px;background:#E9EEF5;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:3px}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.ic{width:30px;height:30px;border-radius:10px;background:rgba(46,107,230,.1);color:#2E6BE6;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.grow{flex:1;min-width:0}
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:390px;height:76px;background:#FFF;border-top:1px solid #E3EAF3;display:flex;align-items:flex-end;justify-content:space-between;padding:0 12px 8px;z-index:40}
+.nav a{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:500;color:#93A3B8;padding:6px 4px;white-space:nowrap}
+.nav a>span{line-height:1}
+.nav a.active{color:#2E6BE6;font-weight:600}
+.nav a.ai{position:static;width:56px}
+.nav .fab{position:absolute;left:50%;margin-left:-26px;bottom:32px;width:52px;height:52px;border-radius:50%;background:#2E6BE6;border:3px solid #FFF;box-shadow:0 10px 22px rgba(46,107,230,.38);display:flex;align-items:center;justify-content:center;color:#FFF}
+.nav a.ai.active .fab{box-shadow:0 0 0 4px rgba(46,107,230,.16),0 10px 22px rgba(46,107,230,.38)}
+.hero{display:flex;align-items:center;gap:18px;padding:16px}
+.ring{width:132px;height:132px;border-radius:50%;background:conic-gradient(#2E6BE6 0deg 238deg,#E3EAF3 238deg 360deg);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ring-in{width:102px;height:102px;border-radius:50%;background:#FFF;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.ring-big{font-size:22px;font-weight:800;letter-spacing:-.3px}
+.ring-sub{font-size:11px;color:#5B6B81;margin-top:1px}
+.ring-left{font-size:11px;font-weight:600;color:#2E6BE6;margin-top:3px}
+.h-k{font-size:12px;font-weight:600;color:#5B6B81}
+.h-big{font-size:30px;font-weight:800;letter-spacing:-.6px;margin:2px 0 7px}
+.h-note{font-size:12px;color:#5B6B81;line-height:1.55}
+.macros{padding:16px}
+.macro+.macro{margin-top:14px}
+.mrow{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.mname{font-size:13px;font-weight:600}
+.mval{margin-left:auto;font-size:12px;color:#5B6B81}
+.minis{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.mini{padding:14px}
+.mh{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
+.mbig{font-size:21px;font-weight:800;letter-spacing:-.3px;margin:10px 0 0}
+.mbig small{font-size:13px;font-weight:600;color:#5B6B81}
+.mini .bar{margin-top:9px}
+.msub{font-size:12px;color:#5B6B81;margin-top:8px}
+.quick{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.q{background:#FFF;border:1px solid #E3EAF3;border-radius:14px;box-shadow:0 1px 2px rgba(16,35,63,.06),0 8px 24px rgba(16,35,63,.05);padding:13px 6px;display:flex;flex-direction:column;align-items:center;gap:9px;font-size:12px;font-weight:600;text-align:center}
+.qic{width:40px;height:40px;border-radius:12px;background:rgba(46,107,230,.1);color:#2E6BE6;display:flex;align-items:center;justify-content:center}
+.rowc{display:flex;align-items:center;gap:12px;padding:14px}
+.ric{width:40px;height:40px;border-radius:12px;background:rgba(46,107,230,.1);color:#2E6BE6;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.rt{font-size:16px;font-weight:700;letter-spacing:-.2px}
+.rs{font-size:13px;color:#5B6B81;margin-top:2px}
+.btn{display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;border-radius:10px;padding:10px 15px;white-space:nowrap}
+.btn.primary{background:#2E6BE6;color:#FFF;box-shadow:0 4px 12px rgba(46,107,230,.28)}
+.aic{padding:14px 16px}
+.ai-q{font-size:14px;line-height:1.5;margin:9px 0 10px}
+.ai-link{display:inline-flex;align-items:center;gap:3px;font-size:13px;font-weight:600;color:#2E6BE6}
+</style>
+</head>
+<body>
+<div class="phone">
+
+  <header class="hdr">
+    <div>
+      <div class="kicker">Пятница, 31 октября</div>
+      <h1>Доброе утро, Александр</h1>
+    </div>
+    <a class="avatar" href="profile.html" aria-label="Открыть профиль">А</a>
+  </header>
+
+  <section class="card hero">
+    <div class="ring" role="img" aria-label="Съедено 66 процентов дневной нормы калорий">
+      <div class="ring-in">
+        <div class="ring-big">1&nbsp;284</div>
+        <div class="ring-sub">/ 1&nbsp;950 ккал</div>
+        <div class="ring-left">осталось 666</div>
+      </div>
+    </div>
+    <div class="grow">
+      <div class="h-k">Заполнение нормы</div>
+      <div class="h-big">66%</div>
+      <div class="h-note">Съедено 1&nbsp;284 ккал<br>Норма 1&nbsp;950 ккал</div>
+    </div>
+  </section>
+
+  <div class="sec">Макросы</div>
+  <section class="card macros">
+    <div class="macro">
+      <div class="mrow"><span class="dot" style="background:#2E6BE6"></span><span class="mname">Белки</span><span class="mval">96 / 140 г · 69%</span></div>
+      <div class="bar"><i style="width:69%;background:#2E6BE6"></i></div>
+    </div>
+    <div class="macro">
+      <div class="mrow"><span class="dot" style="background:#E8A13C"></span><span class="mname">Жиры</span><span class="mval">38 / 65 г · 58%</span></div>
+      <div class="bar"><i style="width:58%;background:#E8A13C"></i></div>
+    </div>
+    <div class="macro">
+      <div class="mrow"><span class="dot" style="background:#14B8A6"></span><span class="mname">Углеводы</span><span class="mval">112 / 180 г · 62%</span></div>
+      <div class="bar"><i style="width:62%;background:#14B8A6"></i></div>
+    </div>
+  </section>
+
+  <section class="minis">
+    <div class="card mini">
+      <div class="mh"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5s6 6.3 6 10.3a6 6 0 0 1-12 0C6 9.8 12 3.5 12 3.5Z"/></svg></span>Вода</div>
+      <div class="mbig">1,2&nbsp;<small>л</small></div>
+      <div class="bar"><i style="width:60%;background:#2E6BE6"></i></div>
+      <div class="msub">из 2,0 л</div>
+    </div>
+    <div class="card mini">
+      <div class="mh"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="9" cy="8.5" rx="2.6" ry="3.6"/><ellipse cx="15.5" cy="15" rx="2.6" ry="3.6"/></svg></span>Шаги</div>
+      <div class="mbig">6&nbsp;432</div>
+      <div class="bar"><i style="width:64%;background:#17A673"></i></div>
+      <div class="msub">4,8 км · из 10&nbsp;000</div>
+    </div>
+  </section>
+
+  <div class="sec">Быстрые действия</div>
+  <section class="quick">
+    <a class="q" href="diary.html"><span class="qic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7H8l1.5-2h5L16 7h2.5A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5Z"/><circle cx="12" cy="13" r="3.5"/></svg></span>Фото еды</a>
+    <a class="q" href="diary.html"><span class="qic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></span>Добавить запись</a>
+    <a class="q" href="diary.html"><span class="qic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6v12M7.5 6v12M11 6v12M14 6v12M17.5 6v12M20 6v12"/></svg></span>Штрихкод</a>
+  </section>
+
+  <div class="sec">Тренировка</div>
+  <section class="card rowc">
+    <span class="ric"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12h2M19.5 12h2M6.5 12h11"/><path d="M6.5 7.5v9M17.5 7.5v9M3.5 9.5v5M20.5 9.5v5"/></svg></span>
+    <div class="grow">
+      <div class="rt">Силовая — верх тела</div>
+      <div class="rs">45 мин · 17:30</div>
+    </div>
+    <a class="btn primary" href="workout.html">Начать</a>
+  </section>
+
+  <div class="sec">Совет ИИ</div>
+  <section class="card aic">
+    <span class="badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 4V16h-.5A1.5 1.5 0 0 1 4 14.5Z"/></svg>ИИ</span>
+    <p class="ai-q">До цели по белку −44 г. 150 г творога на перекус дадут +25,5 г белка.</p>
+    <a class="ai-link" href="chat.html">Спросить ИИ<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 5.5 16 12l-6.5 6.5"/></svg></a>
+  </section>
+
+</div>
+
+<nav class="nav">
+  <a href="home.html" class="active"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h4.5v-5.5h4v5.5h4.5V10"/></svg><span>Главная</span></a>
+  <a href="diary.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v18"/></svg><span>Дневник</span></a>
+  <a href="chat.html" class="ai" aria-label="ИИ-ассистент"><span class="fab"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 4V16h-.5A1.5 1.5 0 0 1 4 14.5Z"/></svg></span></a>
+  <a href="stats.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"/><path d="M9 16v-5M14 16V8M19 16v-3"/></svg><span>Статистика</span></a>
+  <a href="profile.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.4 3.8-5 7-5s5.8 1.6 7 5"/></svg><span>Профиль</span></a>
+</nav>
+</body>
+</html>
