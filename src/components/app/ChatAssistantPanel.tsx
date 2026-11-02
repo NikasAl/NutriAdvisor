@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useAppStore } from '@/store/useAppStore';
+import { dateKey, todayKey, yesterdayKey } from '@/lib/dates';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -32,12 +33,12 @@ const MAX_CONTEXT_CHARS = 10000;
 function groupSessionsByDate(sessions: ChatSession[]): { label: string; date: string; sessions: ChatSession[] }[] {
   const groupsMap = new Map<string, ChatSession[]>();
 
-  const today = new Date().toISOString().split('T')[0];
-  const yesterdayDate = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  const today = todayKey();
+  const yesterdayDate = yesterdayKey();
 
   for (const session of sessions) {
     const d = new Date(session.lastActivity);
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = dateKey(d);
     if (!groupsMap.has(dateStr)) groupsMap.set(dateStr, []);
     groupsMap.get(dateStr)!.push(session);
   }
@@ -62,8 +63,8 @@ function groupSessionsByDate(sessions: ChatSession[]): { label: string; date: st
 }
 
 function formatDateLabel(dateStr: string): string {
-  const today = new Date().toISOString().split('T')[0];
-  const yesterdayDate = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  const today = todayKey();
+  const yesterdayDate = yesterdayKey();
   if (dateStr === today) return 'Сегодня';
   if (dateStr === yesterdayDate) return 'Вчера';
   const d = new Date(dateStr + 'T12:00:00');
@@ -89,7 +90,7 @@ export default function ChatAssistantPanel() {
 
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayKey();
   const [contextDateFrom, setContextDateFrom] = useState(today);
   const [contextDateTo, setContextDateTo] = useState(today);
   const [sidebarOpen, setSidebarOpen] = useState(false);

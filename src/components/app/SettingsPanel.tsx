@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/store/useAppStore';
+import { todayKey } from '@/lib/dates';
 import {
   Card,
   CardContent,
@@ -281,7 +282,7 @@ export default function SettingsPanel() {
         `${data.productAnalyses.length} анализов продуктов`,
       ];
       const counts = parts.join(', ');
-      const dateStr = new Date().toISOString().split('T')[0];
+      const dateStr = todayKey();
       const jsonName = `nutriadvisor-backup-${dateStr}.json`;
       const zipName = `nutriadvisor-backup-${dateStr}.zip`;
 
@@ -507,7 +508,7 @@ export default function SettingsPanel() {
       setImportStatus(`Импортировано! ${parts.join(', ')}`);
 
       // Reload all data in store
-      const today = new Date().toISOString().split('T')[0];
+      const today = todayKey();
       await Promise.all([
         loadProviders(),
         loadProfile(),

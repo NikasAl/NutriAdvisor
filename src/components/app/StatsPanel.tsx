@@ -9,6 +9,7 @@ import { Sparkles, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Loader2, F
 import type { GoalType, DayEval } from '@/lib/types';
 import { computeTrend } from '@/lib/types';
 import { db } from '@/lib/db';
+import { dateKey, todayKey, yesterdayKey } from '@/lib/dates';
 import type { WaterLog, SleepLog } from '@/lib/types';
 import MarkdownRenderer from '@/components/ui/markdown-renderer';
 import TTSButton from '@/components/ui/TTSButton';
@@ -16,12 +17,12 @@ import TTSButton from '@/components/ui/TTSButton';
 // ─── Helpers ────────────────────────────────────────────────────────
 
 function getToday(): string {
-  return new Date().toISOString().split('T')[0];
+  return todayKey();
 }
 
 function formatDateLabel(dateStr: string): string {
   const today = getToday();
-  const yd = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  const yd = yesterdayKey();
   if (dateStr === today) return 'Сегодня';
   if (dateStr === yd) return 'Вчера';
   const d = new Date(dateStr + 'T12:00:00');
@@ -31,7 +32,7 @@ function formatDateLabel(dateStr: string): string {
 function getDaysAgo(n: number): string {
   const d = new Date();
   d.setDate(d.getDate() - n);
-  return d.toISOString().split('T')[0];
+  return dateKey(d);
 }
 
 function dateRange(days: number): string[] {
