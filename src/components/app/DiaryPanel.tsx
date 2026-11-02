@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useAppStore } from '@/store/useAppStore';
+import { todayKey, yesterdayKey } from '@/lib/dates';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,8 +55,8 @@ const VIEW_TYPE_COLORS: Record<DiaryViewType, string> = {
 const PAGE_SIZE = 10;
 
 function formatDateLabel(dateStr: string): string {
-  const today = new Date().toISOString().split('T')[0];
-  const yd = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  const today = todayKey();
+  const yd = yesterdayKey();
   if (dateStr === today) return 'Сегодня';
   if (dateStr === yd) return 'Вчера';
   const d = new Date(dateStr + 'T12:00:00');
@@ -76,7 +77,7 @@ export default function DiaryPanel() {
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [entryType, setEntryType] = useState<DiaryViewType>('wellbeing');
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(() => todayKey());
   const [entryTime, setEntryTime] = useState(() => {
     const now = new Date();
     return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -95,7 +96,7 @@ export default function DiaryPanel() {
   const [page, setPage] = useState(0);
 
   // Today vs older grouping (feed layout like Food/Workout)
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayKey();
   const todayEntries = visibleEntries.filter((e) => e.date === today);
   const todayBp = todayEntries.filter((e) => e.type === 'blood_pressure');
   const todayWellbeing = todayEntries.filter((e) => e.type === 'wellbeing');
@@ -124,7 +125,7 @@ export default function DiaryPanel() {
   const resetForm = () => {
     setEditingId(null);
     setEntryType('wellbeing');
-    setSelectedDate(new Date().toISOString().split('T')[0]);
+    setSelectedDate(todayKey());
     const now = new Date();
     setEntryTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
     setWellbeingNote('');

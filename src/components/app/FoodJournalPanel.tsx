@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useMemo, useCallback } from 'react';
 import { useAppStore } from '@/store/useAppStore';
+import { todayKey, yesterdayKey } from '@/lib/dates';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -74,8 +75,8 @@ function parseNutritionFromText(text: string) {
 }
 
 function formatDateLabel(dateStr: string): string {
-  const today = new Date().toISOString().split('T')[0];
-  const yd = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  const today = todayKey();
+  const yd = yesterdayKey();
   if (dateStr === today) return 'Сегодня';
   if (dateStr === yd) return 'Вчера';
   const d = new Date(dateStr + 'T12:00:00');
@@ -111,7 +112,7 @@ export default function FoodJournalPanel() {
   const supportsVision = activeProvider?.supportsVision ?? false;
 
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(() => todayKey());
   const [mealType, setMealType] = useState<MealType>(() => {
     const h = new Date().getHours();
     if (h >= 5 && h < 11) return 'breakfast';
@@ -142,7 +143,7 @@ export default function FoodJournalPanel() {
 
   React.useEffect(() => { loadFoodEntries(); }, [loadFoodEntries]);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayKey();
   const todayEntries = foodEntries.filter((e) => e.date === today);
   const totalCalories = todayEntries.reduce((sum, e) => sum + (e.estimatedCalories ?? 0), 0);
   const totalProtein = todayEntries.reduce((sum, e) => sum + (e.estimatedProtein ?? 0), 0);
@@ -288,7 +289,7 @@ export default function FoodJournalPanel() {
 
   const resetForm = () => {
     setEditingEntryId(null);
-    setSelectedDate(new Date().toISOString().split('T')[0]);
+    setSelectedDate(todayKey());
     setMealType('lunch');
     setPhotoBase64(null);
     setAnalysisResult('');
@@ -321,7 +322,7 @@ export default function FoodJournalPanel() {
   const handleTemplate = (entry: FoodEntry) => {
     // Open as new entry, copying composition but not KBJU/analysis
     setEditingEntryId(null);
-    setSelectedDate(new Date().toISOString().split('T')[0]);
+    setSelectedDate(todayKey());
     setMealType(entry.mealType);
     setPhotoBase64(null);
     setAnalysisResult('');

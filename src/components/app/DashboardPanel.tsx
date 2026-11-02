@@ -10,6 +10,7 @@ import {
   UtensilsCrossed, MessageSquare, Target, TrendingUp, Zap, Moon, Brain, Heart, Flame, Plus, Minus, Droplets, Settings2, BedDouble, Trash2, CircleHelp, Dumbbell, BarChart, Footprints, HeartPulse, Puzzle,
 } from 'lucide-react';
 import { GOAL_LABELS } from '@/lib/types';
+import { todayKey } from '@/lib/dates';
 import type { GoalType, SleepPeriod } from '@/lib/types';
 import type { HelpSection } from './HelpPanel';
 
@@ -67,7 +68,7 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
   }, [loadProfile, loadFoodEntries, loadChatSessions, loadWorkoutEntries]);
 
   const provider = getActiveProvider();
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayKey();
   const todayEntries = foodEntries.filter((e) => e.date === today);
 
   const totalCalories = todayEntries.reduce((sum, e) => sum + (e.estimatedCalories ?? 0), 0);

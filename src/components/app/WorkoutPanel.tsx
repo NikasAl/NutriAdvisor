@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { v4 as uuid } from 'uuid';
 import { useAppStore } from '@/store/useAppStore';
+import { todayKey, yesterdayKey } from '@/lib/dates';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -92,8 +93,8 @@ function parseWorkoutFromText(text: string) {
 }
 
 function formatDateLabel(dateStr: string): string {
-  const today = new Date().toISOString().split('T')[0];
-  const yd = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  const today = todayKey();
+  const yd = yesterdayKey();
   if (dateStr === today) return 'Сегодня';
   if (dateStr === yd) return 'Вчера';
   const d = new Date(dateStr + 'T12:00:00');
@@ -456,7 +457,7 @@ export default function WorkoutPanel() {
   const [editingActivityId, setEditingActivityId] = useState<string | null>(null);
   const [activityDesc, setActivityDesc] = useState('');
   const [activityDuration, setActivityDuration] = useState('');
-  const [activityDate, setActivityDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [activityDate, setActivityDate] = useState(() => todayKey());
   const [activityTime, setActivityTime] = useState(() => {
     const now = new Date();
     return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -474,7 +475,7 @@ export default function WorkoutPanel() {
 
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     draftTimerRef.current = setTimeout(() => {
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = todayKey();
       // Save draft even if no valid sets yet (preserve name, date, partial form)
       saveWorkoutDraft({
         date: workoutDate || todayStr,
@@ -497,7 +498,7 @@ export default function WorkoutPanel() {
     setPage(0);
   }
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayKey();
   const todayEntries = workoutEntries.filter((e) => e.date === today);
   const todaySavedEntries = todayEntries.filter((e) => !e.isDraft);
   const totalDuration = todaySavedEntries.reduce((sum, e) => sum + (e.estimatedDuration ?? 0), 0);
@@ -609,7 +610,7 @@ export default function WorkoutPanel() {
   const handleWorkoutTemplate = (entry: WorkoutEntry) => {
     setEditingWorkout(null);
     setWorkoutName(entry.name || '');
-    setWorkoutDate(new Date().toISOString().split('T')[0]);
+    setWorkoutDate(todayKey());
     const setsWithIds = entry.sets.length > 0
       ? entry.sets.map((s) => ({ ...s, id: s.id || uuid(), startTime: undefined, endTime: undefined, steps: undefined }))
       : [makeBlankSet()];

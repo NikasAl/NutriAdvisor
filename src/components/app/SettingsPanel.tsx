@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/store/useAppStore';
+import { todayKey } from '@/lib/dates';
 import {
   Card,
   CardContent,
@@ -83,6 +84,8 @@ export default function SettingsPanel() {
   const loadWaterLog = useAppStore((s) => s.loadWaterLog);
   const loadSleepLog = useAppStore((s) => s.loadSleepLog);
   const loadProductAnalyses = useAppStore((s) => s.loadProductAnalyses);
+  const loadMedTestParams = useAppStore((s) => s.loadMedTestParams);
+  const loadMedTestMeasures = useAppStore((s) => s.loadMedTestMeasures);
   const addProvider = useAppStore((s) => s.addProvider);
   const updateProvider = useAppStore((s) => s.updateProvider);
   const deleteProvider = useAppStore((s) => s.deleteProvider);
@@ -244,7 +247,7 @@ export default function SettingsPanel() {
     setExportStatus('Экспорт...');
     try {
       const data = {
-        version: 5,
+        version: 6,
         exportedAt: new Date().toISOString(),
         app: 'Дневник Здоровья',
         providers: await db.providers.toArray(),
@@ -262,6 +265,9 @@ export default function SettingsPanel() {
         waterLogs: await db.waterLogs.toArray(),
         sleepLogs: await db.sleepLogs.toArray(),
         productAnalyses: await db.productAnalyses.toArray(),
+        medTestParams: await db.medTestParams.toArray(),
+        medTestMeasures: await db.medTestMeasures.toArray(),
+        dayEvals: await db.dayEvals.toArray(),
       };
 
       const json = JSON.stringify(data, null, 2);
@@ -279,9 +285,12 @@ export default function SettingsPanel() {
         `${data.chatMessages.length} сообщений`,
         `${data.customGoals.length} целей`,
         `${data.productAnalyses.length} анализов продуктов`,
+        `${data.medTestParams.length} параметров анализов`,
+        `${data.medTestMeasures.length} измерений`,
+        `${data.dayEvals.length} ИИ-оценок дней`,
       ];
       const counts = parts.join(', ');
-      const dateStr = new Date().toISOString().split('T')[0];
+      const dateStr = todayKey();
       const jsonName = `nutriadvisor-backup-${dateStr}.json`;
       const zipName = `nutriadvisor-backup-${dateStr}.zip`;
 
@@ -490,6 +499,30 @@ export default function SettingsPanel() {
         }
       }
 
+      // Import med test parameters (section absent in old backups — keep existing data)
+      if (Array.isArray(data.medTestParams)) {
+        await db.medTestParams.clear();
+        for (const p of data.medTestParams) {
+          await db.medTestParams.put({ ...p, createdAt: new Date(p.createdAt) });
+        }
+      }
+
+      // Import med test measurements (section absent in old backups — keep existing data)
+      if (Array.isArray(data.medTestMeasures)) {
+        await db.medTestMeasures.clear();
+        for (const m of data.medTestMeasures) {
+          await db.medTestMeasures.put({ ...m, createdAt: new Date(m.createdAt) });
+        }
+      }
+
+      // Import AI day evaluations (section absent in old backups — keep existing data)
+      if (Array.isArray(data.dayEvals)) {
+        await db.dayEvals.clear();
+        for (const d of data.dayEvals) {
+          await db.dayEvals.put({ ...d, updatedAt: new Date(d.updatedAt) });
+        }
+      }
+
       const parts: string[] = [];
       if (data.providers) parts.push(`${data.providers.length} провайдер`);
       if (data.foodEntries) parts.push(`${data.foodEntries.length} записей еды`);
@@ -504,10 +537,13 @@ export default function SettingsPanel() {
       if (data.chatMessages) parts.push(`${data.chatMessages.length} сообщений`);
       if (data.customGoals) parts.push(`${data.customGoals.length} целей`);
       if (data.productAnalyses) parts.push(`${data.productAnalyses.length} анализов продуктов`);
+      if (data.medTestParams) parts.push(`${data.medTestParams.length} параметров анализов`);
+      if (data.medTestMeasures) parts.push(`${data.medTestMeasures.length} измерений`);
+      if (data.dayEvals) parts.push(`${data.dayEvals.length} ИИ-оценок дней`);
       setImportStatus(`Импортировано! ${parts.join(', ')}`);
 
       // Reload all data in store
-      const today = new Date().toISOString().split('T')[0];
+      const today = todayKey();
       await Promise.all([
         loadProviders(),
         loadProfile(),
@@ -522,6 +558,8 @@ export default function SettingsPanel() {
         loadWaterLog(today),
         loadSleepLog(today),
         loadProductAnalyses(),
+        loadMedTestParams(),
+        loadMedTestMeasures(),
       ]);
 
       setTimeout(() => setImportStatus(''), 5000);

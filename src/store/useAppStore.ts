@@ -34,6 +34,7 @@ import { NutritionPrompts } from '@/lib/prompts';
 import { callLLM, callLLMStream, buildChatMessages, buildUserContentWithImages } from '@/lib/llm-client';
 import type { LLMMessage, ContentPart } from '@/lib/llm-client';
 import { SEED_PRODUCTS, SEED_DISHES, SEED_EXERCISES } from '@/data/seed-data';
+import { todayKey } from '@/lib/dates';
 
 const DEFAULT_PROVIDER: Omit<LLMProvider, 'id' | 'createdAt' | 'updatedAt'> = {
   name: 'NuAdvi Proxy',
@@ -267,7 +268,7 @@ function buildProfileInfoForAnalysis(profile: UserProfile, customGoals: CustomGo
 function buildSleepSummaryFromLog(sleepLog: SleepLog | null, dateFrom: string, dateTo: string): string {
   if (!sleepLog) return '';
   // Sleep log is only for today in current data model; show only if today is in range
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayKey();
   if (today < dateFrom || today > dateTo) return '';
   if (sleepLog.periods.length === 0) return '';
 
@@ -299,7 +300,7 @@ function calcSleepDuration(start: string, end: string): number {
 function buildWaterSummary(waterLog: WaterLog | null, dateFrom: string, dateTo: string): string {
   if (!waterLog) return '';
   // Water log is only for today in current data model; show only if today is in range
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayKey();
   if (today < dateFrom || today > dateTo) return '';
   const totalMl = waterLog.glasses * waterLog.glassMl;
   return `\n--- Вода за сегодня ---\nВыпито: ${waterLog.glasses} стаканов (${totalMl} мл, по ${waterLog.glassMl} мл/стакан)\n--- Конец данных о воде ---`;
@@ -341,7 +342,7 @@ function buildNutritionSummary(
   dateTo: string,
   expandItems?: (items: FoodEntryItem[]) => string
 ): string {
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayKey();
 
   const filtered = foodEntries.filter((e) => e.date >= dateFrom && e.date <= dateTo);
 
@@ -821,7 +822,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addWaterGlass: async () => {
     const { waterLog, waterGlassMl } = get();
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayKey();
     const now = new Date();
     if (waterLog && waterLog.date === today) {
       const updated = { ...waterLog, glasses: waterLog.glasses + 1, glassMl: waterGlassMl, updatedAt: now };
@@ -837,7 +838,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   removeWaterGlass: async () => {
     const { waterLog, waterGlassMl } = get();
     if (!waterLog || waterLog.glasses <= 0) return;
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayKey();
     if (waterLog.date !== today) return;
     const updated = { ...waterLog, glasses: Math.max(0, waterLog.glasses - 1), glassMl: waterGlassMl, updatedAt: new Date() };
     if (updated.glasses === 0) {
@@ -894,7 +895,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   buildSleepSummary: () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayKey();
     return buildSleepSummaryFromLog(get().sleepLog, today, today);
   },
 

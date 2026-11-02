@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useAppStore } from '@/store/useAppStore';
+import { todayKey } from '@/lib/dates';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,7 +48,7 @@ interface ScannedGroup {
 // ─── Helpers ────────────────────────────────────────────────────────
 
 function getToday(): string {
-  return new Date().toISOString().split('T')[0];
+  return todayKey();
 }
 
 function trendIcon(trend: TrendDirection) {
