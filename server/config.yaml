@@ -321,7 +321,7 @@ external_proxies:
   - id: proxy-usa5
     enabled: true
     socks5_addr: "0.0.0.0:10801"
-    ssh_login: "usa5o7jhoc1-vpnjantit.com@usa5.vpnjantit.com"
+    ssh_login: "usa50t8scpw-vpnjantit.com@usa5.vpnjantit.com"
     ssh_port: 22
     auto_restart: true
     health_check_interval: 180s
