@@ -35,6 +35,26 @@ function getDaysAgo(n: number): string {
   return dateKey(d);
 }
 
+// Compact human-readable range like "13.10 – 19.10.2026" from a list of local date keys
+function formatPeriodRange(periodDays: string[]): string {
+  const oldest = periodDays[0];
+  const newest = periodDays[periodDays.length - 1];
+  const parts = (k: string) => {
+    const d = new Date(k + 'T12:00:00');
+    return {
+      dd: String(d.getDate()).padStart(2, '0'),
+      mm: String(d.getMonth() + 1).padStart(2, '0'),
+      yy: d.getFullYear(),
+    };
+  };
+  const a = parts(oldest);
+  const b = parts(newest);
+  const endStr = `${b.dd}.${b.mm}.${b.yy}`;
+  // Drop the year on the start date when it shares the same month+year as the end
+  const startStr = a.mm === b.mm && a.yy === b.yy ? `${a.dd}.${a.mm}` : `${a.dd}.${a.mm}.${a.yy}`;
+  return `${startStr} – ${endStr}`;
+}
+
 function dateRange(days: number): string[] {
   return Array.from({ length: days }, (_, i) => getDaysAgo(days - 1 - i));
 }
@@ -457,8 +477,11 @@ ${buildMedTestSummary() || 'Нет данных'}
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
-        <span className="text-sm font-medium text-muted-foreground">
-          {pageOffset === 0 ? `Текущая ${periodLabel.toLowerCase()}` : `${periodLabel} −${pageOffset}`}
+        <span className="text-sm font-medium text-muted-foreground flex items-baseline gap-1.5">
+          {pageOffset === 0 && (
+            <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">Текущая</span>
+          )}
+          {formatPeriodRange(periodDays)}
         </span>
         <button
           className="rounded-lg p-2 hover:bg-muted text-muted-foreground disabled:opacity-30"
