@@ -291,7 +291,7 @@ external_proxies:
   - id: proxy-kz1
     enabled: false
     socks5_addr: "0.0.0.0:10801"
-    ssh_login: "kz1kjwfb7e-vpnjantit.com@kz1.vpnjantit.com"
+    ssh_login: "kz1dimpmzx-vpnjantit.com@kz1.vpnjantit.com"
     ssh_port: 22
     auto_restart: true
     health_check_interval: 180s
@@ -299,9 +299,9 @@ external_proxies:
     tags: ["kazakhstan"]
 
   - id: proxy-am1
-    enabled: false
-    socks5_addr: "127.0.0.1:10801"
-    ssh_login: "am1gggkkr1-vpnjantit.com@am1.vpnjantit.com"
+    enabled: true
+    socks5_addr: "0.0.0.0:10801"
+    ssh_login: "am10l5g3tq-vpnjantit.com@am1.vpnjantit.com"
     ssh_port: 22
     auto_restart: true
     health_check_interval: 180s
@@ -319,9 +319,9 @@ external_proxies:
     tags: ["azer"]
 
   - id: proxy-usa5
-    enabled: true
+    enabled: false
     socks5_addr: "0.0.0.0:10801"
-    ssh_login: "usa5bghigqk-vpnjantit.com@usa5.vpnjantit.com"
+    ssh_login: "usa5nlkjoas-vpnjantit.com@usa5.vpnjantit.com"
     ssh_port: 22
     auto_restart: true
     health_check_interval: 180s
