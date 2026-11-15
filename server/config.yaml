@@ -298,8 +298,18 @@ external_proxies:
     restart_delay: 30s
     tags: ["kazakhstan"]
 
-  - id: proxy-am1
+  - id: proxy-se2
     enabled: true
+    socks5_addr: "0.0.0.0:10801"
+    ssh_login: "se2gltgnid-vpnjantit.com@se2.vpnjantit.com"
+    ssh_port: 22
+    auto_restart: true
+    health_check_interval: 180s
+    restart_delay: 30s
+    tags: ["sweden"]
+
+  - id: proxy-am1
+    enabled: false
     socks5_addr: "0.0.0.0:10801"
     ssh_login: "am10l5g3tq-vpnjantit.com@am1.vpnjantit.com"
     ssh_port: 22
