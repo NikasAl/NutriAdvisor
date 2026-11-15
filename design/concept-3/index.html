@@ -7,10 +7,12 @@
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#F7F2EA;font-family:-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#423A31;-webkit-font-smoothing:antialiased}
-.wrap{max-width:430px;margin:0 auto;padding:36px 18px 64px}
+.wrap{max-width:460px;margin:0 auto;padding:36px 18px 64px}
 .kick{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#8A7D6F}
 h1{font-family:Georgia,'Times New Roman',serif;font-weight:700;font-size:30px;line-height:1.15;margin:10px 0 0;letter-spacing:.2px}
 .slogan{font-size:15px;color:#8A7D6F;margin-top:8px;line-height:1.55}
+.note-acc{font-size:12.5px;color:#5E8F76;background:#6E9E7F0F;border:1px solid #9FC4AB;border-radius:14px;padding:11px 14px;margin-top:14px;line-height:1.5}
+.note-acc b{color:#423A31}
 .slabel{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#A79A8B;margin-top:30px}
 .pal{display:flex;gap:16px;margin-top:14px;flex-wrap:wrap}
 .sw{display:flex;flex-direction:column;align-items:center;gap:5px}
@@ -19,10 +21,14 @@ h1{font-family:Georgia,'Times New Roman',serif;font-weight:700;font-size:30px;li
 .sw span{font-size:10px;color:#A79A8B;letter-spacing:.02em}
 .grid{display:grid;grid-template-columns:repeat(3,117px);gap:18px 14px;margin-top:14px;justify-content:center}
 .cell{display:flex;flex-direction:column;align-items:center;gap:8px}
-.cell span{font-size:12px;font-weight:600;color:#423A31}
+.cell span{font-size:12px;font-weight:600;color:#423A31;text-align:center;line-height:1.2}
 .thumb{display:block;width:117px;height:254px;overflow:hidden;border-radius:16px;border:1px solid #ECE3D4;box-shadow:0 10px 30px rgba(66,58,49,.1);background:#fff;text-decoration:none;transition:transform .15s ease}
 .thumb:hover{transform:translateY(-2px)}
 .thumb iframe{width:390px;height:844px;border:0;transform:scale(0.3);transform-origin:0 0;pointer-events:none}
+.feat{margin-top:26px;border:1px solid #ECE3D4;border-radius:16px;background:#fff;padding:16px 18px}
+.feat h3{font-size:13px;font-weight:700;margin:0 0 10px}
+.feat ul{margin:0;padding-left:18px;font-size:12.5px;color:#423A31;line-height:1.7}
+.feat ul li b{color:#5E8F76}
 .links{margin-top:30px;display:flex;flex-wrap:wrap;gap:10px}
 .links a{background:#FFF;border:1px solid #ECE3D4;border-radius:999px;padding:9px 15px;font-size:13px;font-weight:600;text-decoration:none;color:#423A31;box-shadow:0 6px 16px rgba(66,58,49,.06)}
 .links a:hover{border-color:#6E9E7F;color:#6E9E7F}
@@ -35,6 +41,8 @@ h1{font-family:Georgia,'Times New Roman',serif;font-weight:700;font-size:30px;li
   <h1>Концепция 3 — Зен</h1>
   <p class="slogan">Тёплая забота: спокойный путь к цели. Кремовый фон, шалфейный акцент, мягкие радиусы и серифные заголовки — забота без тревоги.</p>
 
+  <div class="note-acc">Макеты пересобраны по <b>реальному UI приложения</b>: навигация из 9 равных вкладок (без центральной кнопки), реальные виджеты и данные — нетто-калории с учётом тренировок, шагомер в тренировке, ИИ-оценки дней в статистике, фото-анализ продуктов, бэкап v6 с мед-тестами и ИИ-оценками дней. <b>9 экранов</b> вместо прежних 6.</div>
+
   <div class="slabel">Палитра</div>
   <div class="pal">
     <div class="sw"><i style="background:#F7F2EA"></i><b>Фон</b><span>#F7F2EA</span></div>
@@ -43,46 +51,49 @@ h1{font-family:Georgia,'Times New Roman',serif;font-weight:700;font-size:30px;li
     <div class="sw"><i style="background:#6E9E7F"></i><b>Шалфей</b><span>#6E9E7F</span></div>
     <div class="sw"><i style="background:#EFA45B"></i><b>Абрикос</b><span>#EFA45B</span></div>
     <div class="sw"><i style="background:#8AA6B8"></i><b>Голубой</b><span>#8AA6B8</span></div>
+    <div class="sw"><i style="background:#D96C5F"></i><b>Терракота</b><span>#D96C5F</span></div>
   </div>
 
-  <div class="slabel">Экраны · 390 × 844</div>
+  <div class="slabel">Экраны · 390 × 844 · 9 шт.</div>
   <div class="grid">
-    <div class="cell">
-      <a class="thumb" href="home.html" aria-label="Главная"><iframe src="home.html" scrolling="no" tabindex="-1" title="Главная"></iframe></a>
-      <span>Главная</span>
-    </div>
-    <div class="cell">
-      <a class="thumb" href="diary.html" aria-label="Дневник"><iframe src="diary.html" scrolling="no" tabindex="-1" title="Дневник"></iframe></a>
-      <span>Дневник</span>
-    </div>
-    <div class="cell">
-      <a class="thumb" href="workout.html" aria-label="Тренировка"><iframe src="workout.html" scrolling="no" tabindex="-1" title="Тренировка"></iframe></a>
-      <span>Тренировка</span>
-    </div>
-    <div class="cell">
-      <a class="thumb" href="stats.html" aria-label="Статистика"><iframe src="stats.html" scrolling="no" tabindex="-1" title="Статистика"></iframe></a>
-      <span>Статистика</span>
-    </div>
-    <div class="cell">
-      <a class="thumb" href="chat.html" aria-label="ИИ-чат"><iframe src="chat.html" scrolling="no" tabindex="-1" title="ИИ-чат"></iframe></a>
-      <span>ИИ-чат</span>
-    </div>
-    <div class="cell">
-      <a class="thumb" href="profile.html" aria-label="Профиль"><iframe src="profile.html" scrolling="no" tabindex="-1" title="Профиль"></iframe></a>
-      <span>Профиль</span>
-    </div>
+    <div class="cell"><a class="thumb" href="home.html" aria-label="Главная"><iframe src="home.html" scrolling="no" tabindex="-1" title="Главная"></iframe></a><span>Главная</span></div>
+    <div class="cell"><a class="thumb" href="food.html" aria-label="Питание"><iframe src="food.html" scrolling="no" tabindex="-1" title="Питание"></iframe></a><span>Питание</span></div>
+    <div class="cell"><a class="thumb" href="catalog.html" aria-label="Продукты"><iframe src="catalog.html" scrolling="no" tabindex="-1" title="Продукты"></iframe></a><span>Продукты</span></div>
+    <div class="cell"><a class="thumb" href="diary.html" aria-label="Дневник"><iframe src="diary.html" scrolling="no" tabindex="-1" title="Дневник"></iframe></a><span>Дневник</span></div>
+    <div class="cell"><a class="thumb" href="workout.html" aria-label="Тренировки"><iframe src="workout.html" scrolling="no" tabindex="-1" title="Тренировки"></iframe></a><span>Тренировки</span></div>
+    <div class="cell"><a class="thumb" href="stats.html" aria-label="Статистика"><iframe src="stats.html" scrolling="no" tabindex="-1" title="Статистика"></iframe></a><span>Статистика</span></div>
+    <div class="cell"><a class="thumb" href="chat.html" aria-label="ИИ-чат"><iframe src="chat.html" scrolling="no" tabindex="-1" title="ИИ-чат"></iframe></a><span>ИИ-чат</span></div>
+    <div class="cell"><a class="thumb" href="profile.html" aria-label="Профиль"><iframe src="profile.html" scrolling="no" tabindex="-1" title="Профиль"></iframe></a><span>Профиль</span></div>
+    <div class="cell"><a class="thumb" href="settings.html" aria-label="Настройки"><iframe src="settings.html" scrolling="no" tabindex="-1" title="Настройки"></iframe></a><span>Настройки</span></div>
+  </div>
+
+  <div class="feat">
+    <h3>Реальные фичи на экранах</h3>
+    <ul>
+      <li><b>Навигация:</b> 9 равных вкладок (Главная, Питание, Продукты, Дневник, Тренировки, Статистика, Чат, Профиль, Настройки)</li>
+      <li><b>Главная:</b> нетто-калории (съедено − сожжено на тренировках), вода, сон, 6 быстрых действий</li>
+      <li><b>Тренировки:</b> шагомер — шаги, расстояние, фоновое уведомление «Тренировка: N шагов», пауза/сброс</li>
+      <li><b>Статистика:</b> Неделя/Месяц, реальный диапазон дат, бар-чарт качества дней, ИИ-оценки дней</li>
+      <li><b>Продукты:</b> табы Продукты/Блюда/Анализ, фото-анализ с вердиктами (Подходит/С осторожностью/Не рекомендую)</li>
+      <li><b>ИИ-чат:</b> значок TTS у сообщений, прикреплённые фото, контекст по датам с лимитом символов</li>
+      <li><b>Профиль:</b> табы Основное/Цели/Здоровье, мед-тесты (параметры, тренд, измерения)</li>
+      <li><b>Настройки:</b> бэкап v6 — 3 новых счётчика: параметров анализов, измерений, ИИ-оценок дней</li>
+    </ul>
   </div>
 
   <div class="links">
     <a href="home.html">Главная</a>
+    <a href="food.html">Питание</a>
+    <a href="catalog.html">Продукты</a>
     <a href="diary.html">Дневник</a>
-    <a href="workout.html">Тренировка</a>
+    <a href="workout.html">Тренировки</a>
     <a href="stats.html">Статистика</a>
     <a href="chat.html">ИИ-чат</a>
     <a href="profile.html">Профиль</a>
+    <a href="settings.html">Настройки</a>
   </div>
 
-  <p class="note">Статичные HTML-макеты для оценки визуального направления (карточка стора, посты). Системные шрифты, без скриптов и внешних ресурсов. Ширина макета — ровно 390px.</p>
+  <p class="note">Статичные HTML-макеты для оценки визуального направления. Системные шрифты (сериф Georgia для заголовков), без скриптов и внешних ресурсов. Ширина макета — ровно 390px. Каталог design/ вне сборки приложения.</p>
 </div>
 </body>
 </html>

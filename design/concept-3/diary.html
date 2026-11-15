@@ -8,203 +8,195 @@
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#F7F2EA;font-family:-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#423A31;-webkit-font-smoothing:antialiased}
-a{color:inherit}
+a{color:inherit;text-decoration:none}
 .num{font-variant-numeric:tabular-nums}
-.phone{width:390px;margin:0 auto;min-height:844px;position:relative;padding-bottom:110px}
-.head{padding:26px 16px 12px}
-.head-title{font-family:Georgia,'Times New Roman',serif;font-weight:700;font-size:24px;line-height:1.15;margin:0;letter-spacing:.2px}
-.head-sub{font-size:13px;color:#8A7D6F;margin-top:4px}
-.stack{padding:0 16px;display:flex;flex-direction:column;gap:12px}
-.card{background:#FFFFFF;border:1px solid #ECE3D4;border-radius:22px;box-shadow:0 10px 30px rgba(66,58,49,.07);padding:16px 18px}
-.sec{margin-top:10px}
-.date-nav{display:flex;align-items:center;justify-content:space-between;background:#FFFFFF;border:1px solid #ECE3D4;border-radius:999px;box-shadow:0 10px 30px rgba(66,58,49,.07);padding:7px 8px}
-.date-nav .d{font-size:14px;font-weight:700}
-.date-nav a{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#8A7D6F;background:#F7F2EA;text-decoration:none}
-.week{display:flex;justify-content:space-between;padding:12px 10px}
-.day{display:flex;flex-direction:column;align-items:center;gap:6px;text-decoration:none;width:40px}
-.day small{font-size:11px;color:#8A7D6F;font-weight:600}
-.day b{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:#423A31}
-.day.off small,.day.off b{color:#C9BBA9}
-.day.active small{color:#6E9E7F;font-weight:700}
-.day.active b{background:#6E9E7F;color:#F7F2EA;box-shadow:0 8px 18px rgba(110,158,127,.30)}
-.sum-top{display:flex;align-items:baseline;gap:7px}
-.sum-num{font-family:Georgia,'Times New Roman',serif;font-weight:700;font-size:30px;line-height:1}
-.sum-of{font-size:13px;color:#8A7D6F}
-.sum-pct{margin-left:auto;font-size:12px;font-weight:700;color:#6E9E7F;background:#6E9E7F14;border-radius:999px;padding:4px 10px}
-.bar{height:8px;border-radius:999px;background:#F1EAE0;margin-top:12px;overflow:hidden}
-.bar i{display:block;height:100%;border-radius:999px}
-.sum-macros{display:flex;gap:14px;margin-top:12px;font-size:12.5px;color:#8A7D6F;flex-wrap:wrap}
-.sum-macros b{font-weight:700}
-.meal-head{display:flex;align-items:baseline;gap:8px}
-.meal-name{font-size:15px;font-weight:700}
-.meal-time{font-size:12px;color:#A79A8B;font-weight:600}
-.meal-kcal{margin-left:auto;font-family:Georgia,'Times New Roman',serif;font-weight:700;font-size:16px}
-.draft-badge{font-size:10.5px;font-weight:700;color:#6C8CA0;background:#8AA6B81F;border-radius:999px;padding:3px 9px;white-space:nowrap}
-.items{list-style:none;margin:4px 0 0;padding:0}
-.items li{padding:11px 0 10px;border-bottom:1px solid #ECE3D4}
-.items li:last-child{border-bottom:0;padding-bottom:2px}
-.item-top{display:flex;align-items:baseline;gap:6px}
-.item-name{font-size:14px;font-weight:600}
-.item-g{font-size:12.5px;color:#8A7D6F}
-.item-kcal{margin-left:auto;font-size:13.5px;font-weight:700;white-space:nowrap}
-.item-macros{display:flex;gap:12px;margin-top:3px;font-size:12px;color:#8A7D6F}
-.item-macros b{font-weight:700}
-.meal.draft{border-style:dashed;background:#FFFDF9}
-.fab{position:fixed;bottom:96px;left:calc(50% + 123px);width:56px;height:56px;border-radius:50%;background:#6E9E7F;color:#F7F2EA;display:flex;align-items:center;justify-content:center;box-shadow:0 14px 28px rgba(110,158,127,.40);border:4px solid #F7F2EA;z-index:41;text-decoration:none}
-.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:390px;background:#F7F2EA;border-top:1px solid #ECE3D4;display:flex;align-items:flex-start;justify-content:space-between;padding:8px 12px 14px;z-index:40}
-.nav a{display:flex;flex-direction:column;align-items:center;gap:4px;width:64px;text-decoration:none;color:#A79A8B;font-size:10.5px;font-weight:600}
-.nav .ic{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.phone{width:390px;margin:0 auto;min-height:844px;position:relative;padding-bottom:78px}
+.stack{padding:14px 14px 8px;display:flex;flex-direction:column;gap:12px}
+.card{background:#FFFFFF;border:1px solid #ECE3D4;border-radius:22px;box-shadow:0 10px 28px rgba(66,58,49,.06);padding:14px 16px}
+.card-h{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.card-title{font-size:13px;font-weight:700}
+.today{border:1px solid #F0D9C9;background:#fff}
+.today .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center;margin-top:11px}
+.today .grid2 b{display:block;font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:700}
+.today .grid2 span{display:block;font-size:10.5px;color:#8A7D6F;margin-top:3px}
+.entry{background:#fff;border:1px solid #ECE3D4;border-radius:18px;box-shadow:0 8px 22px rgba(66,58,49,.05);padding:12px 13px}
+.entry-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.entry-left{display:flex;align-items:flex-start;gap:9px;flex:1;min-width:0}
+.chip{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.chip svg{width:16px;height:16px}
+.chip.wb{background:#EFA45B1F;color:#C9834A}
+.chip.bp{background:#D96C5F1F;color:#B5544A}
+.entry-main{flex:1;min-width:0}
+.entry-head{display:flex;align-items:center;gap:7px}
+.badge{font-size:10px;font-weight:700;background:#F1EAE0;color:#8A7D6F;border-radius:6px;padding:2px 6px}
+.entry-time{font-size:10px;color:#A79A8B;display:inline-flex;align-items:center;gap:3px}
+.entry-time svg{width:11px;height:11px}
+.entry-body{font-size:13px;line-height:1.45;margin-top:5px}
+.entry-body .bp-val{font-weight:700}
+.entry-body .pulse{color:#8A7D6F}
+.entry-actions{display:flex;flex-direction:column;gap:8px;flex:0 0 auto}
+.entry-actions a{color:#A79A8B;width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center}
+.entry-actions svg{width:15px;height:15px}
+.entry-actions .del{color:#B5544A}
+.divider{display:flex;align-items:center;gap:10px;margin:14px 4px 2px}
+.divider .l{flex:1;height:1px;background:#ECE3D4}
+.divider .t{font-size:12px;font-weight:600;color:#8A7D6F}
+.pager{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:14px;font-size:12px;color:#8A7D6F}
+.pager a{width:32px;height:32px;border-radius:10px;border:1px solid #ECE3D4;display:flex;align-items:center;justify-content:center;color:#8A7D6F}
+.pager a svg{width:16px;height:16px}
+.pager a.off{opacity:.4;pointer-events:none}
+.fab{position:fixed;bottom:92px;left:50%;transform:translateX(150px);width:56px;height:56px;border-radius:50%;background:#6E9E7F;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 12px 26px rgba(110,158,127,.42);z-index:30}
+.fab svg{width:24px;height:24px}
+.dlg-lbl{font-size:11px;font-weight:700;color:#8A7D6F;letter-spacing:.06em;text-transform:uppercase;margin:14px 4px 6px}
+.dlg{background:#fff;border:1px solid #ECE3D4;border-radius:22px;box-shadow:0 14px 36px rgba(66,58,49,.1);padding:14px 15px}
+.dlg-title{font-size:14px;font-weight:700}
+.dlg-field{margin-top:11px}
+.dlg-field>label{font-size:11px;color:#8A7D6F;display:block;margin-bottom:5px}
+.type-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.type{border:1px solid #ECE3D4;border-radius:12px;padding:11px 6px;text-align:center;font-size:10px;font-weight:600;color:#8A7D6F;display:flex;flex-direction:column;align-items:center;gap:5px}
+.type.on{border-color:#6E9E7F;background:#6E9E7F14;color:#5E8F76}
+.type svg{width:20px;height:20px}
+.dt-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.in{border:1px solid #ECE3D4;border-radius:10px;padding:9px 10px;font-size:12px;color:#423A31;background:#FBF8F2;display:flex;align-items:center;gap:6px}
+.in svg{width:13px;height:13px;color:#A79A8B}
+.ta{border:1px solid #ECE3D4;border-radius:10px;padding:10px;font-size:12px;color:#A79A8B;background:#FBF8F2;min-height:48px;line-height:1.5}
+.dlg-actions{display:flex;gap:8px;margin-top:14px}
+.btn-out{flex:1;text-align:center;border:1px solid #ECE3D4;border-radius:12px;padding:10px;font-size:13px;font-weight:600;color:#8A7D6F}
+.btn-go{flex:1;text-align:center;background:#6E9E7F;color:#fff;border-radius:12px;padding:10px;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 8px 18px rgba(110,158,127,.3)}
+.btn-go svg{width:15px;height:15px}
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:390px;background:rgba(247,242,234,.97);backdrop-filter:blur(8px);border-top:1px solid #ECE3D4;display:flex;align-items:center;gap:1px;padding:8px 4px 12px;overflow-x:auto;z-index:40;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.nav a{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:56px;padding:2px 4px;color:#A79A8B;flex:0 0 auto}
+.nav a svg{width:21px;height:21px}
+.nav a span{font-size:9.5px;font-weight:600;white-space:nowrap}
 .nav a.active{color:#6E9E7F}
-.nav a.active .ic{background:#6E9E7F14}
-.nav a.nav-ai{color:#6E9E7F}
-.ai-btn{width:52px;height:52px;border-radius:50%;background:#6E9E7F;color:#F7F2EA;display:flex;align-items:center;justify-content:center;margin-top:-26px;box-shadow:0 12px 24px rgba(110,158,127,.38);border:4px solid #F7F2EA}
+.nav a.active svg{stroke-width:2.5}
 </style>
 </head>
 <body>
 <div class="phone">
-  <header class="head">
-    <h1 class="head-title">Дневник питания</h1>
-    <div class="head-sub">Калории и БЖУ за день</div>
-  </header>
-
   <main class="stack">
-    <div class="date-nav">
-      <a href="diary.html" aria-label="Предыдущий день">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg>
-      </a>
-      <span class="d num">пт, 31 октября</span>
-      <a href="diary.html" aria-label="Следующий день">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 5.5 16 12l-6.5 6.5"/></svg>
-      </a>
+
+    <section class="card today">
+      <div class="card-h"><span class="card-title">Сегодня</span><span style="font-size:11px;color:#8A7D6F" class="num">3 записей</span></div>
+      <div class="grid2 num">
+        <div><b style="color:#C9834A">2</b><span>Заметок</span></div>
+        <div><b style="color:#B5544A">1</b><span>Замеров давления</span></div>
+      </div>
+    </section>
+
+    <article class="entry">
+      <div class="entry-top">
+        <div class="entry-left">
+          <span class="chip wb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg></span>
+          <div class="entry-main">
+            <div class="entry-head"><span class="badge">Самочувствие</span><span class="entry-time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>09:30</span></div>
+            <div class="entry-body">После утренней прогулки бодрость и прилив сил, настроение ровное.</div>
+          </div>
+        </div>
+        <div class="entry-actions">
+          <a href="#" title="Редактировать"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></a>
+          <a class="del" href="#" title="Удалить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></a>
+        </div>
+      </div>
+    </article>
+
+    <article class="entry">
+      <div class="entry-top">
+        <div class="entry-left">
+          <span class="chip bp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"/></svg></span>
+          <div class="entry-main">
+            <div class="entry-head"><span class="badge">Давление</span><span class="entry-time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>14:00</span></div>
+            <div class="entry-body num"><span class="bp-val">120/80</span> мм рт.ст.<span class="pulse">, пульс 72 уд/мин</span></div>
+          </div>
+        </div>
+        <div class="entry-actions">
+          <a href="#" title="Редактировать"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></a>
+          <a class="del" href="#" title="Удалить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></a>
+        </div>
+      </div>
+    </article>
+
+    <article class="entry">
+      <div class="entry-top">
+        <div class="entry-left">
+          <span class="chip wb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg></span>
+          <div class="entry-main">
+            <div class="entry-head"><span class="badge">Самочувствие</span><span class="entry-time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>21:10</span></div>
+            <div class="entry-body">Лёгкая усталость после тренировки, но в целом хорошо.</div>
+          </div>
+        </div>
+        <div class="entry-actions">
+          <a href="#" title="Редактировать"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></a>
+          <a class="del" href="#" title="Удалить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></a>
+        </div>
+      </div>
+    </article>
+
+    <div class="divider"><span class="l"></span><span class="t">Вчера · 14 ноября</span><span class="l"></span></div>
+
+    <article class="entry">
+      <div class="entry-top">
+        <div class="entry-left">
+          <span class="chip bp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"/></svg></span>
+          <div class="entry-main">
+            <div class="entry-head"><span class="badge">Давление</span><span class="entry-time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>08:00</span></div>
+            <div class="entry-body num"><span class="bp-val">118/76</span> мм рт.ст.<span class="pulse">, пульс 68 уд/мин</span></div>
+          </div>
+        </div>
+        <div class="entry-actions">
+          <a href="#" title="Редактировать"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></a>
+          <a class="del" href="#" title="Удалить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></a>
+        </div>
+      </div>
+    </article>
+
+    <div class="pager num">
+      <a class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg></a>
+      <span>1 / 2</span>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></a>
     </div>
 
-    <section class="card week">
-      <a class="day" href="diary.html"><small>пн</small><b class="num">27</b></a>
-      <a class="day" href="diary.html"><small>вт</small><b class="num">28</b></a>
-      <a class="day" href="diary.html"><small>ср</small><b class="num">29</b></a>
-      <a class="day" href="diary.html"><small>чт</small><b class="num">30</b></a>
-      <a class="day active" href="diary.html"><small>пт</small><b class="num">31</b></a>
-      <a class="day off" href="diary.html"><small>сб</small><b class="num">1</b></a>
-      <a class="day off" href="diary.html"><small>вс</small><b class="num">2</b></a>
+    <div class="dlg-lbl">Диалог «Новая запись»</div>
+    <section class="dlg">
+      <div class="dlg-title">Новая запись</div>
+      <div class="dlg-field">
+        <label>Тип записи</label>
+        <div class="type-row">
+          <div class="type on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg>Самочувствие</div>
+          <div class="type"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"/></svg>Давление</div>
+        </div>
+      </div>
+      <div class="dlg-field">
+        <div class="dt-row">
+          <div class="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg><span>15.11.2026</span></div>
+          <div class="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>14:30</span></div>
+        </div>
+      </div>
+      <div class="dlg-field">
+        <label>Как вы себя чувствуете?</label>
+        <div class="ta">После прогулки бодрость и прилив сил...</div>
+      </div>
+      <div class="dlg-actions">
+        <div class="btn-out">Отмена</div>
+        <div class="btn-go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-11"/></svg>Добавить</div>
+      </div>
     </section>
 
-    <section class="card">
-      <div class="sum-top">
-        <span class="sum-num num">1 284</span>
-        <span class="sum-of num">/ 1 950 ккал</span>
-        <span class="sum-pct num">66%</span>
-      </div>
-      <div class="bar"><i style="width:66%;background:#6E9E7F"></i></div>
-      <div class="sum-macros num">
-        <span><b style="color:#6E9E7F">Б</b> 96/140</span>
-        <span><b style="color:#C9834A">Ж</b> 38/65</span>
-        <span><b style="color:#6C8CA0">У</b> 112/180</span>
-      </div>
-    </section>
-
-    <section class="card meal sec">
-      <div class="meal-head">
-        <span class="meal-name">Завтрак</span>
-        <span class="meal-time num">08:20</span>
-        <span class="meal-kcal num">362 ккал</span>
-      </div>
-      <ul class="items">
-        <li>
-          <div class="item-top"><span class="item-name">Овсяная каша на молоке</span><span class="item-g">60 г</span><span class="item-kcal num">212 ккал</span></div>
-          <div class="item-macros num"><span><b style="color:#6E9E7F">Б</b> 8,2</span><span><b style="color:#C9834A">Ж</b> 6,4</span><span><b style="color:#6C8CA0">У</b> 30,5</span></div>
-        </li>
-        <li>
-          <div class="item-top"><span class="item-name">Банан</span><span class="item-g">1 шт</span><span class="item-kcal num">105 ккал</span></div>
-          <div class="item-macros num"><span><b style="color:#6E9E7F">Б</b> 1,3</span><span><b style="color:#C9834A">Ж</b> 0,4</span><span><b style="color:#6C8CA0">У</b> 26,9</span></div>
-        </li>
-        <li>
-          <div class="item-top"><span class="item-name">Кофе с молоком</span><span class="item-g">200 мл</span><span class="item-kcal num">45 ккал</span></div>
-          <div class="item-macros num"><span><b style="color:#6E9E7F">Б</b> 2,1</span><span><b style="color:#C9834A">Ж</b> 1,8</span><span><b style="color:#6C8CA0">У</b> 3,6</span></div>
-        </li>
-      </ul>
-    </section>
-
-    <section class="card meal">
-      <div class="meal-head">
-        <span class="meal-name">Обед</span>
-        <span class="meal-time num">13:05</span>
-        <span class="meal-kcal num">628 ккал</span>
-      </div>
-      <ul class="items">
-        <li>
-          <div class="item-top"><span class="item-name">Куриная грудка гриль</span><span class="item-g">150 г</span><span class="item-kcal num">248 ккал</span></div>
-          <div class="item-macros num"><span><b style="color:#6E9E7F">Б</b> 46,5</span><span><b style="color:#C9834A">Ж</b> 5,4</span><span><b style="color:#6C8CA0">У</b> 0</span></div>
-        </li>
-        <li>
-          <div class="item-top"><span class="item-name">Гречка отварная</span><span class="item-g">180 г</span><span class="item-kcal num">222 ккал</span></div>
-          <div class="item-macros num"><span><b style="color:#6E9E7F">Б</b> 8,4</span><span><b style="color:#C9834A">Ж</b> 2,6</span><span><b style="color:#6C8CA0">У</b> 42,9</span></div>
-        </li>
-        <li>
-          <div class="item-top"><span class="item-name">Салат «Греческий»</span><span class="item-g">200 г</span><span class="item-kcal num">158 ккал</span></div>
-          <div class="item-macros num"><span><b style="color:#6E9E7F">Б</b> 3,2</span><span><b style="color:#C9834A">Ж</b> 12,1</span><span><b style="color:#6C8CA0">У</b> 7,8</span></div>
-        </li>
-      </ul>
-    </section>
-
-    <section class="card meal">
-      <div class="meal-head">
-        <span class="meal-name">Перекус</span>
-        <span class="meal-time num">16:30</span>
-        <span class="meal-kcal num">289 ккал</span>
-      </div>
-      <ul class="items">
-        <li>
-          <div class="item-top"><span class="item-name">Творог 5%</span><span class="item-g">150 г</span><span class="item-kcal num">211 ккал</span></div>
-          <div class="item-macros num"><span><b style="color:#6E9E7F">Б</b> 25,5</span><span><b style="color:#C9834A">Ж</b> 7,5</span><span><b style="color:#6C8CA0">У</b> 4,5</span></div>
-        </li>
-        <li>
-          <div class="item-top"><span class="item-name">Яблоко</span><span class="item-g">1 шт</span><span class="item-kcal num">78 ккал</span></div>
-          <div class="item-macros num"><span><b style="color:#6E9E7F">Б</b> 0,4</span><span><b style="color:#C9834A">Ж</b> 0,3</span><span><b style="color:#6C8CA0">У</b> 20,6</span></div>
-        </li>
-      </ul>
-    </section>
-
-    <section class="card meal draft">
-      <div class="meal-head">
-        <span class="meal-name">Ужин</span>
-        <span class="meal-time num">план 19:00</span>
-        <span class="draft-badge">черновик</span>
-        <span class="meal-kcal num">≈ 371 ккал</span>
-      </div>
-      <ul class="items">
-        <li>
-          <div class="item-top"><span class="item-name">Лосось запечённый, 130 г + овощи на пару</span><span class="item-kcal num">≈ 371 ккал</span></div>
-          <div class="item-macros"><span>ориентир на вечер — уточнится после добавления</span></div>
-        </li>
-      </ul>
-    </section>
   </main>
 
-  <a class="fab" href="diary.html" aria-label="Добавить запись">
-    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-  </a>
+  <a class="fab" href="#" aria-label="Добавить запись"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg></a>
 
   <nav class="nav" aria-label="Нижняя навигация">
-    <a href="home.html">
-      <span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h4.5v-5.5h4v5.5h4.5V10"/></svg></span>
-      <span>Главная</span>
-    </a>
-    <a href="diary.html" class="active">
-      <span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v18"/></svg></span>
-      <span>Дневник</span>
-    </a>
-    <a href="chat.html" class="nav-ai">
-      <span class="ai-btn"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 4V16h-.5A1.5 1.5 0 0 1 4 14.5Z"/></svg></span>
-      <span>ИИ</span>
-    </a>
-    <a href="stats.html">
-      <span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"/><path d="M9 16v-5M14 16V8M19 16v-3"/></svg></span>
-      <span>Статистика</span>
-    </a>
-    <a href="profile.html">
-      <span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.4 3.8-5 7-5s5.8 1.6 7 5"/></svg></span>
-      <span>Профиль</span>
-    </a>
+    <a href="home.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg><span>Главная</span></a>
+    <a href="food.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"/><path d="M7 8l3 3 3-2 4 4"/></svg><span>Питание</span></a>
+    <a href="catalog.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5Z"/><path d="M3.3 8 12 13l8.7-5M12 22V13"/></svg><span>Продукты</span></a>
+    <a href="diary.html" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H17a1 1 0 0 1 1 1v17l-3-2-3 2-3-2-3 2-1-.5Z"/><path d="M8 8h7M8 12h7M8 16h4"/></svg><span>Дневник</span></a>
+    <a href="workout.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6v6a6 6 0 0 0 12 0V6M6 4h2M16 4h2M9 20h6"/></svg><span>Тренировки</span></a>
+    <a href="stats.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"/><path d="M9 16v-5M14 16V8M19 16v-3"/></svg><span>Статистика</span></a>
+    <a href="chat.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 4V16h-.5A1.5 1.5 0 0 1 4 14.5Z"/></svg><span>Чат</span></a>
+    <a href="profile.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.4 3.8-5 7-5s5.8 1.6 7 5"/></svg><span>Профиль</span></a>
+    <a href="settings.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/></svg><span>Настройки</span></a>
   </nav>
 </div>
 </body>

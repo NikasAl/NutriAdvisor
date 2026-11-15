@@ -8,106 +8,187 @@
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#F7F2EA;font-family:-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#423A31;-webkit-font-smoothing:antialiased}
-a{color:inherit}
+a{color:inherit;text-decoration:none}
 .num{font-variant-numeric:tabular-nums}
-.phone{width:390px;margin:0 auto;min-height:844px;position:relative;padding-bottom:210px}
-.chat-head{display:flex;align-items:center;gap:12px;padding:24px 16px 14px}
-.ch-ava{flex:0 0 auto;width:44px;height:44px;border-radius:50%;background:#6E9E7F;color:#F7F2EA;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px rgba(110,158,127,.30)}
-.ch-name{font-family:Georgia,'Times New Roman',serif;font-weight:700;font-size:19px;line-height:1.2}
-.ch-status{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#6E9E7F;margin-top:3px}
-.ch-status i{width:8px;height:8px;border-radius:50%;background:#6E9E7F;display:inline-block}
-.msgs{padding:2px 16px 0;display:flex;flex-direction:column;gap:10px}
-.msg-u{align-self:flex-end;max-width:292px;background:#6E9E7F;color:#F7F2EA;border-radius:20px 20px 6px 20px;padding:12px 14px;font-size:14px;line-height:1.5;box-shadow:0 8px 20px rgba(110,158,127,.22)}
-.msg-ai{display:flex;gap:8px;align-items:flex-start;max-width:340px}
-.msg-ai .ava{flex:0 0 auto;width:30px;height:30px;border-radius:50%;background:#6E9E7F14;color:#6E9E7F;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:2px}
-.msg-ai .bub{background:#FFFFFF;border:1px solid #ECE3D4;border-radius:20px 20px 20px 6px;padding:12px 14px;font-size:14px;line-height:1.5;box-shadow:0 10px 30px rgba(66,58,49,.07)}
-.bchips{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
-.chip{border-radius:999px;padding:8px 13px;font-size:12.5px;font-weight:700;text-decoration:none}
-.chip.pri{background:#6E9E7F;color:#F7F2EA;box-shadow:0 6px 14px rgba(110,158,127,.28)}
-.chip.sec{background:#FFFFFF;border:1px solid #ECE3D4;color:#6E9E7F}
-.composer{position:fixed;bottom:84px;left:50%;transform:translateX(-50%);width:390px;padding:8px 16px 10px;z-index:39}
-.composer .cbar{background:#FFFFFF;border:1px solid #ECE3D4;border-radius:24px;box-shadow:0 12px 28px rgba(66,58,49,.10);display:flex;align-items:center;gap:8px;padding:8px 8px 8px 14px}
-.composer input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:14px;color:#423A31}
-.composer input::placeholder{color:#A79A8B}
-.clip{color:#A79A8B;display:flex;flex:0 0 auto}
-.csend{width:40px;height:40px;border-radius:50%;background:#6E9E7F;color:#F7F2EA;display:flex;align-items:center;justify-content:center;flex:0 0 auto;text-decoration:none;box-shadow:0 8px 18px rgba(110,158,127,.30)}
-.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:390px;background:#F7F2EA;border-top:1px solid #ECE3D4;display:flex;align-items:flex-start;justify-content:space-between;padding:8px 12px 14px;z-index:40}
-.nav a{display:flex;flex-direction:column;align-items:center;gap:4px;width:64px;text-decoration:none;color:#A79A8B;font-size:10.5px;font-weight:600}
-.nav .ic{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.phone{width:390px;margin:0 auto;min-height:844px;position:relative;display:flex;flex-direction:column}
+/* context bar (the real "header" of chat) */
+.ctx{display:flex;align-items:center;gap:7px;padding:14px 14px 8px;font-size:11px}
+.ctx .menu{width:30px;height:30px;border-radius:9px;border:1px solid #ECE3D4;display:flex;align-items:center;justify-content:center;color:#8A7D6F;flex:0 0 auto}
+.ctx .menu svg{width:16px;height:16px}
+.ctx .cal{width:13px;height:13px;color:#8A7D6F;flex:0 0 auto}
+.ctx .lab{color:#8A7D6F;font-weight:600;flex:0 0 auto}
+.ctx .date{border:1px solid #ECE3D4;border-radius:7px;padding:3px 6px;font-size:10px;color:#423A31;background:#fff}
+.ctx .dash{color:#A79A8B}
+.ctx .cnt{margin-left:auto;font-size:10px;color:#8A7D6F}
+.ctx .cnt b{font-weight:700}
+.ctx .sess{font-size:10px;color:#A79A8B;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* messages */
+.msgs{flex:1;min-height:520px;padding:8px 14px;display:flex;flex-direction:column;gap:12px}
+.msg-row{display:flex}
+.msg-row.me{justify-content:flex-end}
+.bubble{max-width:84%;border-radius:18px;padding:9px 12px;font-size:13px;line-height:1.5}
+.bubble.me{background:#6E9E7F;color:#fff;border-bottom-right-radius:6px}
+.bubble.ai{background:#FFFFFF;border:1px solid #ECE3D4;border-bottom-left-radius:6px}
+.bubble.ai b{font-weight:700}
+.attach{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px}
+.attach .att{width:64px;height:64px;border-radius:10px;border:1px solid #ECE3D4}
+.b-foot{display:flex;align-items:center;gap:7px;margin-top:5px}
+.b-foot .t{font-size:10px}
+.bubble.me .b-foot .t{color:rgba(255,255,255,.7)}
+.bubble.ai .b-foot .t{color:#A79A8B}
+.tts{width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center}
+.bubble.ai .tts{background:#6E9E7F14;color:#6E9E7F;margin-left:auto}
+.tts svg{width:13px;height:13px}
+.edit-i{width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center}
+.bubble.me .edit-i{color:rgba(255,255,255,.6)}
+.edit-i svg{width:13px;height:13px}
+/* suggested prompts */
+.sugg{display:flex;gap:7px;overflow-x:auto;padding:0 14px 6px;scrollbar-width:none}
+.sugg::-webkit-scrollbar{display:none}
+.sugg .p{flex:0 0 auto;font-size:11px;font-weight:500;border:1px solid #ECE3D4;background:#fff;border-radius:999px;padding:6px 12px;color:#5E8F76;display:inline-flex;align-items:center;gap:5px}
+.sugg .p svg{width:12px;height:12px}
+/* input bar */
+.input-bar{border-top:1px solid #ECE3D4;background:rgba(247,242,234,.97);backdrop-filter:blur(8px);padding:10px 12px 14px}
+.attach-prev{display:flex;gap:6px;margin-bottom:8px}
+.attach-prev .att{width:48px;height:48px;border-radius:10px;border:1px solid #ECE3D4;position:relative}
+.attach-prev .att .x{position:absolute;top:-5px;right:-5px;width:16px;height:16px;border-radius:50%;background:#B5544A;color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px}
+.input-row{display:flex;gap:8px;align-items:flex-end}
+.icam,.iatt{width:44px;height:44px;border-radius:50%;border:1px solid #ECE3D4;background:#fff;color:#8A7D6F;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.icam svg,.iatt svg{width:19px;height:19px}
+.ta-wrap{flex:1;border:1px solid #ECE3D4;border-radius:14px;background:#fff;padding:11px 12px;font-size:13px;color:#A79A8B;min-height:44px}
+.send{width:44px;height:44px;border-radius:50%;background:#6E9E7F;color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto;box-shadow:0 8px 18px rgba(110,158,127,.32)}
+.send svg{width:19px;height:19px}
+/* nav */
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:390px;background:rgba(247,242,234,.97);backdrop-filter:blur(8px);border-top:1px solid #ECE3D4;display:flex;align-items:center;gap:1px;padding:8px 4px 12px;overflow-x:auto;z-index:40;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.nav a{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:56px;padding:2px 4px;color:#A79A8B;flex:0 0 auto}
+.nav a svg{width:21px;height:21px}
+.nav a span{font-size:9.5px;font-weight:600;white-space:nowrap}
 .nav a.active{color:#6E9E7F}
-.nav a.active .ic{background:#6E9E7F14}
-.nav a.nav-ai{color:#6E9E7F}
-.ai-btn{width:52px;height:52px;border-radius:50%;background:#6E9E7F;color:#F7F2EA;display:flex;align-items:center;justify-content:center;margin-top:-26px;box-shadow:0 12px 24px rgba(110,158,127,.38);border:4px solid #F7F2EA}
+.nav a.active svg{stroke-width:2.5}
+/* sidebar mock (drawers below as design reference) */
+.dlg-lbl{font-size:11px;font-weight:700;color:#8A7D6F;letter-spacing:.06em;text-transform:uppercase;margin:6px 14px}
+.sb{margin:0 14px 14px;background:#fff;border:1px solid #ECE3D4;border-radius:18px;padding:13px 14px}
+.sb-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.sb-h .t{font-size:13px;font-weight:700}
+.sb-h .plus{width:26px;height:26px;border-radius:8px;border:1px solid #ECE3D4;display:flex;align-items:center;justify-content:center;color:#8A7D6F}
+.sb-h .plus svg{width:14px;height:14px}
+.sb-grp{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#A79A8B;margin:9px 0 5px}
+.sb-sess{display:flex;align-items:center;justify-content:space-between;padding:7px 9px;border-radius:10px;margin-bottom:2px}
+.sb-sess.on{background:#6E9E7F14;border-left:3px solid #6E9E7F}
+.sb-sess .l{font-size:12px;font-weight:600;color:#423A31}
+.sb-sess.on .l{color:#5E8F76}
+.sb-sess .time{font-size:10px;color:#A79A8B}
+.sb-sess .act{display:flex;gap:5px}
+.sb-sess .act a{color:#A79A8B;width:18px;height:18px;display:flex;align-items:center;justify-content:center}
+.sb-sess .act svg{width:12px;height:12px}
 </style>
 </head>
 <body>
 <div class="phone">
-  <header class="chat-head">
-    <span class="ch-ava">
-      <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 4V16h-.5A1.5 1.5 0 0 1 4 14.5Z"/></svg>
-    </span>
-    <div>
-      <div class="ch-name">ИИ-нутрициолог</div>
-      <div class="ch-status"><i></i>онлайн</div>
-    </div>
-  </header>
+
+  <!-- Context bar (the real chat header): dates + char counter + session name -->
+  <div class="ctx">
+    <a class="menu" href="#" aria-label="Показать панель диалогов"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></a>
+    <svg class="cal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>
+    <span class="lab">Контекст:</span>
+    <span class="date num">2026-11-09</span><span class="dash">–</span><span class="date num">2026-11-15</span>
+    <span class="cnt num"><b>4280</b>/10000</span>
+    <span class="sess">Анализ недели</span>
+  </div>
 
   <main class="msgs">
-    <div class="msg-u num">Что съесть после тренировки, чтобы не выйти за КБЖУ? На ужин остаётся 371 ккал</div>
 
-    <div class="msg-ai">
-      <span class="ava">ИИ</span>
-      <div class="bub">
-        После силовой лучше сочетать белок и углеводы. Вариант на <b class="num">342 ккал</b>: творог 5% 150 г (Б 25,5 г) и яблоко (У 20,6 г). Норма белка 140 г будет закрыта, запас сохранится. Добавить в дневник?
-        <div class="bchips">
-          <a class="chip pri" href="diary.html">Добавить в дневник</a>
-          <a class="chip sec" href="chat.html">Ещё варианты</a>
+    <!-- user msg with photo attachment -->
+    <div class="msg-row me">
+      <div class="bubble me">
+        <div class="attach">
+          <div class="att" style="background:linear-gradient(135deg,#E8C99B,#C9834A)"></div>
+        </div>
+        Проанализируй мой обед сегодня и подскажи, добираю ли я белок
+        <div class="b-foot">
+          <span class="t num">13:25</span>
+          <a class="edit-i" href="#" title="Редактировать"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></a>
         </div>
       </div>
     </div>
 
-    <div class="msg-u num">Да, добавь творог на 16:30</div>
-
-    <div class="msg-ai">
-      <span class="ava">ИИ</span>
-      <div class="bub num"><b>Готово:</b> Творог 5%, 150 г → перекус 16:30. Итог дня: 1 284 ккал · Б 96 г · У 112 г.</div>
+    <!-- AI msg with TTS -->
+    <div class="msg-row">
+      <div class="bubble ai">
+        На фото — гречка с куриной грудкой и овощной салат. Оцениваю порцию примерно в <b>560 ккал</b>: белок <b>42 г</b>, жиры 12 г, углеводы 38 г. Это крепкий приём — белок с обеда уже 42 г, при дневной норме 140 г вы прошли 69%. До цели осталось <b>44 г</b>: доберите творог 150 г (+25 г) на перекус и 20 г рыбы на ужин.
+        <div class="b-foot">
+          <span class="t num">13:26</span>
+          <a class="tts" href="#" title="Озвучить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4Z"/><path d="M16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"/></svg></a>
+        </div>
+      </div>
     </div>
+
+    <!-- user msg -->
+    <div class="msg-row me">
+      <div class="bubble me">
+        А как моя тренировка сегодня сочетается с этим питанием?
+        <div class="b-foot"><span class="t num">13:28</span></div>
+      </div>
+    </div>
+
+    <!-- AI msg -->
+    <div class="msg-row">
+      <div class="bubble ai">
+        Силовая на верх тела 50 минут — около <b>320 ккал</b>, плюс 3,19 км ходьбы. С вашим рационом в 1468 ккал съедено и 184 ккал сожжено — нетто <b>1284 ккал</b> при цели 1950. Это комфортный дефицит для похудения. Белок 96 г покроет восстановление после нагрузки.
+        <div class="b-foot">
+          <span class="t num">13:29</span>
+          <a class="tts" href="#" title="Озвучить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4Z"/><path d="M16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"/></svg></a>
+        </div>
+      </div>
+    </div>
+
   </main>
 
-  <div class="composer">
-    <div class="cbar">
-      <span class="clip">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8.5 12.5 6-6a3 3 0 0 1 4.2 4.2l-7.6 7.6a5 5 0 0 1-7-7l7.5-7.5"/></svg>
-      </span>
-      <input type="text" placeholder="Спросите нутрициолога…" aria-label="Сообщение">
-      <a class="csend" href="chat.html" aria-label="Отправить">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3 3 10.5l7 2.5 2.5 7Z"/><path d="M21 3 10 13"/></svg>
-      </a>
+  <!-- suggested prompts -->
+  <div class="sugg">
+    <a class="p" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 21l-4.9 2.6.9-5.5-4-3.9 5.5-.8Z"/></svg>Анализ дня</a>
+    <a class="p" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 21l-4.9 2.6.9-5.5-4-3.9 5.5-.8Z"/></svg>Анализ завтрака</a>
+    <a class="p" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 21l-4.9 2.6.9-5.5-4-3.9 5.5-.8Z"/></svg>Анализ тренировки</a>
+  </div>
+
+  <!-- input bar with attachment preview + camera/attach/send -->
+  <div class="input-bar">
+    <div class="attach-prev">
+      <div class="att" style="background:linear-gradient(135deg,#C9A24B,#8A6B2E)"><span class="x">×</span></div>
+    </div>
+    <div class="input-row">
+      <a class="icam" href="#" title="Сфотографировать"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l2-3h6l2 3h3v12H4Z"/><circle cx="12" cy="13" r="4"/></svg></a>
+      <a class="iatt" href="#" title="Прикрепить изображение"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12l-9.5 9.5a4 4 0 0 1-5.7-5.7L14 6.6a2.5 2.5 0 0 1 3.5 3.5l-7.7 7.7a1 1 0 0 1-1.4-1.4l7-7"/></svg></a>
+      <div class="ta-wrap">Задайте ваш вопрос по питанию, тренировкам, здоровью</div>
+      <a class="send" href="#" title="Отправить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l14-7-5 14-3-6Z"/></svg></a>
     </div>
   </div>
 
-  <nav class="nav" aria-label="Нижняя навигация">
-    <a href="home.html">
-      <span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h4.5v-5.5h4v5.5h4.5V10"/></svg></span>
-      <span>Главная</span>
-    </a>
-    <a href="diary.html">
-      <span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v18"/></svg></span>
-      <span>Дневник</span>
-    </a>
-    <a href="chat.html" class="nav-ai active">
-      <span class="ai-btn"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 4V16h-.5A1.5 1.5 0 0 1 4 14.5Z"/></svg></span>
-      <span>ИИ</span>
-    </a>
-    <a href="stats.html">
-      <span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"/><path d="M9 16v-5M14 16V8M19 16v-3"/></svg></span>
-      <span>Статистика</span>
-    </a>
-    <a href="profile.html">
-      <span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.4 3.8-5 7-5s5.8 1.6 7 5"/></svg></span>
-      <span>Профиль</span>
-    </a>
-  </nav>
+  <!-- Sidebar mockup reference (drawers) -->
+  <div class="dlg-lbl">Панель «Разговоры»</div>
+  <div class="sb">
+    <div class="sb-h"><span class="t">Разговоры</span><a class="plus" href="#" title="Новый разговор"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></a></div>
+    <div class="sb-grp">Сегодня</div>
+    <div class="sb-sess on"><span class="l">Анализ недели</span><span class="time num">13:25</span><span class="act"><a href="#" title="Переименовать"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></a><a href="#" title="Удалить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></a></span></div>
+    <div class="sb-grp">Вчера</div>
+    <div class="sb-sess"><span class="l">Завтрак и белок</span><span class="time num">09:40</span></div>
+    <div class="sb-grp">13 ноября</div>
+    <div class="sb-sess"><span class="l">План на неделю</span><span class="time num">18:12</span></div>
+  </div>
+
 </div>
+
+<nav class="nav" aria-label="Нижняя навигация">
+  <a href="home.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg><span>Главная</span></a>
+  <a href="food.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"/><path d="M7 8l3 3 3-2 4 4"/></svg><span>Питание</span></a>
+  <a href="catalog.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5Z"/><path d="M3.3 8 12 13l8.7-5M12 22V13"/></svg><span>Продукты</span></a>
+  <a href="diary.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H17a1 1 0 0 1 1 1v17l-3-2-3 2-3-2-3 2-1-.5Z"/><path d="M8 8h7M8 12h7M8 16h4"/></svg><span>Дневник</span></a>
+  <a href="workout.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6v6a6 6 0 0 0 12 0V6M6 4h2M16 4h2M9 20h6"/></svg><span>Тренировки</span></a>
+  <a href="stats.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"/><path d="M9 16v-5M14 16V8M19 16v-3"/></svg><span>Статистика</span></a>
+  <a href="chat.html" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 4V16h-.5A1.5 1.5 0 0 1 4 14.5Z"/></svg><span>Чат</span></a>
+  <a href="profile.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.4 3.8-5 7-5s5.8 1.6 7 5"/></svg><span>Профиль</span></a>
+  <a href="settings.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/></svg><span>Настройки</span></a>
+</nav>
 </body>
 </html>

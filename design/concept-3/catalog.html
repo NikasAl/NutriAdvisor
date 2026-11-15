@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#F7F2EA">
+<title>Зен — Продукты · Дневник Здоровья</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#F7F2EA;font-family:-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#423A31;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+.num{font-variant-numeric:tabular-nums}
+.phone{width:390px;margin:0 auto;min-height:844px;position:relative;padding-bottom:78px}
+.stack{padding:14px 14px 8px;display:flex;flex-direction:column;gap:12px}
+/* tab bar */
+.tabs{display:flex;gap:8px}
+.tab{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid #ECE3D4;border-radius:14px;padding:11px 8px;font-size:12px;font-weight:600;color:#8A7D6F;background:#fff}
+.tab.active{border-color:#6E9E7F;background:#6E9E7F14;color:#5E8F76}
+.tab svg{width:18px;height:18px}
+.tab .b{font-size:10px;font-weight:700;background:#F1EAE0;border-radius:999px;padding:1px 6px}
+.tab.active .b{background:#6E9E7F;color:#fff}
+.tab-wide{width:100%;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid #ECE3D4;border-radius:14px;padding:11px 8px;font-size:12px;font-weight:600;color:#8A7D6F;background:#fff;margin-top:8px}
+.tab-wide svg{width:18px;height:18px}
+.tab-wide .b{font-size:10px;font-weight:700;background:#F1EAE0;border-radius:999px;padding:1px 6px}
+/* search */
+.search{display:flex;align-items:center;gap:8px;border:1px solid #ECE3D4;border-radius:14px;padding:10px 12px;background:#fff}
+.search svg{width:16px;height:16px;color:#A79A8B}
+.search input{border:0;outline:0;font-size:13px;background:transparent;flex:1;color:#423A31}
+.search input::placeholder{color:#A79A8B}
+.new-btn{display:flex;align-items:center;justify-content:center;gap:7px;background:#6E9E7F;color:#fff;border-radius:14px;padding:12px;font-size:13px;font-weight:700;box-shadow:0 8px 18px rgba(110,158,127,.3)}
+.new-btn svg{width:17px;height:17px}
+/* analysis card */
+.acard{background:#fff;border:1px solid #ECE3D4;border-radius:18px;box-shadow:0 8px 22px rgba(66,58,49,.05);padding:12px 13px}
+.acard-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.acard-title{font-size:13px;font-weight:700}
+.acard-meta{display:flex;align-items:center;gap:5px;font-size:10px;color:#A79A8B;margin-top:4px}
+.acard-meta svg{width:12px;height:12px}
+.verdict{font-size:10px;font-weight:700;border-radius:999px;padding:3px 8px;white-space:nowrap;border:1px solid}
+.v-suit{background:#6E9E7F1F;color:#5E8F76;border-color:#9FC4AB}
+.v-caut{background:#EFA45B1F;color:#B5742F;border-color:#F0C99E}
+.v-not{background:#D96C5F1F;color:#B5544A;border-color:#E8A59E}
+.dish-badge{font-size:9px;font-weight:700;background:#F1EAE0;color:#8A7D6F;border-radius:6px;padding:2px 5px;display:inline-flex;align-items:center;gap:3px}
+.dish-badge svg{width:10px;height:10px}
+.acard-sum{font-size:11.5px;color:#8A7D6F;line-height:1.45;margin-top:7px}
+.acard-chev{width:22px;height:22px;display:flex;align-items:center;justify-content:center;color:#A79A8B;flex:0 0 auto}
+.acard-chev svg{width:16px;height:16px}
+.acard-exp{margin-top:10px;padding-top:10px;border-top:1px dashed #ECE3D4}
+.photos{display:flex;gap:6px;margin-bottom:8px}
+.photos .ph{width:54px;height:54px;border-radius:10px;border:1px solid #ECE3D4}
+.comp{font-size:11px;color:#8A7D6F;margin-bottom:6px}
+.comp b{color:#423A31;font-weight:600}
+.ai-md{background:#F4EFE7;border:1px solid #ECE3D4;border-radius:12px;padding:10px 11px;font-size:11.5px;line-height:1.55}
+.ai-md .h{display:flex;align-items:center;gap:6px;font-weight:700;color:#5E8F76;font-size:11px;margin-bottom:5px}
+.ai-md .h svg{width:13px;height:13px}
+.ai-md .tts{margin-left:auto;width:26px;height:26px;border-radius:8px;background:#6E9E7F14;color:#6E9E7F;display:flex;align-items:center;justify-content:center}
+.ai-md .tts svg{width:14px;height:14px}
+.ai-md .del{width:26px;height:26px;border-radius:8px;color:#B5544A;display:flex;align-items:center;justify-content:center}
+.ai-md .del svg{width:14px;height:14px}
+/* dialog mock */
+.dlg-lbl{font-size:11px;font-weight:700;color:#8A7D6F;letter-spacing:.06em;text-transform:uppercase;margin:14px 4px 6px}
+.dlg{background:#fff;border:1px solid #ECE3D4;border-radius:22px;box-shadow:0 14px 36px rgba(66,58,49,.1);padding:14px 15px}
+.dlg-title{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700}
+.dlg-title svg{width:17px;height:17px;color:#6E9E7F}
+.mode-row{display:flex;gap:6px;margin-top:12px}
+.mode{flex:1;text-align:center;border:1px solid #ECE3D4;border-radius:12px;padding:8px 4px;font-size:11px;font-weight:600;color:#8A7D6F}
+.mode.on{border-color:#6E9E7F;background:#6E9E7F14;color:#5E8F76}
+.kind-row{display:flex;gap:6px;margin-top:8px}
+.kind{flex:1;text-align:center;border:1px solid #ECE3D4;border-radius:10px;padding:7px 4px;font-size:11px;font-weight:600;color:#8A7D6F;display:flex;align-items:center;justify-content:center;gap:5px}
+.kind.on{border-color:#6E9E7F;background:#6E9E7F14;color:#5E8F76}
+.kind svg{width:13px;height:13px}
+.photo-pick{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.pp{border:2px dashed #9FC4AB;border-radius:14px;padding:16px 8px;text-align:center;font-size:11px;font-weight:600;color:#5E8F76;background:#6E9E7F0A}
+.pp svg{width:22px;height:22px;margin-bottom:4px}
+.attached{display:flex;gap:6px;margin-top:8px}
+.att{width:48px;height:48px;border-radius:10px;border:1px solid #ECE3D4;position:relative}
+.att .x{position:absolute;top:-5px;right:-5px;width:16px;height:16px;border-radius:50%;background:#B5544A;color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px}
+.dlg-field{margin-top:10px}
+.dlg-field label{font-size:11px;color:#8A7D6F;display:block;margin-bottom:4px}
+.dlg-field .in{border:1px solid #ECE3D4;border-radius:10px;padding:9px 10px;font-size:12px;color:#A79A8B;background:#FBF8F2}
+.dlg-hint{font-size:10.5px;color:#A79A8B;line-height:1.5;margin-top:8px}
+.dlg-actions{display:flex;gap:8px;margin-top:13px}
+.btn-out{flex:1;text-align:center;border:1px solid #ECE3D4;border-radius:12px;padding:10px;font-size:13px;font-weight:600;color:#8A7D6F}
+.btn-go{flex:1;text-align:center;background:#6E9E7F;color:#fff;border-radius:12px;padding:10px;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 8px 18px rgba(110,158,127,.3)}
+.btn-go svg{width:15px;height:15px}
+/* nav */
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:390px;background:rgba(247,242,234,.97);backdrop-filter:blur(8px);border-top:1px solid #ECE3D4;display:flex;align-items:center;gap:1px;padding:8px 4px 12px;overflow-x:auto;z-index:40;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.nav a{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:56px;padding:2px 4px;color:#A79A8B;flex:0 0 auto}
+.nav a svg{width:21px;height:21px}
+.nav a span{font-size:9.5px;font-weight:600;white-space:nowrap}
+.nav a.active{color:#6E9E7F}
+.nav a.active svg{stroke-width:2.5}
+</style>
+</head>
+<body>
+<div class="phone">
+  <main class="stack">
+
+    <div class="tabs">
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5Z"/><path d="M3.3 8 12 13l8.7-5M12 22V13"/></svg>Продукты <span class="b">192</span></div>
+      <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"/><path d="M7 8l3 3 3-2 4 4"/></svg>Блюда <span class="b">35</span></div>
+    </div>
+    <div class="tab-wide active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>Анализ продуктов <span class="b">3</span></div>
+
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input placeholder="Поиск анализов..." readonly>
+    </div>
+
+    <a class="new-btn" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/></svg>Новый анализ</a>
+
+    <!-- Analysis 1: suitable, photo source, expanded -->
+    <article class="acard">
+      <div class="acard-top">
+        <div>
+          <div class="acard-title">Греческий йогурт 2%</div>
+          <div class="acard-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l2-3h6l2 3h3v12H4Z"/><circle cx="12" cy="13" r="4"/></svg>15 ноя 2026, 12:40</div>
+        </div>
+        <span class="verdict v-suit">Подходит</span>
+      </div>
+      <div class="acard-sum">Низкожирный белковый продукт, идеально для цели «Похудение». Без добавленного сахара.</div>
+      <div class="acard-chev" style="justify-content:flex-end"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg></div>
+      <div class="acard-exp">
+        <div class="photos">
+          <div class="ph" style="background:linear-gradient(135deg,#F0E6D2,#C9A24B)"></div>
+          <div class="ph" style="background:linear-gradient(135deg,#E8D9B8,#A8843E)"></div>
+        </div>
+        <div class="comp"><b>Состав:</b> молоко пастеризованное, закваска болгарская · <b>На 100 г:</b> 73 ккал, Б 8,5 г, Ж 2 г, У 4,2 г</div>
+        <div class="ai-md">
+          <div class="h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 21l-4.9 2.6.9-5.5-4-3.9 5.5-.8Z"/></svg>Полный анализ
+            <a class="tts" href="#" title="Озвучить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4Z"/><path d="M16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"/></svg></a>
+            <a class="del" href="#" title="Удалить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></a>
+          </div>
+          Йогурт подходит под ваши цели. На 100 г — 73 ккал и 8,5 г белка, что помогает добирать белковую норму без перебора по жирам. Сахара нет. Рекомендую порцию 150 г с ягодами на перекус — +12,8 г белка и всего 110 ккал.
+        </div>
+      </div>
+    </article>
+
+    <!-- Analysis 2: caution -->
+    <article class="acard">
+      <div class="acard-top">
+        <div>
+          <div class="acard-title">Молочный шоколад «Алёнка»</div>
+          <div class="acard-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l2-3h6l2 3h3v12H4Z"/><circle cx="12" cy="13" r="4"/></svg>14 ноя 2026, 19:15</div>
+        </div>
+        <span class="verdict v-caut">С осторожностью</span>
+      </div>
+      <div class="acard-sum">Высокая калорийность и сахар. Допустим 1–2 дольки (10–20 г), не более.</div>
+      <div class="acard-chev" style="justify-content:flex-end"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div>
+    </article>
+
+    <!-- Analysis 3: dish, not recommended -->
+    <article class="acard">
+      <div class="acard-top">
+        <div>
+          <div class="acard-title">Борщ домашний <span class="dish-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"/><path d="M7 8l3 3 3-2 4 4"/></svg>Блюдо</span></div>
+          <div class="acard-meta">Порция: 335 г</div>
+        </div>
+        <span class="verdict v-not">Не рекомендую</span>
+      </div>
+      <div class="acard-sum">Жирность бульона на свиных костях высокая — не вписывается в цель «Похудение».</div>
+      <div class="acard-chev" style="justify-content:flex-end"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></div>
+    </article>
+
+    <!-- Dialog mockup: Новый анализ -->
+    <div class="dlg-lbl">Диалог «Новый анализ»</div>
+    <section class="dlg">
+      <div class="dlg-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>Новый анализ</div>
+      <div class="mode-row">
+        <div class="mode on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;display:inline-block;vertical-align:middle;margin-right:3px"><path d="M4 7h3l2-3h6l2 3h3v12H4Z"/><circle cx="12" cy="13" r="4"/></svg>Фото</div>
+        <div class="mode">Из каталога</div>
+        <div class="mode">Свой продукт</div>
+      </div>
+      <div class="kind-row">
+        <div class="kind on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5Z"/></svg>Продукт (упаковка)</div>
+        <div class="kind"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"/><path d="M7 8l3 3 3-2 4 4"/></svg>Блюдо (готовое)</div>
+      </div>
+      <div class="photo-pick">
+        <div class="pp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l2-3h6l2 3h3v12H4Z"/><circle cx="12" cy="13" r="4"/></svg>Сфотографировать</div>
+        <div class="pp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>Из галереи</div>
+      </div>
+      <div class="attached">
+        <div class="att" style="background:linear-gradient(135deg,#F0E6D2,#C9A24B)"><span class="x">×</span></div>
+        <div class="att" style="background:linear-gradient(135deg,#E8D9B8,#A8843E)"><span class="x">×</span></div>
+      </div>
+      <div class="dlg-hint">Этикетка, состав, таблица КБЖУ — до 5 фото. Модель сама определит название, состав и КБЖУ, сопоставит с вашим профилем и даст вердикт.</div>
+      <div class="dlg-actions">
+        <div class="btn-out">Отмена</div>
+        <div class="btn-go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>Анализировать</div>
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="nav" aria-label="Нижняя навигация">
+    <a href="home.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg><span>Главная</span></a>
+    <a href="food.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"/><path d="M7 8l3 3 3-2 4 4"/></svg><span>Питание</span></a>
+    <a href="catalog.html" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5Z"/><path d="M3.3 8 12 13l8.7-5M12 22V13"/></svg><span>Продукты</span></a>
+    <a href="diary.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H17a1 1 0 0 1 1 1v17l-3-2-3 2-3-2-3 2-1-.5Z"/><path d="M8 8h7M8 12h7M8 16h4"/></svg><span>Дневник</span></a>
+    <a href="workout.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6v6a6 6 0 0 0 12 0V6M6 4h2M16 4h2M9 20h6"/></svg><span>Тренировки</span></a>
+    <a href="stats.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"/><path d="M9 16v-5M14 16V8M19 16v-3"/></svg><span>Статистика</span></a>
+    <a href="chat.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 4V16h-.5A1.5 1.5 0 0 1 4 14.5Z"/></svg><span>Чат</span></a>
+    <a href="profile.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.4 3.8-5 7-5s5.8 1.6 7 5"/></svg><span>Профиль</span></a>
+    <a href="settings.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/></svg><span>Настройки</span></a>
+  </nav>
+</div>
+</body>
+</html>
