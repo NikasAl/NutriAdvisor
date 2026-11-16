@@ -15,6 +15,7 @@ import type {
   Exercise,
   WorkoutEntry,
   DayEval,
+  DaySuggestion,
   MedTestParam,
   MedTestMeasure,
   ProductAnalysis,
@@ -36,6 +37,7 @@ export class NutriDexie extends Dexie {
   exercises!: Table<Exercise, string>;
   workoutEntries!: Table<WorkoutEntry, string>;
   dayEvals!: Table<DayEval, string>;
+  daySuggestions!: Table<DaySuggestion, string>;
   medTestParams!: Table<MedTestParam, string>;
   medTestMeasures!: Table<MedTestMeasure, string>;
   productAnalyses!: Table<ProductAnalysis, string>;
@@ -194,6 +196,28 @@ export class NutriDexie extends Dexie {
       exercises: 'id, name, category, createdAt',
       workoutEntries: 'id, date, createdAt',
       dayEvals: 'id, date, updatedAt',
+      medTestParams: 'id, name, createdAt',
+      medTestMeasures: 'id, paramId, date, createdAt',
+      productAnalyses: 'id, productName, createdAt',
+    });
+
+    this.version(12).stores({
+      providers: 'id, name, type, isActive',
+      userProfile: 'id',
+      foodEntries: 'id, date, mealType, createdAt',
+      chatSessions: 'id, lastActivity',
+      chatMessages: 'id, sessionId, createdAt',
+      customGoals: 'id, isActive, createdAt',
+      foodLibrary: 'id, name, lastUsedAt, useCount',
+      diaryEntries: 'id, type, date, createdAt',
+      foodProducts: 'id, name, createdAt',
+      dishes: 'id, name, createdAt',
+      waterLogs: 'id, date, updatedAt',
+      sleepLogs: 'id, date, updatedAt',
+      exercises: 'id, name, category, createdAt',
+      workoutEntries: 'id, date, createdAt',
+      dayEvals: 'id, date, updatedAt',
+      daySuggestions: 'id, date, updatedAt',
       medTestParams: 'id, name, createdAt',
       medTestMeasures: 'id, paramId, date, createdAt',
       productAnalyses: 'id, productName, createdAt',

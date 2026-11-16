@@ -1,17 +1,17 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
-  UtensilsCrossed, MessageSquare, Target, TrendingUp, Zap, Moon, Brain, Heart, Flame, Plus, Minus, Droplets, Settings2, BedDouble, Trash2, CircleHelp, Dumbbell, BarChart, Footprints, HeartPulse, Puzzle,
+  UtensilsCrossed, MessageSquare, Target, TrendingUp, Zap, Moon, Brain, Heart, Flame, Plus, Minus, Droplets, Settings2, BedDouble, Trash2, CircleHelp, Dumbbell, BarChart, Footprints, HeartPulse, Puzzle, Sparkles, RefreshCw, Loader2, Check,
 } from 'lucide-react';
 import { GOAL_LABELS } from '@/lib/types';
 import { todayKey } from '@/lib/dates';
-import type { GoalType, SleepPeriod } from '@/lib/types';
+import type { GoalType, SleepPeriod, SuggestionItem } from '@/lib/types';
 import type { HelpSection } from './HelpPanel';
 
 /** Calculate sleep duration in minutes, handling overnight */
@@ -36,6 +36,11 @@ const GOAL_ICONS: Record<GoalType, React.ElementType> = {
   more_walking: Footprints, reduce_ldl: HeartPulse, logic_tasks: Puzzle,
 };
 
+const SUG_ICONS: Record<SuggestionItem['type'], React.ElementType> = {
+  meal: UtensilsCrossed, water: Droplets, sleep: BedDouble,
+  workout: Dumbbell, bp: HeartPulse, mood: Heart, activity: Footprints,
+};
+
 export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpenHelp?: () => void; onOpenWidgetHelp?: (section: HelpSection) => void }) {
   const profile = useAppStore((s) => s.profile);
   const foodEntries = useAppStore((s) => s.foodEntries);
@@ -55,10 +60,29 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
   const sleepLog = useAppStore((s) => s.sleepLog);
   const addSleepPeriod = useAppStore((s) => s.addSleepPeriod);
   const removeSleepPeriod = useAppStore((s) => s.removeSleepPeriod);
+  const autoSuggestion = useAppStore((s) => s.autoSuggestion);
+  const getDailySuggestion = useAppStore((s) => s.getDailySuggestion);
   const [showGlassSettings, setShowGlassSettings] = useState(false);
   const [newSleepStart, setNewSleepStart] = useState('22:00');
   const [newSleepEnd, setNewSleepEnd] = useState('06:00');
   const [showAddSleep, setShowAddSleep] = useState(false);
+  // Day suggestion widget («Что дальше?»)
+  const [sugOpen, setSugOpen] = useState(false);
+  const [sugItems, setSugItems] = useState<SuggestionItem[] | null>(null);
+  const [sugLoading, setSugLoading] = useState(false);
+  // "Я записал" marks — in-memory only, reset when the date changes
+  const [sugChecked, setSugChecked] = useState<Set<string>>(new Set());
+
+  const loadSuggestion = useCallback(async (force: boolean) => {
+    setSugLoading(true);
+    try {
+      const items = await getDailySuggestion(force);
+      setSugItems(items);
+      setSugChecked(new Set());
+    } finally {
+      setSugLoading(false);
+    }
+  }, [getDailySuggestion]);
 
   useEffect(() => {
     loadProfile();
@@ -67,8 +91,27 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
     loadWorkoutEntries();
   }, [loadProfile, loadFoodEntries, loadChatSessions, loadWorkoutEntries]);
 
+  // Auto mode: open the widget and fetch a suggestion on mount.
+  // The small delay lets the initial DB loads above finish so day gaps are accurate.
+  useEffect(() => {
+    if (!autoSuggestion) return;
+    const t = setTimeout(() => {
+      setSugOpen(true);
+      loadSuggestion(false);
+    }, 800);
+    return () => clearTimeout(t);
+  }, [autoSuggestion, loadSuggestion]);
+
   const provider = getActiveProvider();
   const today = todayKey();
+
+  // Reset "записал" marks when the calendar day changes (setState-in-render pattern,
+  // per react.dev/learn/you-might-not-need-an-effect)
+  const [sugCheckedDate, setSugCheckedDate] = useState(today);
+  if (sugCheckedDate !== today) {
+    setSugCheckedDate(today);
+    setSugChecked(new Set());
+  }
   const todayEntries = foodEntries.filter((e) => e.date === today);
 
   const totalCalories = todayEntries.reduce((sum, e) => sum + (e.estimatedCalories ?? 0), 0);
@@ -114,15 +157,28 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
                 })}
               </p>
             </div>
-            {onOpenHelp && (
+            <div className="flex items-center gap-1">
               <button
-                onClick={onOpenHelp}
+                onClick={() => {
+                  const next = !sugOpen;
+                  setSugOpen(next);
+                  if (next && !sugItems && !sugLoading) loadSuggestion(false);
+                }}
                 className="text-white/80 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors"
-                title="О приложении"
+                title="Что записать сегодня?"
               >
-                <CircleHelp className="h-5 w-5" />
+                <Sparkles className="h-5 w-5" />
               </button>
-            )}
+              {onOpenHelp && (
+                <button
+                  onClick={onOpenHelp}
+                  className="text-white/80 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                  title="О приложении"
+                >
+                  <CircleHelp className="h-5 w-5" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
         <CardContent className="p-4 space-y-3">
@@ -176,6 +232,91 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
           )}
         </CardContent>
       </Card>
+
+      {/* Day suggestion widget («Что дальше?») */}
+      {sugOpen && (
+        <Card className="border-violet-200 dark:border-violet-900">
+          <CardHeader className="pb-2 pt-4 px-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <Sparkles className="h-4 w-4 text-violet-500" />
+                Что записать сегодня?
+              </CardTitle>
+              <div className="flex items-center gap-1">
+                {onOpenWidgetHelp && (
+                  <button
+                    onClick={() => onOpenWidgetHelp('suggestion')}
+                    className="text-muted-foreground/50 hover:text-muted-foreground p-1 rounded-md hover:bg-muted/30 transition-colors"
+                    title="Помощь"
+                  >
+                    <CircleHelp className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => loadSuggestion(true)}
+                  disabled={sugLoading}
+                  title="Обновить подсказку"
+                >
+                  {sugLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 space-y-2">
+            {sugLoading && !sugItems && (
+              <div className="flex items-center justify-center gap-2 py-3 text-xs text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Готовлю подсказку…
+              </div>
+            )}
+            {sugItems && sugItems.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-2">
+                Все ключевые данные за сегодня уже записаны. Отличный день!
+              </p>
+            )}
+            {sugItems?.map((item, idx) => {
+              const Icon = SUG_ICONS[item.type] ?? Sparkles;
+              const key = `${item.type}-${idx}`;
+              const checked = sugChecked.has(key);
+              return (
+                <div key={key} className={`flex items-start gap-2 rounded-lg px-3 py-2 ${checked ? 'bg-muted/40 opacity-70' : 'bg-violet-50 dark:bg-violet-950/20'}`}>
+                  <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${checked ? 'text-muted-foreground' : 'text-violet-500'}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium leading-snug ${checked ? 'line-through text-muted-foreground' : ''}`}>{item.title}</p>
+                    {item.rationale && <p className="text-xs text-muted-foreground mt-0.5">{item.rationale}</p>}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => {
+                        setSugChecked((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(key)) next.delete(key); else next.add(key);
+                          return next;
+                        });
+                      }}
+                      className={`p-1.5 rounded-md transition-colors ${checked ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40' : 'text-muted-foreground hover:text-emerald-600 hover:bg-muted'}`}
+                      title={checked ? 'Отменить отметку' : 'Я записал'}
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                    </button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setActiveTab(item.ctaTab)}
+                    >
+                      Записать
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Calorie tracker */}
       <Card>

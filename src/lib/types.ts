@@ -320,6 +320,30 @@ export interface DayEval {
   updatedAt: Date;
 }
 
+// ─── Day Suggestion widget («Что дальше?» on Dashboard) ────────────
+
+/** One actionable "what to log today" item (LLM or deterministic fallback) */
+export interface SuggestionItem {
+  type: 'meal' | 'water' | 'sleep' | 'workout' | 'bp' | 'mood' | 'activity';
+  /** Short call-to-action, ≤ 60 chars */
+  title: string;
+  /** One-line reason why this is suggested now */
+  rationale: string;
+  /** Tab to navigate to via setActiveTab */
+  ctaTab: TabId;
+}
+
+/** Cached day suggestion (TTL 1 hour), stored in daySuggestions table */
+export interface DaySuggestion {
+  id?: string;
+  /** ISO date the suggestion was computed for */
+  date: string;
+  items: SuggestionItem[];
+  /** 'llm' = real LLM answer, 'fallback' = deterministic checklist (not persisted) */
+  source: 'llm' | 'fallback';
+  updatedAt: Date;
+}
+
 export interface WaterLog {
   id?: string;
   date: string; // ISO date string

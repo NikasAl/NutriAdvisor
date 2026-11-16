@@ -28,6 +28,8 @@ import type {
   MedTestMeasure,
   ProductAnalysis,
   ProductVerdict,
+  SuggestionItem,
+  DaySuggestion,
 } from '@/lib/types';
 import { DEFAULT_MED_TEST_PARAMS, computeTrend } from '@/lib/types';
 import { NutritionPrompts } from '@/lib/prompts';
@@ -73,6 +75,10 @@ interface AppState {
   // TTS (text-to-speech)
   ttsEnabled: boolean;
   setTtsEnabled: (enabled: boolean) => void;
+  // Day suggestion widget («Что дальше?» on Dashboard)
+  /** Auto-open + refresh the suggestion on Dashboard mount. localStorage `nutri-auto-suggestion`, default off. */
+  autoSuggestion: boolean;
+  setAutoSuggestion: (enabled: boolean) => void;
   /** Selected TTS engine name (null = system default). Android native only. */
   ttsEngineName: string | null;
   setTtsEngineName: (name: string | null) => void;
@@ -237,12 +243,59 @@ interface AppState {
   analyzeFoodText: (description: string, weight?: number, mealType?: string) => Promise<string>;
   analyzeFoodTextStream: (description: string, weight?: number, mealType?: string) => Promise<string>;
   analyzeWorkoutStream: (description: string) => Promise<string>;
+  /** Deterministic fallback checklist: what is not logged today (no LLM involved) */
+  getDayGaps: (date: string) => SuggestionItem[];
+  /** LLM suggestion with 1-hour cache in daySuggestions; silently falls back to getDayGaps on any failure */
+  getDailySuggestion: (force?: boolean) => Promise<SuggestionItem[]>;
   scanMedTestFromPhoto: (imageBase64: string) => Promise<string>;
   lastAnalysisDebug: { prompt: string; response: string } | null;
   isSending: boolean;
   streamingContent: string;
   streamingAnalysis: string;
   stopStreaming: () => void;
+}
+
+/** Whitelisted suggestion item types and their default tabs (used to validate LLM output) */
+const SUGGESTION_TYPES: SuggestionItem['type'][] = ['meal', 'water', 'sleep', 'workout', 'bp', 'mood', 'activity'];
+const SUGGESTION_TABS: TabId[] = ['dashboard', 'food', 'catalog', 'diary', 'workout', 'stats', 'chat', 'profile', 'settings'];
+const DEFAULT_TAB_BY_TYPE: Record<SuggestionItem['type'], TabId> = {
+  meal: 'food', water: 'dashboard', sleep: 'dashboard', workout: 'workout',
+  bp: 'diary', mood: 'diary', activity: 'diary',
+};
+
+/**
+ * Parse the LLM answer for the day-suggestion widget into SuggestionItem[].
+ * Accepts a JSON object {"items":[...]} (or a bare array), tolerates markdown
+ * code fences. Throws on any structural problem so the caller can fall back.
+ */
+function parseSuggestionItems(raw: string): SuggestionItem[] {
+  let text = raw.trim();
+  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) text = fence[1].trim();
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start !== -1 && end > start) {
+    text = text.slice(start, end + 1);
+  }
+  const data: unknown = JSON.parse(text);
+  const arr = Array.isArray(data) ? data : (data as { items?: unknown[] }).items;
+  if (!Array.isArray(arr)) throw new Error('suggestion: no items array');
+
+  const items: SuggestionItem[] = [];
+  for (const el of arr) {
+    if (!el || typeof el !== 'object') continue;
+    const rec = el as Record<string, unknown>;
+    const type = typeof rec.type === 'string' ? (rec.type as SuggestionItem['type']) : null;
+    const title = typeof rec.title === 'string' ? rec.title.trim() : '';
+    if (!type || !SUGGESTION_TYPES.includes(type) || !title) continue;
+    const rationale = typeof rec.rationale === 'string' ? rec.rationale.trim() : '';
+    const ctaTab = typeof rec.ctaTab === 'string' && SUGGESTION_TABS.includes(rec.ctaTab as TabId)
+      ? (rec.ctaTab as TabId)
+      : DEFAULT_TAB_BY_TYPE[type];
+    items.push({ type, title: title.slice(0, 80), rationale, ctaTab });
+  }
+  if (items.length === 0) throw new Error('suggestion: no valid items');
+  return items.slice(0, 5);
 }
 
 /** Build a compact profile info string for food analysis prompts */
@@ -581,6 +634,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   setTtsEnabled: (enabled) => {
     set({ ttsEnabled: enabled });
     localStorage.setItem('nutri-tts-enabled', String(enabled));
+  },
+  // Day suggestion auto-open — read from localStorage, default false (off)
+  autoSuggestion: typeof window !== 'undefined' ? localStorage.getItem('nutri-auto-suggestion') === 'true' : false,
+  setAutoSuggestion: (enabled) => {
+    set({ autoSuggestion: enabled });
+    localStorage.setItem('nutri-auto-suggestion', String(enabled));
   },
   // TTS engine — persisted to localStorage, null = system default
   ttsEngineName: typeof window !== 'undefined' ? localStorage.getItem('nutri-tts-engine') || null : null,
@@ -1928,6 +1987,189 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch (error) {
       set({ isSending: false, streamingAnalysis: '' });
       throw error;
+    }
+  },
+
+  // ─── Day suggestion widget («Что дальше?») ────────────────────────
+
+  getDayGaps: (date) => {
+    const s = get();
+    const profile = s.profile;
+    const hour = new Date().getHours();
+
+    const food = s.foodEntries.filter((e) => e.date === date);
+    const workouts = s.workoutEntries.filter((e) => e.date === date);
+    const dayDiary = s.diaryEntries.filter((e) => e.date === date);
+    const wellbeing = dayDiary.filter((e) => e.type === 'wellbeing');
+    const bpToday = dayDiary.filter((e) => e.type === 'blood_pressure');
+    const activity = dayDiary.filter((e) => e.type === 'activity');
+    const water = s.waterLog && s.waterLog.date === date ? s.waterLog : null;
+    const sleep = s.sleepLog && s.sleepLog.date === date ? s.sleepLog : null;
+    const goals = profile.goals;
+
+    type Cand = SuggestionItem & { priority: number };
+    const cands: Cand[] = [];
+
+    // Meals: the expected-but-missing meal depends on the time of day
+    const hasMeal = (t: MealType) => food.some((e) => (e.mealType || 'other') === t);
+    if (hour >= 5 && hour < 12 && !hasMeal('breakfast')) {
+      cands.push({ type: 'meal', title: 'Записать завтрак', rationale: 'Утро, а завтрак ещё не в дневнике — данные дня неполные.', ctaTab: 'food', priority: 90 });
+    } else if (hour >= 12 && hour < 17 && !hasMeal('lunch')) {
+      cands.push({ type: 'meal', title: 'Записать обед', rationale: 'Обед ещё не отмечен — добавьте приём пищи в журнал.', ctaTab: 'food', priority: 88 });
+    } else if (hour >= 17 && hour < 22 && !hasMeal('dinner')) {
+      cands.push({ type: 'meal', title: 'Записать ужин', rationale: 'Вечер — пора отметить ужин, пока память свежая.', ctaTab: 'food', priority: 86 });
+    } else if (hour >= 22 && food.length === 0) {
+      cands.push({ type: 'meal', title: 'Внести приёмы пищи за день', rationale: 'Журнал питания за сегодня пуст — итог дня будет неполным.', ctaTab: 'food', priority: 84 });
+    }
+
+    // Water: nothing logged by mid-morning, or below half the target in the afternoon
+    const waterMl = water ? water.glasses * water.glassMl : 0;
+    const waterTarget = profile.waterTargetMl || 2000;
+    if (waterMl === 0 && hour >= 10) {
+      cands.push({ type: 'water', title: 'Отметить выпитую воду', rationale: 'За сегодня не отмечено ни одного стакана воды.', ctaTab: 'dashboard', priority: 89 });
+    } else if (hour >= 14 && waterMl < waterTarget / 2) {
+      cands.push({ type: 'water', title: 'Догнать норму воды', rationale: 'Выпито меньше половины дневной нормы — самое время попить.', ctaTab: 'dashboard', priority: 70 });
+    }
+
+    // Sleep: morning — log last night; late evening — log bedtime
+    if (!sleep || sleep.periods.length === 0) {
+      if (hour >= 6 && hour < 12) {
+        cands.push({ type: 'sleep', title: 'Записать сон за ночь', rationale: 'Ночной сон ещё не отмечен — он нужен для оценки качества дня.', ctaTab: 'dashboard', priority: 92 });
+      } else if (hour >= 21) {
+        cands.push({ type: 'sleep', title: 'Отметить время отхода ко сну', rationale: 'Запись сна поможет завтра рассчитать продолжительность.', ctaTab: 'dashboard', priority: 60 });
+      }
+    }
+
+    // Workout: afternoon reminder, stronger for physique-related goals
+    if (workouts.length === 0 && hour >= 16) {
+      const boost = goals.some((g) => g === 'muscle_gain' || g === 'cutting' || g === 'weight_loss');
+      cands.push({
+        type: 'workout',
+        title: 'Записать тренировку',
+        rationale: boost
+          ? 'Тренировки за сегодня нет — она важна для вашей цели.'
+          : 'Дневная активность ещё не зафиксирована.',
+        ctaTab: 'workout',
+        priority: boost ? 80 : 65,
+      });
+    }
+
+    // Walk: explicit goal «more walking»
+    if (goals.includes('more_walking') && activity.length === 0 && hour >= 12) {
+      cands.push({ type: 'activity', title: 'Отметить прогулку', rationale: 'Ваша цель — больше ходить, а прогулка за сегодня не записана.', ctaTab: 'diary', priority: 78 });
+    }
+
+    // Blood pressure: relevant for health goals, or when the last measure is stale (≥ 3 days)
+    if (bpToday.length === 0) {
+      const allBp = s.diaryEntries.filter((e) => e.type === 'blood_pressure');
+      const lastBpDate = allBp.map((e) => e.date).sort().at(-1);
+      const d = new Date();
+      d.setDate(d.getDate() - 3);
+      const staleKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const stale = !lastBpDate || lastBpDate <= staleKey;
+      if (stale || goals.some((g) => g === 'health' || g === 'reduce_ldl')) {
+        cands.push({
+          type: 'bp',
+          title: 'Измерить и записать давление',
+          rationale: stale
+            ? 'Последнее измерение давления было более 3 дней назад.'
+            : 'Давление за сегодня не измерялось — полезно для здоровья.',
+          ctaTab: 'diary',
+          priority: stale ? 74 : 50,
+        });
+      }
+    }
+
+    // Wellbeing: evening summary of how the day felt
+    if (wellbeing.length === 0 && hour >= 20) {
+      cands.push({ type: 'mood', title: 'Отметить самочувствие за день', rationale: 'Вечерняя запись самочувствия завершит картину дня.', ctaTab: 'diary', priority: 68 });
+    }
+
+    return cands
+      .sort((a, b) => b.priority - a.priority)
+      .slice(0, 5)
+      .map(({ priority: _priority, ...item }) => item);
+  },
+
+  getDailySuggestion: async (force = false): Promise<SuggestionItem[]> => {
+    const date = todayKey();
+
+    // Fresh cache (TTL 1 hour) → return immediately
+    if (!force) {
+      try {
+        const cached = await db.daySuggestions.where('date').equals(date).first();
+        if (cached && Date.now() - new Date(cached.updatedAt).getTime() < 60 * 60 * 1000) {
+          return cached.items;
+        }
+      } catch {
+        // cache read failure is non-fatal — continue to LLM/fallback
+      }
+    }
+
+    try {
+      const provider = get().getActiveProvider();
+      if (!provider || !provider.baseUrl || !provider.model) {
+        throw new Error('suggestion: no provider');
+      }
+
+      const s = get();
+      const profile = s.profile;
+      const hour = new Date().getHours();
+      const timeLabel = hour < 12 ? 'утро' : hour < 17 ? 'день' : hour < 21 ? 'вечер' : 'поздний вечер';
+
+      // Compact context: totals only, not full meal/set details (token-efficient)
+      const food = s.foodEntries.filter((e) => e.date === date);
+      const mealsByType: Record<string, number> = {};
+      for (const f of food) {
+        const t = f.mealType || 'other';
+        mealsByType[t] = (mealsByType[t] || 0) + 1;
+      }
+      const totalKcal = food.reduce((sum, e) => sum + (e.estimatedCalories ?? 0), 0);
+      const workouts = s.workoutEntries.filter((e) => e.date === date);
+      const dayDiary = s.diaryEntries.filter((e) => e.date === date);
+      const water = s.waterLog && s.waterLog.date === date ? s.waterLog : null;
+      const sleep = s.sleepLog && s.sleepLog.date === date ? s.sleepLog : null;
+      const goals = profile.goals.map((g) => NutritionPrompts.goalLabel(g)).join(', ') || 'не указаны';
+
+      const context = `--- Время суток ---\nСейчас: ${timeLabel} (${hour}:00)
+
+--- Цели пользователя ---
+${goals}
+
+--- Питание сегодня ---
+${food.length === 0 ? 'Приёмы пищи не записаны' : `Записей: ${food.length} (${totalKcal} ккал). По типам: ${Object.entries(mealsByType).map(([t, n]) => `${t} ×${n}`).join(', ')}`}
+
+--- Вода ---
+${water ? `${water.glasses} стаканов × ${water.glassMl} мл = ${water.glasses * water.glassMl} мл (цель ${profile.waterTargetMl || 2000} мл)` : 'Не отмечено ничего'}
+
+--- Сон ---
+${sleep && sleep.periods.length > 0 ? `${sleep.periods.length} период(ов)` : 'Не записан'}
+
+--- Тренировки сегодня ---
+${workouts.length === 0 ? 'Нет' : `${workouts.length} шт`}
+
+--- Дневник сегодня ---
+Самочувствие: ${dayDiary.filter((e) => e.type === 'wellbeing').length} записей, давление: ${dayDiary.filter((e) => e.type === 'blood_pressure').length} измерений, активность: ${dayDiary.filter((e) => e.type === 'activity').length} записей`;
+
+      const messages: LLMMessage[] = [
+        { role: 'system', content: NutritionPrompts.getDailySuggestionPrompt() },
+        { role: 'user', content: context },
+      ];
+      const response = await callLLM(provider, messages, 0.4, 400);
+      const items = parseSuggestionItems(response.content);
+
+      // Cache LLM result for 1 hour (delete-then-add like dayEvals)
+      try {
+        await db.daySuggestions.where('date').equals(date).delete();
+        await db.daySuggestions.add({ id: crypto.randomUUID(), date, items, source: 'llm', updatedAt: new Date() });
+      } catch {
+        // cache write failure is non-fatal
+      }
+      return items;
+    } catch {
+      // Any failure (no provider, network, invalid JSON) → deterministic checklist.
+      // The fallback is NOT cached so the next open can retry the LLM.
+      return get().getDayGaps(date);
     }
   },
 

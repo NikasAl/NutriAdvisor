@@ -81,6 +81,8 @@ export default function SettingsPanel() {
   const setTtsEngineName = useAppStore((s) => s.setTtsEngineName);
   const ttsVoiceName = useAppStore((s) => s.ttsVoiceName);
   const setTtsVoiceName = useAppStore((s) => s.setTtsVoiceName);
+  const autoSuggestion = useAppStore((s) => s.autoSuggestion);
+  const setAutoSuggestion = useAppStore((s) => s.setAutoSuggestion);
   const loadWaterLog = useAppStore((s) => s.loadWaterLog);
   const loadSleepLog = useAppStore((s) => s.loadSleepLog);
   const loadProductAnalyses = useAppStore((s) => s.loadProductAnalyses);
@@ -1167,6 +1169,30 @@ export default function SettingsPanel() {
             ) : null}
           </div>
         )}
+      </div>
+
+      {/* Day suggestion auto mode */}
+      <div className="border-t pt-4 mt-6">
+        <h2 className="text-lg font-semibold">Подсказка дня</h2>
+        <p className="text-sm text-muted-foreground mt-1 mb-3">
+          Виджет «Что записать сегодня?» на главной странице. По кнопке-значку подсказка
+          раскрывается вручную; без ИИ работает базовый чек-лист незаполненных данных.
+        </p>
+
+        <div className="flex items-center gap-3">
+          <Switch
+            checked={autoSuggestion}
+            onCheckedChange={(checked) => setAutoSuggestion(checked)}
+          />
+          <Label className="text-sm">
+            {autoSuggestion ? 'Автопоказ включён' : 'Автопоказ выключен'}
+          </Label>
+        </div>
+        <p className="text-xs text-muted-foreground mt-2">
+          При включении подсказка сама открывается на главной при запуске приложения
+          и отправляет запрос к ИИ (по умолчанию выключено — чтобы не расходовать запросы).
+          Последний ответ кэшируется на час, повторное открытие не дёргает ИИ повторно.
+        </p>
       </div>
 
       {/* Data Export / Import */}

@@ -9,7 +9,7 @@ import {
   BookOpen, Moon, Droplets, UtensilsCrossed, Activity,
   AlertTriangle, ExternalLink, ChevronDown, ChevronUp,
   Flame, GlassWater, BedDouble, Dumbbell, TrendingUp,
-  Camera, MessageSquare, ScanSearch, Volume2,
+  Camera, MessageSquare, ScanSearch, Volume2, Sparkles,
 } from 'lucide-react';
 import PrivacyPolicyPanel from './PrivacyPolicyPanel';
 
@@ -86,7 +86,7 @@ function Section({
   );
 }
 
-export type HelpSection = 'about' | 'calories' | 'water' | 'sleep' | 'workouts' | 'stats';
+export type HelpSection = 'about' | 'suggestion' | 'calories' | 'water' | 'sleep' | 'workouts' | 'stats';
 
 export default function HelpPanel({ onBack, initialSection }: { onBack: () => void; initialSection?: HelpSection }) {
   const [showPrivacy, setShowPrivacy] = useState(false);
@@ -375,6 +375,18 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
       >
         <div className="space-y-3">
           <div className="flex items-start gap-3 rounded-lg bg-muted/50 p-3">
+            <Sparkles className="h-5 w-5 text-violet-500 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-medium">Подсказка «Что записать сегодня?»</p>
+              <p className="text-xs text-muted-foreground">
+                Значок ✨ на главной странице подсказывает, какие записи стоит внести
+                сейчас: незаполненные данные дня, время суток и ваши цели. Работает
+                с ИИ и без него, у каждого пункта — кнопка перехода в нужный раздел.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 rounded-lg bg-muted/50 p-3">
             <UtensilsCrossed className="h-5 w-5 text-emerald-500 mt-0.5 shrink-0" />
             <div>
               <p className="text-sm font-medium">Контроль питания</p>
@@ -624,7 +636,69 @@ export default function HelpPanel({ onBack, initialSection }: { onBack: () => vo
         </div>
       </Section>
 
-      {/* Section 6: Calories Widget */}
+      {/* Section 6: Day Suggestion Widget */}
+      <Section
+        icon={Sparkles}
+        title="Подсказка «Что записать сегодня?»"
+        sectionId="suggestion"
+      >
+        <p>
+          На главной странице рядом со значком «?» есть значок ✨. Нажмите на него,
+          и приложение подскажет, какие записи стоит внести в дневник прямо сейчас:
+          что из данных за день ещё не заполнено и что важно с учётом вашего времени
+          суток и целей.
+        </p>
+
+        <div className="space-y-2">
+          <div className="flex items-start gap-2">
+            <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Как работает</strong> — по нажатию значка раскрывается список
+              из 3–5 пунктов. Если настроен ИИ-провайдер, список формирует нейросеть
+              на основе данных дня: приёмов пищи, воды, сна, тренировок, давления
+              и самочувствия. У каждого пункта есть кнопка «Записать», которая
+              переносит вас в нужный раздел.
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Работа без ИИ</strong> — если провайдер не настроен, нет ключа,
+              сеть недоступна или ответ не удалось разобрать, подсказка не пропадает:
+              работает базовый чек-лист, который сам видит, что не заполнено
+              (завтрак, вода, сон, тренировка и т.д.).
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>«Я записал»</strong> — отметьте пункт галочкой, когда внесли
+              запись. Отметка только подсвечивает список и сбрасывается на следующий
+              день (и при обновлении подсказки).
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Обновить</strong> — кнопка со стрелкой в шапке виджета запрашивает
+              свежую подсказку. Ответ ИИ кэшируется на один час: повторное раскрытие
+              в течение часа не отправляет запрос повторно.
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
+            <p className="text-sm">
+              <strong>Автопоказ</strong> — по умолчанию подсказка открывается только
+              по вашему нажатию. В «Настройках» → «Подсказка дня» можно включить
+              автопоказ: виджет будет сам раскрываться при запуске приложения.
+              По умолчанию выключено — так ИИ-запросы расходуются только тогда,
+              когда подсказка действительно нужна.
+            </p>
+          </div>
+        </div>
+      </Section>
+
+      {/* Section 7: Calories Widget */}
       <Section
         icon={Flame}
         title="Виджет «Калории за сегодня»"
