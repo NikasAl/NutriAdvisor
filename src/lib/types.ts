@@ -344,6 +344,24 @@ export interface DaySuggestion {
   updatedAt: Date;
 }
 
+// ─── Suggestion rejection («не актуально» with reason) ────────────
+
+/** Reason a user dismissed a suggestion item (persisted for the day) */
+export type RejectReason = 'not_want' | 'no_device' | 'no_time' | 'other';
+
+/** A user-dismissed suggestion item, remembered for the current day so it is not re-offered */
+export interface SuggestionRejection {
+  id?: string;
+  /** ISO date the rejection was made on (resets next day) */
+  date: string;
+  /** The suggestion type the user dismissed (e.g. 'bp' = blood pressure) */
+  itemType: SuggestionItem['type'];
+  reason: RejectReason;
+  /** Free-text note, only when reason === 'other' */
+  note?: string;
+  createdAt: Date;
+}
+
 export interface WaterLog {
   id?: string;
   date: string; // ISO date string

@@ -7,11 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
-  UtensilsCrossed, MessageSquare, Target, TrendingUp, Zap, Moon, Brain, Heart, Flame, Plus, Minus, Droplets, Settings2, BedDouble, Trash2, CircleHelp, Dumbbell, BarChart, Footprints, HeartPulse, Puzzle, Sparkles, RefreshCw, Loader2, Check,
+  UtensilsCrossed, MessageSquare, Target, TrendingUp, Zap, Moon, Brain, Heart, Flame, Plus, Minus, Droplets, Settings2, BedDouble, Trash2, CircleHelp, Dumbbell, BarChart, Footprints, HeartPulse, Puzzle, Sparkles, RefreshCw, Loader2, Check, X,
 } from 'lucide-react';
 import { GOAL_LABELS } from '@/lib/types';
 import { todayKey } from '@/lib/dates';
-import type { GoalType, SleepPeriod, SuggestionItem } from '@/lib/types';
+import type { GoalType, SleepPeriod, SuggestionItem, RejectReason } from '@/lib/types';
 import type { HelpSection } from './HelpPanel';
 
 /** Calculate sleep duration in minutes, handling overnight */
@@ -62,6 +62,8 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
   const removeSleepPeriod = useAppStore((s) => s.removeSleepPeriod);
   const autoSuggestion = useAppStore((s) => s.autoSuggestion);
   const getDailySuggestion = useAppStore((s) => s.getDailySuggestion);
+  const peekDaySuggestion = useAppStore((s) => s.peekDaySuggestion);
+  const rejectSuggestion = useAppStore((s) => s.rejectSuggestion);
   const [showGlassSettings, setShowGlassSettings] = useState(false);
   const [newSleepStart, setNewSleepStart] = useState('22:00');
   const [newSleepEnd, setNewSleepEnd] = useState('06:00');
@@ -72,8 +74,30 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
   const [sugLoading, setSugLoading] = useState(false);
   // "Я записал" marks — in-memory only, reset when the date changes
   const [sugChecked, setSugChecked] = useState<Set<string>>(new Set());
+  // Rejection dialog state: which item is being dismissed, chosen reason, free-text note
+  const [rejectTarget, setRejectTarget] = useState<{ type: SuggestionItem['type']; key: string } | null>(null);
+  const [rejectReason, setRejectReason] = useState<RejectReason>('not_want');
+  const [rejectNote, setRejectNote] = useState('');
 
+  const REJECT_LABELS: { value: RejectReason; label: string }[] = [
+    { value: 'not_want', label: 'Не хочу' },
+    { value: 'no_device', label: 'Нет прибора (например, тонометра)' },
+    { value: 'no_time', label: 'Нет возможности сейчас' },
+    { value: 'other', label: 'Другая причина' },
+  ];
+
+  // Open + load: first try the cache (instant, no spinner), then fall back to a network fetch.
+  // `force` (the refresh button) bypasses the cache and shows the spinner.
   const loadSuggestion = useCallback(async (force: boolean) => {
+    if (!force) {
+      const cached = await peekDaySuggestion();
+      if (cached) {
+        setSugItems(cached);
+        setSugChecked(new Set());
+        setSugLoading(false);
+        return;
+      }
+    }
     setSugLoading(true);
     try {
       const items = await getDailySuggestion(force);
@@ -82,7 +106,7 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
     } finally {
       setSugLoading(false);
     }
-  }, [getDailySuggestion]);
+  }, [getDailySuggestion, peekDaySuggestion]);
 
   useEffect(() => {
     loadProfile();
@@ -302,6 +326,17 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
                     >
                       <Check className="h-3.5 w-3.5" />
                     </button>
+                    <button
+                      onClick={() => {
+                        setRejectTarget({ type: item.type, key });
+                        setRejectReason('not_want');
+                        setRejectNote('');
+                      }}
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                      title="Не актуально"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
                     <Button
                       variant="outline"
                       size="sm"
@@ -314,6 +349,69 @@ export default function DashboardPanel({ onOpenHelp, onOpenWidgetHelp }: { onOpe
                 </div>
               );
             })}
+
+            {/* Rejection dialog: pick a reason, optionally add a note for "other" */}
+            {rejectTarget && (
+              <div className="rounded-lg border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/20 p-3 space-y-2">
+                <p className="text-xs font-medium text-rose-700 dark:text-rose-400">
+                  Почему этот совет не актуален?
+                </p>
+                <div className="grid grid-cols-1 gap-1">
+                  {REJECT_LABELS.map((opt) => (
+                    <label key={opt.value} className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-xs cursor-pointer ${rejectReason === opt.value ? 'bg-rose-100 dark:bg-rose-950/40' : 'hover:bg-muted/50'}`}>
+                      <input
+                        type="radio"
+                        name="reject-reason"
+                        value={opt.value}
+                        checked={rejectReason === opt.value}
+                        onChange={() => setRejectReason(opt.value)}
+                        className="accent-rose-600"
+                      />
+                      <span>{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+                {rejectReason === 'other' && (
+                  <input
+                    type="text"
+                    value={rejectNote}
+                    onChange={(e) => setRejectNote(e.target.value)}
+                    placeholder="Уточните причину (необязательно)"
+                    maxLength={200}
+                    className="w-full rounded-md border px-2 py-1.5 text-xs bg-background"
+                    autoFocus
+                  />
+                )}
+                <p className="text-[10px] text-muted-foreground">
+                  Совет скроется и не предложится снова до завтра.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 h-8 text-xs"
+                    onClick={() => setRejectTarget(null)}
+                  >
+                    Отмена
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="flex-1 h-8 text-xs bg-rose-600 hover:bg-rose-700"
+                    onClick={async () => {
+                      if (!rejectTarget) return;
+                      const targetType = rejectTarget.type;
+                      await rejectSuggestion(targetType, rejectReason, rejectReason === 'other' ? rejectNote : undefined);
+                      setRejectTarget(null);
+                      setRejectNote('');
+                      // Hide the rejected item from the current list immediately (no spinner)
+                      setSugItems((prev) => (prev ?? []).filter((it) => it.type !== targetType));
+                    }}
+                  >
+                    Скрыть совет
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

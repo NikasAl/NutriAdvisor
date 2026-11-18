@@ -30,6 +30,8 @@ import type {
   ProductVerdict,
   SuggestionItem,
   DaySuggestion,
+  RejectReason,
+  SuggestionRejection,
 } from '@/lib/types';
 import { DEFAULT_MED_TEST_PARAMS, computeTrend } from '@/lib/types';
 import { NutritionPrompts } from '@/lib/prompts';
@@ -247,6 +249,12 @@ interface AppState {
   getDayGaps: (date: string) => SuggestionItem[];
   /** LLM suggestion with 1-hour cache in daySuggestions; silently falls back to getDayGaps on any failure */
   getDailySuggestion: (force?: boolean) => Promise<SuggestionItem[]>;
+  /** Read a fresh (≤ 1 hour) cached suggestion without any LLM call. Returns null if no cache / stale. */
+  peekDaySuggestion: () => Promise<SuggestionItem[] | null>;
+  /** Persistently reject a suggestion type for today with a reason; filtered out of future suggestions */
+  rejectSuggestion: (itemType: SuggestionItem['type'], reason: RejectReason, note?: string) => Promise<void>;
+  /** Today's rejected suggestion types with reasons (for prompt context and getDayGaps filtering) */
+  getRejectedToday: () => Promise<SuggestionRejection[]>;
   scanMedTestFromPhoto: (imageBase64: string) => Promise<string>;
   lastAnalysisDebug: { prompt: string; response: string } | null;
   isSending: boolean;
@@ -2013,30 +2021,54 @@ export const useAppStore = create<AppState>((set, get) => ({
     // Meals: the expected-but-missing meal depends on the time of day
     const hasMeal = (t: MealType) => food.some((e) => (e.mealType || 'other') === t);
     if (hour >= 5 && hour < 12 && !hasMeal('breakfast')) {
-      cands.push({ type: 'meal', title: 'Записать завтрак', rationale: 'Утро, а завтрак ещё не в дневнике — данные дня неполные.', ctaTab: 'food', priority: 90 });
+      cands.push({
+        type: 'meal', title: 'Записать завтрак', ctaTab: 'food', priority: 90,
+        rationale: 'Завтрак задаёт белковый фон на день — при вашей цели он помогает не сорваться на сладкое к обеду.',
+      });
     } else if (hour >= 12 && hour < 17 && !hasMeal('lunch')) {
-      cands.push({ type: 'meal', title: 'Записать обед', rationale: 'Обед ещё не отмечен — добавьте приём пищи в журнал.', ctaTab: 'food', priority: 88 });
+      cands.push({
+        type: 'meal', title: 'Записать обед', ctaTab: 'food', priority: 88,
+        rationale: 'Пропущенный обед вечером приводит к перееданию — запись поможет увидеть реальный калораж дня.',
+      });
     } else if (hour >= 17 && hour < 22 && !hasMeal('dinner')) {
-      cands.push({ type: 'meal', title: 'Записать ужин', rationale: 'Вечер — пора отметить ужин, пока память свежая.', ctaTab: 'food', priority: 86 });
+      cands.push({
+        type: 'meal', title: 'Записать ужин', ctaTab: 'food', priority: 86,
+        rationale: 'Пока помните состав — зафиксируйте ужин, иначе итог дня по КБЖУ будет неточным.',
+      });
     } else if (hour >= 22 && food.length === 0) {
-      cands.push({ type: 'meal', title: 'Внести приёмы пищи за день', rationale: 'Журнал питания за сегодня пуст — итог дня будет неполным.', ctaTab: 'food', priority: 84 });
+      cands.push({
+        type: 'meal', title: 'Внести приёмы пищи за день', ctaTab: 'food', priority: 84,
+        rationale: 'Журнал питания пуст — оценка качества дня и ИИ-анализ будут недостоверны без хотя бы одного приёма.',
+      });
     }
 
     // Water: nothing logged by mid-morning, or below half the target in the afternoon
     const waterMl = water ? water.glasses * water.glassMl : 0;
     const waterTarget = profile.waterTargetMl || 2000;
     if (waterMl === 0 && hour >= 10) {
-      cands.push({ type: 'water', title: 'Отметить выпитую воду', rationale: 'За сегодня не отмечено ни одного стакана воды.', ctaTab: 'dashboard', priority: 89 });
+      cands.push({
+        type: 'water', title: 'Отметить выпитую воду', ctaTab: 'dashboard', priority: 89,
+        rationale: 'Даже лёгкое обезвоживание снижает концентрацию и маскируется под голод — отметьте первый стакан.',
+      });
     } else if (hour >= 14 && waterMl < waterTarget / 2) {
-      cands.push({ type: 'water', title: 'Догнать норму воды', rationale: 'Выпито меньше половины дневной нормы — самое время попить.', ctaTab: 'dashboard', priority: 70 });
+      cands.push({
+        type: 'water', title: 'Догнать норму воды', ctaTab: 'dashboard', priority: 70,
+        rationale: `Выпито ${waterMl} мл из ${waterTarget} мл — доберите до половины, чтобы к вечеру не было дефицита.`,
+      });
     }
 
     // Sleep: morning — log last night; late evening — log bedtime
     if (!sleep || sleep.periods.length === 0) {
       if (hour >= 6 && hour < 12) {
-        cands.push({ type: 'sleep', title: 'Записать сон за ночь', rationale: 'Ночной сон ещё не отмечен — он нужен для оценки качества дня.', ctaTab: 'dashboard', priority: 92 });
+        cands.push({
+          type: 'sleep', title: 'Записать сон за ночь', ctaTab: 'dashboard', priority: 92,
+          rationale: 'Сон напрямую влияет на аппетит и восстановление — без записи анализ дня будет неполным.',
+        });
       } else if (hour >= 21) {
-        cands.push({ type: 'sleep', title: 'Отметить время отхода ко сну', rationale: 'Запись сна поможет завтра рассчитать продолжительность.', ctaTab: 'dashboard', priority: 60 });
+        cands.push({
+          type: 'sleep', title: 'Отметить время отхода ко сну', ctaTab: 'dashboard', priority: 60,
+          rationale: 'Отметив отход сейчас, завтра получите точную продолжительность сна для оценки восстановления.',
+        });
       }
     }
 
@@ -2044,19 +2076,20 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (workouts.length === 0 && hour >= 16) {
       const boost = goals.some((g) => g === 'muscle_gain' || g === 'cutting' || g === 'weight_loss');
       cands.push({
-        type: 'workout',
-        title: 'Записать тренировку',
-        rationale: boost
-          ? 'Тренировки за сегодня нет — она важна для вашей цели.'
-          : 'Дневная активность ещё не зафиксирована.',
-        ctaTab: 'workout',
+        type: 'workout', title: 'Записать тренировку', ctaTab: 'workout',
         priority: boost ? 80 : 65,
+        rationale: boost
+          ? 'По вашей цели тренировки — ключевой фактор прогресса, а за сегодня её ещё нет.'
+          : 'Дневная активность не зафиксирована — запись поможет учесть сожжённые калории в нетто.',
       });
     }
 
     // Walk: explicit goal «more walking»
     if (goals.includes('more_walking') && activity.length === 0 && hour >= 12) {
-      cands.push({ type: 'activity', title: 'Отметить прогулку', rationale: 'Ваша цель — больше ходить, а прогулка за сегодня не записана.', ctaTab: 'diary', priority: 78 });
+      cands.push({
+        type: 'activity', title: 'Отметить прогулку', ctaTab: 'diary', priority: 78,
+        rationale: 'Цель «больше ходить» — отметьте хотя бы одну прогулку, чтобы видеть прогресс по неделе.',
+      });
     }
 
     // Blood pressure: relevant for health goals, or when the last measure is stale (≥ 3 days)
@@ -2069,26 +2102,68 @@ export const useAppStore = create<AppState>((set, get) => ({
       const stale = !lastBpDate || lastBpDate <= staleKey;
       if (stale || goals.some((g) => g === 'health' || g === 'reduce_ldl')) {
         cands.push({
-          type: 'bp',
-          title: 'Измерить и записать давление',
-          rationale: stale
-            ? 'Последнее измерение давления было более 3 дней назад.'
-            : 'Давление за сегодня не измерялось — полезно для здоровья.',
-          ctaTab: 'diary',
+          type: 'bp', title: 'Измерить и записать давление', ctaTab: 'diary',
           priority: stale ? 74 : 50,
+          rationale: stale
+            ? 'Последнее измерение было 3+ дня назад — регулярные замеры помогают заметить тренд до того, как он станет проблемой.'
+            : 'Давление за сегодня не измерялось — замер сегодня дополнит картину самочувствия.',
         });
       }
     }
 
     // Wellbeing: evening summary of how the day felt
     if (wellbeing.length === 0 && hour >= 20) {
-      cands.push({ type: 'mood', title: 'Отметить самочувствие за день', rationale: 'Вечерняя запись самочувствия завершит картину дня.', ctaTab: 'diary', priority: 68 });
+      cands.push({
+        type: 'mood', title: 'Отметить самочувствие за день', ctaTab: 'diary', priority: 68,
+        rationale: 'Вечерняя запись самочувствия завершит картину дня и поможет ИИ найти связи между питанием, сном и настроением.',
+      });
     }
 
     return cands
       .sort((a, b) => b.priority - a.priority)
       .slice(0, 5)
       .map(({ priority: _priority, ...item }) => item);
+  },
+
+  peekDaySuggestion: async (): Promise<SuggestionItem[] | null> => {
+    try {
+      const cached = await db.daySuggestions.where('date').equals(todayKey()).first();
+      if (cached && Date.now() - new Date(cached.updatedAt).getTime() < 60 * 60 * 1000) {
+        return cached.items;
+      }
+    } catch {
+      // cache read failure is non-fatal
+    }
+    return null;
+  },
+
+  getRejectedToday: async (): Promise<SuggestionRejection[]> => {
+    try {
+      return await db.suggestionRejections.where('date').equals(todayKey()).toArray();
+    } catch {
+      return [];
+    }
+  },
+
+  rejectSuggestion: async (itemType, reason, note) => {
+    try {
+      await db.suggestionRejections.add({
+        id: uuid(),
+        date: todayKey(),
+        itemType,
+        reason,
+        note: reason === 'other' && note ? note.trim().slice(0, 200) || undefined : undefined,
+        createdAt: new Date(),
+      });
+      // Invalidate the cached suggestion so the next open rebuilds without the rejected type
+      try {
+        await db.daySuggestions.where('date').equals(todayKey()).delete();
+      } catch {
+        // non-fatal
+      }
+    } catch {
+      // persistence failure is non-fatal — the in-memory filter still applies for this session
+    }
   },
 
   getDailySuggestion: async (force = false): Promise<SuggestionItem[]> => {
@@ -2099,7 +2174,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       try {
         const cached = await db.daySuggestions.where('date').equals(date).first();
         if (cached && Date.now() - new Date(cached.updatedAt).getTime() < 60 * 60 * 1000) {
-          return cached.items;
+          // Even on cache hit, filter out anything rejected since the cache was written
+          const rejected = await get().getRejectedToday();
+          if (rejected.length === 0) return cached.items;
+          const rejectedTypes = new Set(rejected.map((r) => r.itemType));
+          return cached.items.filter((it) => !rejectedTypes.has(it.type));
         }
       } catch {
         // cache read failure is non-fatal — continue to LLM/fallback
@@ -2131,7 +2210,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       const sleep = s.sleepLog && s.sleepLog.date === date ? s.sleepLog : null;
       const goals = profile.goals.map((g) => NutritionPrompts.goalLabel(g)).join(', ') || 'не указаны';
 
-      const context = `--- Время суток ---\nСейчас: ${timeLabel} (${hour}:00)
+      // Rejections today — passed to the prompt so the LLM avoids them or offers an alternative
+      const rejected = await get().getRejectedToday();
+
+      const context = `--- Время суток ---
+Сейчас: ${timeLabel} (${hour}:00)
 
 --- Цели пользователя ---
 ${goals}
@@ -2152,16 +2235,24 @@ ${workouts.length === 0 ? 'Нет' : `${workouts.length} шт`}
 Самочувствие: ${dayDiary.filter((e) => e.type === 'wellbeing').length} записей, давление: ${dayDiary.filter((e) => e.type === 'blood_pressure').length} измерений, активность: ${dayDiary.filter((e) => e.type === 'activity').length} записей`;
 
       const messages: LLMMessage[] = [
-        { role: 'system', content: NutritionPrompts.getDailySuggestionPrompt() },
+        { role: 'system', content: NutritionPrompts.getDailySuggestionPrompt(rejected.map((r) => ({ type: r.itemType, reason: r.reason, note: r.note }))) },
         { role: 'user', content: context },
       ];
       const response = await callLLM(provider, messages, 0.4, 400);
-      const items = parseSuggestionItems(response.content);
+      let items = parseSuggestionItems(response.content);
 
-      // Cache LLM result for 1 hour (delete-then-add like dayEvals)
+      // Defensive: drop any items whose type the user already rejected today
+      if (rejected.length > 0) {
+        const rejectedTypes = new Set(rejected.map((r) => r.itemType));
+        items = items.filter((it) => !rejectedTypes.has(it.type));
+      }
+
+      // Cache LLM result for 1 hour (delete-then-add like dayEvals).
+      // NOTE: uuid() not crypto.randomUUID() — the latter is unavailable in Capacitor WebView
+      // (non-secure context), which silently broke the cache write before.
       try {
         await db.daySuggestions.where('date').equals(date).delete();
-        await db.daySuggestions.add({ id: crypto.randomUUID(), date, items, source: 'llm', updatedAt: new Date() });
+        await db.daySuggestions.add({ id: uuid(), date, items, source: 'llm', updatedAt: new Date() });
       } catch {
         // cache write failure is non-fatal
       }
@@ -2169,7 +2260,11 @@ ${workouts.length === 0 ? 'Нет' : `${workouts.length} шт`}
     } catch {
       // Any failure (no provider, network, invalid JSON) → deterministic checklist.
       // The fallback is NOT cached so the next open can retry the LLM.
-      return get().getDayGaps(date);
+      const rejected = await get().getRejectedToday();
+      const rejectedTypes = new Set(rejected.map((r) => r.itemType));
+      return get()
+        .getDayGaps(date)
+        .filter((it) => !rejectedTypes.has(it.type));
     }
   },
 
